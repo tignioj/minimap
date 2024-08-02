@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 # ModuleNotFoundError: No module named 'win32.distutils.command'
 # pip install pywin32 instead win32gui
@@ -6,10 +8,15 @@ import win32api
 import math
 from myutils.configutils import cfg
 from ctypes import windll
+from mylogger.MyLogger3 import MyLogger
 
+logger = MyLogger('window_capture')
 
 # https://www.youtube.com/watch?v=WymCpVUPWQ4
 # https://github.com/learncodebygaming/opencv_tutorials/blob/master/004_window_capture/windowcapture.py
+class WindowsNotFoundException(Exception):
+    def __init__(self, window_name):
+        super(WindowsNotFoundException, self).__init__(f"window not found for '{windows_name}'")
 
 class WindowCapture:
     """
@@ -38,32 +45,36 @@ class WindowCapture:
 
         return scale_factor * 100
 
-    # constructor
-    def __init__(self, window_name='原神'):
-        # DPI不是100%的时候，需要调用下面的方法正确才能获取窗口大小
-        # https://stackoverflow.com/questions/40869982/dpi-scaling-level-affecting-win32gui-getwindowrect-in-python/45911849
-        # Make program aware of DPI scaling
-        user32 = windll.user32
-        user32.SetProcessDPIAware()
-
-        # find the handle for the window we want to capture
-        self.hwnd = win32gui.FindWindow(None, window_name)
+    def __findWindow(self):
+        self.hwnd = win32gui.FindWindow(None, self.window_name)
         if not self.hwnd:
-            raise Exception('Window not found: {}'.format(window_name))
+            raise WindowsNotFoundException(self.window_name)
+
+        self.__update_rect()
+        self.last_screen = None
+
+    def __update_rect(self):
+        # find the handle for the window we want to capture
+        self.hwnd = win32gui.FindWindow(None,self.window_name)
+        if not self.hwnd:
+            raise WindowsNotFoundException(self.window_name)
 
         # get the window size
         window_rect = win32gui.GetWindowRect(self.hwnd)  # 窗口的四个坐标
         client_rect = win32gui.GetClientRect(self.hwnd)  # 窗口的实际大小
+        old_w = self.w
+        old_h = self.h
 
-        self.w = window_rect[2] - window_rect[0]
-        self.h = window_rect[3] - window_rect[1]
+        window_w = window_rect[2] - window_rect[0]
+        window_h = window_rect[3] - window_rect[1]
 
         # account for the window border and titlebar and cut them off
-        border_pixels = math.floor((self.w - client_rect[2]) / 2)
-        titlebar_pixels = self.h - client_rect[3] - border_pixels
+        border_pixels = math.floor((window_w - client_rect[2]) / 2)
+        titlebar_pixels = window_h - client_rect[3] - border_pixels
 
-        self.w = self.w - (border_pixels * 2)
-        self.h = self.h - titlebar_pixels - border_pixels
+
+        self.w = window_w - (border_pixels * 2)
+        self.h = window_h - titlebar_pixels - border_pixels
         self.cropped_x = border_pixels
         self.cropped_y = titlebar_pixels
 
@@ -73,7 +84,28 @@ class WindowCapture:
         self.offset_y = window_rect[1] + self.cropped_y
         # print(self.w, self.h, self.offset_x, self.offset_y)
 
-    def get_screenshot(self, use_alpha=False):
+        if client_rect[2] != old_w or client_rect[3] != old_h:
+            logger.info(f'Resolution changed to{self.w}*{self.h}')
+            self.notice_update_event()
+
+
+    # constructor
+    def __init__(self, window_name='原神'):
+        # DPI不是100%的时候，需要调用下面的方法正确才能获取窗口大小
+        # https://stackoverflow.com/questions/40869982/dpi-scaling-level-affecting-win32gui-getwindowrect-in-python/45911849
+        # Make program aware of DPI scaling
+        user32 = windll.user32
+        user32.SetProcessDPIAware()
+
+        self.window_name = window_name
+        try:
+            self.__findWindow()
+        except WindowsNotFoundException as e:
+            logger.error(e)
+            sys.exit(1)
+
+    def get_screenshot(self, use_alpha=True):
+        self.__update_rect()
         img = self.__get_screenshot_alpha()
         if use_alpha:
             return img
@@ -142,8 +174,15 @@ class WindowCapture:
     # return incorrect coordinates, because the window position is only calculated in
     # the __init__ constructor.
     def get_screen_position(self, pos):
+        self.__update_rect()
         return (pos[0] + self.offset_x, pos[1] + self.offset_y)
 
+    def notice_update_event(self):
+        """
+        分辨率改变时调用，子类实现
+        :return:
+        """
+        pass
 
 if __name__ == '__main__':
     windows_name = cfg['window_name']
