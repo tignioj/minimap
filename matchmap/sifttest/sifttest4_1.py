@@ -92,8 +92,8 @@ class MiniMap:
         search_params = dict(checks=50)
         self.flann_matcher = cv2.FlannBasedMatcher(index_params, search_params)
 
-        self.counter_local_map_match_times = 0  # 局部匹配错误累计时长
-        self.COUNTER_LOCAL_MAP_ERROR_MATCH_MAXTIME = 5  # 连续5秒钟无法匹配局部地图，则开始刷新全局匹配
+        self.__last_time_global_match = 0  # 上次进行全局匹配时间
+        self.__GLOBAL_MATCH_UPDATE_TIME_INTERVAL = 5  # 上次匹配时间间隔
 
         # 确定中心点
         self.PIX_CENTER_AX = cfg['center_x']  # 15593.268  # 璃月天衡山右边那个十字圆环
@@ -194,18 +194,22 @@ class MiniMap:
         pos = self.pix_axis_to_relative_axis(pos)
         return pos
 
-    def __global_match(self, small_image, keypoints_small, descriptors_small):
-        if self.global_match_task_running is False: return
+    def __global_match(self):
+        if self.global_match_task_running is False:
+            return
         try:
+            self.log('开始进行全局匹配')
+            small_image = gs.get_mini_map(update_screenshot=True)
+            keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
+            if keypoints_small is None or descriptors_small is None:
+                self.error('计算小地图特征点失败, 无法创建全局缓存')
             t0 = time.time()
             map = self.map_600
-            pos = self.__match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'],
-                                        self.flann_matcher)
+            pos = self.__match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'], self.flann_matcher)
             if pos is None:
                 self.log('600px全局匹配坐标获取失败, 正尝试2048')
                 map = self.map_2048
-                pos = self.__match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'],
-                                            self.flann_matcher)
+                pos = self.__match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'], self.flann_matcher)
                 if pos is None:
                     self.log('2048px全局匹配坐标获取失败，请重试')
                     return None
@@ -226,6 +230,7 @@ class MiniMap:
         :return:
         """
         # 裁剪局部地图
+        self.log('正在裁剪局部地图用于缓存...')
         self.local_map = self.crop_img(self.map_2048['img'], pos[0], pos[1], self.local_map_size)
         if self.local_map is None:
             self.log('全局匹配裁剪图片失败，请重试')
@@ -239,7 +244,7 @@ class MiniMap:
         # cv2.imshow('local map', self.local_map)
         self.local_map_pos = pos
         self.result_pos = pos
-        self.log('全局匹配成功', self.result_pos)
+        self.log(f'全局匹配成功, 像素坐标{self.result_pos}, 相对坐标{self.pix_axis_to_relative_axis(pos)}')
         return True
 
     def __has_paimon(self, update_screenshot=True):
@@ -272,32 +277,36 @@ class MiniMap:
         :return:
         """
         t0 = time.time()
+        if self.global_match_task_running:
+            self.log('全局匹配线程尚未结束，请稍后再进行局部匹配')
+            return
+
         pos = self.__match_position(small_image, keypoints_small, descriptors_small, self.local_map_keypoints,
                                     self.local_map_descriptors, self.bf_matcher)
         if pos is None:
-            self.log('局部匹配失败')
+            time_cost = time.time() - self.__last_time_global_match
+            self.log(f'局部匹配失败, 距离上次进行全局匹配已经过去{time_cost}秒')
             self.result_pos = None
-            self.counter_local_map_match_times += 1
-            if self.counter_local_map_match_times > self.COUNTER_LOCAL_MAP_ERROR_MATCH_MAXTIME:
-                self.log('多次尝试局部匹配失败，正在重新缓存全局匹配')
-                small_image = gs.get_mini_map(update_screenshot=True)
-                keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
-                self.__create_local_map_cache_thread(small_image, keypoints_small, descriptors_small)
-                self.counter_local_map_match_times = 0
+            if time_cost > self.__GLOBAL_MATCH_UPDATE_TIME_INTERVAL:
+                self.log('准备创建全局匹配线程')
+                self.__create_local_map_cache_thread()
+                self.__last_time_global_match = time.time()
                 return None
             return
 
         x = pos[0] + self.local_map_pos[0] - self.local_map_size / 2
         y = pos[1] + self.local_map_pos[1] - self.local_map_size / 2
         self.result_pos = [x, y]
-        self.counter_local_map_match_times = 0
+        self.__last_time_global_match = time.time()
         self.log('局部匹配成功', self.result_pos, '用时', time.time() - t0)
 
-    def __create_local_map_cache_thread(self, small_image, keypoints_small, descriptors_small):
+    def __create_local_map_cache_thread(self):
+        self.log(f'检测是否有全局匹配线程正在执行，检测结果为：{self.global_match_task_running}')
         if not self.global_match_task_running:
             self.global_match_task_running = True
-            self.log("局部地图不存在，正在创建线程缓存局部地图中，请稍后再请求位置")
-            threading.Thread(target=self.__global_match, args=(small_image, keypoints_small, descriptors_small)).start()
+            self.log("正在创建线用于执行全局匹配")
+            threading.Thread(target=self.__global_match).start()
+            self.log("成功创建线程执行全局匹配")
         else:
             self.log("线程正在执行缓存中，青稍后再获取")
         return None
@@ -313,7 +322,7 @@ class MiniMap:
 
         if self.local_map is None:
             # 非阻塞
-            self.__create_local_map_cache_thread(small_image, keypoints_small, descriptors_small)
+            self.__create_local_map_cache_thread()
             return None
             # self.__global_match(small_image, keypoints_small, descriptors_small)
         else:
