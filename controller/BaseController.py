@@ -87,7 +87,7 @@ class BaseController:
     def _on_release(self, key):
         pass
 
-    def drag(self, position_from, dx, dy, duration_ms=500):
+    def drag(self, position_from, dx, dy, duration_ms=200):
         """
         鼠标拖动
         :param x: 起始位置
@@ -101,7 +101,7 @@ class BaseController:
         x, y = position_from
         finalx, finaly = x + dx, y + dy
         self.ms.press(Button.left)
-        move_times = 10  # 移动次数(不要设高了，避免漂移)
+        move_times = 5  # 移动次数(不要设高了，避免漂移)
         gap_time = (duration_ms / move_times) * 0.001  # 移动次数除以间隔
         gap_x = dx / move_times
         gap_y = dy / move_times
@@ -158,22 +158,24 @@ class BaseController:
 
 if __name__ == '__main__':
     bc = BaseController(debug_enable=True)
-    bc.ui_close_button()
+    # bc.ui_close_button()
     # 拖动测试
-    bc.kb_press_and_release('f')
-    time.sleep(0.2)
-    bc.kb_press_and_release('f')
-    time.sleep(0.2)
-    bc.kb_press_and_release('f')
-    time.sleep(0.2)
-    bc.kb_press_and_release('f')
-    time.sleep(0.2)
+    pos = bc.ms.position
+    center = bc.gc.get_genshin_screen_center()
+    print(bc.gc.get_genshin_screen_center())
+    bc.ms.position = center
+    time.sleep(0.1)
+    # scale_x = bc.gc.w / 2 / 2349
+    # scale_y = bc.gc.h / 2 / 1303
+    scale_x = bc.gc.w / 2 / 2019
+    scale_y = bc.gc.h / 2 / 1120
+    dx,dy = 168, 220
+    anchor_x = center[0] - dx * scale_x
+    anchor_y = center[1] - dy * scale_y
+    print(scale_x, scale_y)
+    bc.ms.position = (anchor_x, anchor_y)
 
-
-
-    # pos = bc.ms.position
-        # print(pos)
     # Logger.log("good", instance=BaseController)
-    # bc.drag(pos, 200, 110)
+    # bc.drag(GenShinCapture.get_genshin_screen_center(),1000, 200, 500)
     # bc.ms.position = (3858.0, 2322.0)
     # bc.ms.click(Button.left)
