@@ -1,13 +1,14 @@
+import logging
 import time
 
 import cv2
 import numpy as np
 from capture.genshin_capture import GenShinCapture
-import os
-
 from myutils.configutils import get_bigmap_path, get_paimon_icon_path, cfg
+
 gs = GenShinCapture
 from mylogger.MyLogger3 import MyLogger
+import threading
 
 class MiniMap:
     @staticmethod
@@ -42,11 +43,9 @@ class MiniMap:
         """
         self.debug_enable = debug_enable
         self.logger = MyLogger(self.__class__.__name__, save_log=True)
-
         self.sift = cv2.SIFT.create()
+
         from matchmap.load_save_sift_keypoint import load
-        self.logger.info('正在加载图片和特征点，请稍等')
-        t = time.time()
         # 地图资源加载
         kp, des = load(2048)  # 特征点加载
         self.map_2048 = {
@@ -76,13 +75,15 @@ class MiniMap:
             'des': des,
             'kp': kp
         }
-        self.logger.info(f'图片和特征点加载完成，用时{time.time()-t}')
 
         self.local_map_size = 2048  # 缓存局部地图宽高
         self.local_map, self.local_map_descriptors, self.local_map_keypoints = None, None, None  # 局部地图缓存
 
         # 局部地图的坐标缓存
         self.local_map_pos = None
+
+        # 多线程缓存局部地图标志
+        self.global_match_task_running = False
 
         # 匹配器
         self.bf_matcher = cv2.BFMatcher()
@@ -101,8 +102,10 @@ class MiniMap:
         self.result_pos = None  # 最终坐标(像素)
 
     def log(self, *args):
-        if self.debug_enable:
-            self.logger.info(args)
+        self.logger.info(args)
+
+    def error(self, *args):
+        self.logger.error(args)
 
     def pix_axis_to_relative_axis(self, pos):
         """
@@ -131,7 +134,8 @@ class MiniMap:
     def __match_position(self, small_image, keypoints_small, descriptors_small, keypoints_large, descriptors_large,
                          matcher):
         if descriptors_large is None or descriptors_small is None:
-            raise "请传入有效特征点"
+            self.error("请传入有效特征点")
+            return None
 
         matches = matcher.knnMatch(descriptors_small, descriptors_large, k=2)
 
@@ -191,24 +195,29 @@ class MiniMap:
         return pos
 
     def __global_match(self, small_image, keypoints_small, descriptors_small):
-        t0 = time.time()
-
-        map = self.map_600
-        pos = self.__match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'],
-                                    self.flann_matcher)
-        if pos is None:
-            self.log('600px全局匹配坐标获取失败, 正尝试2048')
-            map = self.map_2048
+        if self.global_match_task_running is False: return
+        try:
+            t0 = time.time()
+            map = self.map_600
             pos = self.__match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'],
                                         self.flann_matcher)
             if pos is None:
-                self.log('2048px全局匹配坐标获取失败，请重试')
-                return None
+                self.log('600px全局匹配坐标获取失败, 正尝试2048')
+                map = self.map_2048
+                pos = self.__match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'],
+                                            self.flann_matcher)
+                if pos is None:
+                    self.log('2048px全局匹配坐标获取失败，请重试')
+                    return None
 
-        scale = 2048 / map['block_size']
-        self.log('全局匹配用时', time.time() - t0)
-        pos = (pos[0] * scale, pos[1] * scale)
-        self.global_match_cache(pos)
+            scale = 2048 / map['block_size']
+            self.log('全局匹配用时', time.time() - t0)
+            pos = (pos[0] * scale, pos[1] * scale)
+            self.global_match_cache(pos)
+        except Exception as e:
+            self.error(e)
+        finally:
+            self.global_match_task_running = False
 
     def global_match_cache(self, pos):
         """
@@ -267,12 +276,15 @@ class MiniMap:
                                     self.local_map_descriptors, self.bf_matcher)
         if pos is None:
             self.log('局部匹配失败')
+            self.result_pos = None
             self.counter_local_map_match_times += 1
             if self.counter_local_map_match_times > self.COUNTER_LOCAL_MAP_ERROR_MATCH_MAXTIME:
                 self.log('多次尝试局部匹配失败，正在重新缓存全局匹配')
                 small_image = gs.get_mini_map(update_screenshot=True)
                 keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
-                self.__global_match(small_image, keypoints_small, descriptors_small)
+                self.__create_local_map_cache_thread(small_image, keypoints_small, descriptors_small)
+                self.counter_local_map_match_times = 0
+                return None
             return
 
         x = pos[0] + self.local_map_pos[0] - self.local_map_size / 2
@@ -280,6 +292,15 @@ class MiniMap:
         self.result_pos = [x, y]
         self.counter_local_map_match_times = 0
         self.log('局部匹配成功', self.result_pos, '用时', time.time() - t0)
+
+    def __create_local_map_cache_thread(self, small_image, keypoints_small, descriptors_small):
+        if not self.global_match_task_running:
+            self.global_match_task_running = True
+            self.log("局部地图不存在，正在创建线程缓存局部地图中，请稍后再请求位置")
+            threading.Thread(target=self.__global_match, args=(small_image, keypoints_small, descriptors_small)).start()
+        else:
+            self.log("线程正在执行缓存中，青稍后再获取")
+        return None
 
     def get_position(self):
         gs.update_screenshot()
@@ -291,7 +312,10 @@ class MiniMap:
             return None
 
         if self.local_map is None:
-            self.__global_match(small_image, keypoints_small, descriptors_small)
+            # 非阻塞
+            self.__create_local_map_cache_thread(small_image, keypoints_small, descriptors_small)
+            return None
+            # self.__global_match(small_image, keypoints_small, descriptors_small)
         else:
             self.__local_match(small_image, keypoints_small, descriptors_small)
         # 坐标变换
@@ -301,20 +325,19 @@ class MiniMap:
 if __name__ == '__main__':
     mp = MiniMap(debug_enable=True)
     while True:
-        # 1. 读取图片
         t0 = time.time()
         pos = mp.get_position()
         # pos = mp.get_user_map_position()
-        print(time.time() - t0)
+        print(pos,time.time() - t0)
 
-        mp.log('相对位置:', pos)
-        if pos is not None:
-            pix_pos = mp.relative_axis_to_pix_axis(pos)
-            mp.log('像素位置:', pix_pos)
-            img = mp.crop_img(mp.map_2048['img'], pix_pos[0], pix_pos[1])
-            if img is not None:
-                cv2.imshow('match img', img)
-                key = cv2.waitKey(1)
-                if key == ord('q'):
-                    cv2.destroyAllWindows()
+        # mp.log('相对位置:', pos)
+        # if pos is not None:
+        #     pix_pos = mp.relative_axis_to_pix_axis(pos)
+        #     mp.log('像素位置:', pix_pos)
+        #     img = mp.crop_img(mp.map_2048['img'], pix_pos[0], pix_pos[1])
+        #     if img is not None:
+        #         cv2.imshow('match img', img)
+        #         key = cv2.waitKey(1)
+        #         if key == ord('q'):
+        #             cv2.destroyAllWindows()
 
