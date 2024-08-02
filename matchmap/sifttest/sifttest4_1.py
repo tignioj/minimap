@@ -1,10 +1,12 @@
 import logging
+import os
 import time
 
 import cv2
 import numpy as np
 from capture.genshin_capture import GenShinCapture
 from myutils.configutils import get_bigmap_path, get_paimon_icon_path, cfg
+from myutils.timerutils import Timer
 
 gs = GenShinCapture
 from mylogger.MyLogger3 import MyLogger
@@ -42,39 +44,36 @@ class MiniMap:
         :param gc: GenshinCapture instance
         """
         self.debug_enable = debug_enable
-        self.logger = MyLogger(self.__class__.__name__, save_log=True)
+        self.logger = MyLogger(__class__.__name__, save_log=True)
         self.sift = cv2.SIFT.create()
 
         from matchmap.load_save_sift_keypoint import load
+        t0 = time.time()
         # 地图资源加载
-        kp, des = load(2048)  # 特征点加载
-        self.map_2048 = {
-            'block_size': 2048,
-            'img': cv2.imread(get_bigmap_path(2048), cv2.IMREAD_GRAYSCALE),
-            'des': des, 'kp': kp
-        }
+        bs = 2048
+        self.logger.info(f'正在加载{bs}地图和特征点')
+        kp, des = load(bs)  # 特征点加载
+        self.map_2048 = { 'block_size': bs, 'img': cv2.imread(get_bigmap_path(bs), cv2.IMREAD_GRAYSCALE), 'des': des, 'kp': kp }
 
-        kp, des = load(600)  # 特征点加载
-        self.map_600 = {
-            'block_size': 600,
-            'img': cv2.imread(get_bigmap_path(600), cv2.IMREAD_GRAYSCALE),
-            'des': des, 'kp': kp
-        }
+        bs = 1024
+        self.logger.info(f'正在加载{bs}地图和特征点')
+        kp, des = load(bs)  # 特征点加载
+        self.map_1024 = {'block_size': bs, 'img': cv2.imread(get_bigmap_path(bs), cv2.IMREAD_GRAYSCALE), 'des': des, 'kp': kp}
 
-        kp, des = load(256)  # 特征点加载
-        self.map_256 = {
-            'block_size': 256,
-            'img': cv2.imread(get_bigmap_path(256), cv2.IMREAD_GRAYSCALE),
-            'des': des, 'kp': kp
-        }
+        bs = 256
+        self.logger.info(f'正在加载{bs}地图和特征点')
+        kp, des = load(bs)  # 特征点加载
+        self.map_256 = { 'block_size': bs, 'img': cv2.imread(get_bigmap_path(bs), cv2.IMREAD_GRAYSCALE), 'des': des, 'kp': kp }
 
         paimon_png = cv2.imread(get_paimon_icon_path(), cv2.IMREAD_GRAYSCALE)
         kp, des = self.sift.detectAndCompute(paimon_png, None)  # 判断是否在大世界
-        self.map_paimon = {
-            'img': paimon_png,
-            'des': des,
-            'kp': kp
-        }
+        self.map_paimon = { 'img': paimon_png, 'des': des, 'kp': kp }
+        self.logger.info(f'地图和特征点加载完成，用时{time.time() - t0}')
+
+        self.__paimon_appear_delay = 0.2  # 派蒙出现后，多少秒才可以进行匹配
+        # 如果要求首次不进行计时器检查，则需要设置一个0的计时器
+        self.__paimon_appear_delay_timer = Timer(0)  # 派蒙延迟计时器
+        self.__paimon_appear_delay_timer.start()
 
         self.local_map_size = 2048  # 缓存局部地图宽高
         self.local_map, self.local_map_descriptors, self.local_map_keypoints = None, None, None  # 局部地图缓存
@@ -100,6 +99,8 @@ class MiniMap:
         self.PIX_CENTER_AY = cfg['center_y']  # 13526.913
 
         self.result_pos = None  # 最终坐标(像素)
+        self.__create_local_map_cache_thread()
+
 
     def log(self, *args):
         self.logger.info(args)
@@ -201,13 +202,13 @@ class MiniMap:
             self.log('开始进行全局匹配')
             small_image = gs.get_mini_map(update_screenshot=True)
             keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
-            if keypoints_small is None or descriptors_small is None:
-                self.error('计算小地图特征点失败, 无法创建全局缓存')
+            if keypoints_small is None or descriptors_small is None: self.error('计算小地图特征点失败, 无法创建全局缓存')
+
             t0 = time.time()
-            map = self.map_600
+            map = self.map_1024
             pos = self.__match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'], self.flann_matcher)
             if pos is None:
-                self.log('600px全局匹配坐标获取失败, 正尝试2048')
+                self.log('1024全局匹配坐标获取失败, 正尝试2048')
                 map = self.map_2048
                 pos = self.__match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'], self.flann_matcher)
                 if pos is None:
@@ -266,7 +267,19 @@ class MiniMap:
             if m.distance < 0.75 * n.distance:
                 good_matches.append(m)
         # 如果找到匹配，返回True
-        return len(good_matches) > 7
+
+        # // TODO BUG: 可能截取到质量差的派蒙图片, 此时会错误的进行全局匹配
+        # 设计当出现派蒙由False转为True时，延迟0.5秒再返回True
+
+        if len(good_matches) >= 7:
+            if self.__paimon_appear_delay_timer is None:
+                self.__paimon_appear_delay_timer = Timer(self.__paimon_appear_delay)
+                self.__paimon_appear_delay_timer.start()
+            return self.__paimon_appear_delay_timer.check()
+        else:
+            self.__paimon_appear_delay_timer = None
+        return False
+
 
     def __local_match(self, small_image, keypoints_small, descriptors_small):
         """
@@ -284,6 +297,9 @@ class MiniMap:
         pos = self.__match_position(small_image, keypoints_small, descriptors_small, self.local_map_keypoints,
                                     self.local_map_descriptors, self.bf_matcher)
         if pos is None:
+            cv2.imwrite('bad.jpg', small_image)
+            pai = GenShinCapture.get_paimon_ariea(update_screenshot=False)
+            cv2.imwrite('pai.jpg', pai)
             time_cost = time.time() - self.__last_time_global_match
             self.log(f'局部匹配失败, 距离上次进行全局匹配已经过去{time_cost}秒')
             self.result_pos = None
@@ -324,7 +340,6 @@ class MiniMap:
             # 非阻塞
             self.__create_local_map_cache_thread()
             return None
-            # self.__global_match(small_image, keypoints_small, descriptors_small)
         else:
             self.__local_match(small_image, keypoints_small, descriptors_small)
         # 坐标变换
@@ -333,11 +348,11 @@ class MiniMap:
 
 if __name__ == '__main__':
     mp = MiniMap(debug_enable=True)
-    while True:
-        t0 = time.time()
-        pos = mp.get_position()
-        # pos = mp.get_user_map_position()
-        print(pos,time.time() - t0)
+    # while True:
+    #     t0 = time.time()
+    #     pos = mp.get_position()
+    #     pos = mp.get_user_map_position()
+        # print(pos,time.time() - t0)
 
         # mp.log('相对位置:', pos)
         # if pos is not None:
