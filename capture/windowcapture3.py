@@ -1,4 +1,5 @@
 import sys
+import threading
 
 import numpy as np
 # ModuleNotFoundError: No module named 'win32.distutils.command'
@@ -11,6 +12,8 @@ from ctypes import windll
 from mylogger.MyLogger3 import MyLogger
 
 logger = MyLogger('window_capture')
+import logging
+logging.getLogger('werkzeug').setLevel('INFO')
 
 # https://www.youtube.com/watch?v=WymCpVUPWQ4
 # https://github.com/learncodebygaming/opencv_tutorials/blob/master/004_window_capture/windowcapture.py
@@ -96,7 +99,7 @@ class WindowCapture:
         # Make program aware of DPI scaling
         user32 = windll.user32
         user32.SetProcessDPIAware()
-
+        self.lock = threading.Lock()
         self.window_name = window_name
         try:
             self.__findWindow()
@@ -122,40 +125,32 @@ class WindowCapture:
 
     def __get_screenshot_alpha(self):
         # get the window image data
-        wDC = win32gui.GetWindowDC(self.hwnd)
-        dcObj = win32ui.CreateDCFromHandle(wDC)
-        cDC = dcObj.CreateCompatibleDC()
-        dataBitMap = win32ui.CreateBitmap()
-        dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
-        cDC.SelectObject(dataBitMap)
-        cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (self.cropped_x, self.cropped_y), win32con.SRCCOPY)
+        try:
+            with self.lock:
+                wDC = win32gui.GetWindowDC(self.hwnd)
+                dcObj = win32ui.CreateDCFromHandle(wDC)
+                cDC = dcObj.CreateCompatibleDC()
+                dataBitMap = win32ui.CreateBitmap()
+                dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
+                cDC.SelectObject(dataBitMap)
+                cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (self.cropped_x, self.cropped_y), win32con.SRCCOPY)
 
-        # convert the raw data into a format opencv can read
-        # dataBitMap.SaveBitmapFile(cDC, 'debug.bmp')
-        signedIntsArray = dataBitMap.GetBitmapBits(True)
-        # img = np.fromstring(signedIntsArray, dtype='uint8')
-        img = np.frombuffer(signedIntsArray, dtype='uint8')
-        img.shape = (self.h, self.w, 4)
+                # convert the raw data into a format opencv can read
+                # dataBitMap.SaveBitmapFile(cDC, 'debug.bmp')
+                signedIntsArray = dataBitMap.GetBitmapBits(True)
+                # img = np.fromstring(signedIntsArray, dtype='uint8')
+                img = np.frombuffer(signedIntsArray, dtype='uint8')
+                img.shape = (self.h, self.w, 4)
 
-        # free resources
-        dcObj.DeleteDC()
-        cDC.DeleteDC()
-        win32gui.ReleaseDC(self.hwnd, wDC)
-        win32gui.DeleteObject(dataBitMap.GetHandle())
-
-        # drop the alpha channel, or cv.matchTemplate() will throw an error like:
-        #   error: (-215:Assertion failed) (depth == CV_8U || depth == CV_32F) && type == _templ.type()
-        #   && _img.dims() <= 2 in function 'cv::matchTemplate'
-
-        # img = img[..., :3]
-
-        # make image C_CONTIGUOUS to avoid errors that look like:
-        #   File ... in draw_rectangles
-        #   TypeError: an integer is required (got type tuple)
-        # see the discussion here:
-        # https://github.com/opencv/opencv/issues/14866#issuecomment-580207109
-        # img = np.ascontiguousarray(img)
-
+                # free resources
+                dcObj.DeleteDC()
+                cDC.DeleteDC()
+                win32gui.ReleaseDC(self.hwnd, wDC)
+                win32gui.DeleteObject(dataBitMap.GetHandle())
+                self.last_screen = img
+        except Exception as e:
+            logger.error(e)
+            return self.last_screen
         return img
 
     # find the name of the window you're interested in.
@@ -196,7 +191,7 @@ if __name__ == '__main__':
         # cv.namedWindow('window capture', cv.WINDOW_GUI_EXPANDED)
         cv.imshow('window capture', sc)
         cost_time = time.time() - loop_time
-        # print("fps:", 1 / cost_time, 'cost time:', cost_time)
+        print("fps:", 1 / cost_time, 'cost time:', cost_time)
         loop_time = time.time()
         key = cv.waitKey(1)
         if key & 0xFF == ord('q'): break
