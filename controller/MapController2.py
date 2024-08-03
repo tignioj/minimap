@@ -8,6 +8,8 @@ from controller.BaseController import BaseController
 
 import random
 
+class LocationException(Exception):
+    pass
 
 class MapController(BaseController):
     def __init__(self, tracker=None, ocr=None, debug_enable=False):
@@ -40,7 +42,6 @@ class MapController(BaseController):
         else:
             msg = f'不支持的分辨率{self.gc.w}*{self.gc.h}'
             self.logger.error(msg)
-            raise Exception(msg)
 
         self.scale_x = (self.gc.w / 2) / dx
         self.scale_y = (self.gc.h / 2) / dy
@@ -101,7 +102,7 @@ class MapController(BaseController):
         time.sleep(0.5)
         self.ocr.find_text_and_click("洞天仙力")
         time.sleep(0.5)
-        self.ocr.find_text_and_click(country)
+        self.ocr.find_text_and_click(country, match_all=True) # 全文字匹配避免点击到每日委托
         time.sleep(0.5)
         self.log("调整地图比例结束")
 
@@ -144,7 +145,7 @@ class MapController(BaseController):
                 self.logger.error('type err')
         else:
             self.logger.error('无法获取大地图位置！')
-            return None, None
+            raise LocationException('无法获取大地图位置!')
 
     def from_point(self):
         center = self.gc.get_genshin_screen_center()
@@ -158,11 +159,12 @@ class MapController(BaseController):
         if self.stop_listen: return
         nearby_threshold = min(self.gc.h,self.gc.w) // 2 - 20
         self.move(point, nearby_threshold)
-        # 如果发现当前偏移太严重，则递归
         delta_x, delta_y = self.get_dx_dy_from_target_position(point)
-        if abs(delta_x) > nearby_threshold or abs(delta_y) > nearby_threshold:
+        if delta_x is None or abs(delta_x) > nearby_threshold or abs(delta_y) > nearby_threshold:
+            # 如果发现当前偏移太严重，则递归
             self.log("偏移严重，递归调用move_to_point中!")
             self.move_to_point(point, country)
+            return
 
     # 5. 根据偏差移动地图。 注意移动的时候鼠标的拖动位置不能点到锚点，否则会无法拖动，因此可以给鼠标加上一个随机偏差
     def move(self, point, nearby_threshold=None):
@@ -170,11 +172,12 @@ class MapController(BaseController):
         if self.stop_listen: return
         # 根据当前位置与下一个点位的差值决定移动方向和距离
         move_times = 30
-        error_counter = 5  # 连续5次空匹配结果
         delta_x, delta_y = self.get_dx_dy_from_target_position(point)
-        while not self.stop_listen and move_times > 0 and error_counter > 0:
-            move_times -= 1
+        error_counter = 5
+        while move_times > 0 and error_counter > 0:
+            if self.stop_listen: return
 
+            move_times -= 1
             if delta_x is None:
                 error_counter -= 1
                 self.log('error_counter:', error_counter)
@@ -191,14 +194,11 @@ class MapController(BaseController):
             self.log(f'距离{point}还差{diff}, dx = {delta_x}, dy = {delta_y}')
             # 计算下一个拖动的起始位置
             self.drag(self.from_point(), delta_x, delta_y)
+
             delta_x, delta_y = self.get_dx_dy_from_target_position(point)
             if diff < nearby_threshold:
                 self.log("结束移动地图")
                 break
-
-        if error_counter <= 0:
-            self.log('连续5次无法匹配，请重试')
-            return
 
         self.move_mouse_to_anchor_position(point)
 
@@ -219,35 +219,41 @@ class MapController(BaseController):
         :param point:
         :return:
         """
+        if self.stop_listen: return
         self.log("开始传送到{}{}".format(country, position))
         self.open_middle_map()  # 打开地图
-        self.scale_middle_map(country)  # 缩放比例调整（以及防止点到海域无法识别大地图)
-        # self.middle_to_country(country)  # 切换侧边栏到指定国家
-        self.move_to_point(position, country)  # 移动大地图到锚点位置（中心点)
+        # self.middle_to_country(country)  # 切换侧边栏到指定地区
+        self.scale_middle_map(country)  # 缩放比例调整（以及防止点到海域无法识别大地图)，并切换到指定地区
+
+        try:
+            self.move_to_point(position, country)  # 移动大地图到锚点位置（中心点)
         # 避免minimap全局匹配，直接指定区域缓存局部地图作为匹配
-        self.tracker.create_cached_local_map(use_middle_map=create_local_map_cache)
-        self.click_anchor(anchor_name)  # 点击传送锚点
+            self.tracker.create_cached_local_map(use_middle_map=create_local_map_cache)
+            self.click_anchor(anchor_name)  # 点击传送锚点
+        except LocationException:
+            self.logger.error('移动过程中出现无法匹配地图的情况，正在重试传送')
+            self.transform(position,country,anchor_name, create_local_map_cache)
+            return
+
         # 判断是否成功传送
         time.sleep(3)  # 等待传送完成
-        if self.ocr.is_text_in_screen("探索度", "地图"):
-            self.log("屏幕上发现 '探索度' 和 ‘地图' 字样，认为传送失败，递归传送！")
-            self.transform(position, country, create_local_map_cache)
-
+        # if self.ocr.is_text_in_screen("探索度", "地图"):
+        #     self.log("屏幕上发现 '探索度' 和 ‘地图' 字样，认为传送失败，递归传送！")
+        #     self.transform(position, country, create_local_map_cache)
         pos = self.tracker.get_position()  # 获取用户落地位置
         wait_time = 10
         while not pos:
+            if self.stop_listen: return
             wait_time -= 1
             self.log(f"第{10 - wait_time}次数查询落地位置，请稍后")
             pos = self.tracker.get_position()
             time.sleep(1)
             if wait_time < 0:
                 self.log("获取落地位置失败！递归传送中！")
-                self.transform(position, country, create_local_map_cache)
+                self.transform(position, country=country, anchor_name=anchor_name, create_local_map_cache=create_local_map_cache)
                 return  # 避免执行后面的语句
 
-        if pos is None:
-            self.log('获取位置为空！')
-            return
+        if self.stop_listen: return
         diff = math.sqrt((pos[0] - position[0]) ** 2 + (pos[1] - position[1]) ** 2)
         self.log(f"判断落地位置是否准确, 目标位置{position}, 当前位置{pos}, 计算距离{diff}")
         if diff > 200:
@@ -264,9 +270,13 @@ class MapController(BaseController):
 
 if __name__ == '__main__':
     # x, y, country, anchor_name = -7087.9789375, -6178.1590937, '枫丹', '临瀑之城'
+    x, y, country, anchor_name = -6333.766653971354, -7277.06206087, '枫丹', None
     # x, y, country, anchor_name = 2552.0, -5804.0, '蒙德', '传送锚点'
     # x, y, country, anchor_name = 3040.0, -5620.0, '蒙德', None  # 蒙德钓鱼点1
-    x, y, country, anchor_name = 253, 92, '璃月', None  # 璃月港合成台
+    # x, y, country, anchor_name =256.94782031249997, 93.6250, '璃月', None  # 璃月港合成台
+    # x, y, country, anchor_name = 254.45453417968747, 86.87346, '璃月', None  # 璃月港合成台
+    # x, y, country, anchor_name = 8851, 7627, '稻妻', None  # 稻妻越石村
+
     mpc = MapController(debug_enable=True)
     # 传送锚点流程
     # 1. 按下M键打开大地图
@@ -280,16 +290,9 @@ if __name__ == '__main__':
     # print(mp, dx, dy)
 
     # 3. 将大地图移动到指定区域
-    mpc.move((x,y))
-    mpc.click_anchor(anchor_name)
+    # mpc.move((x,y))
+    # mpc.click_anchor(anchor_name)
     # 960 -> 2019
-    # mpc.move_to_point((9117.5, 7240.5), country='须弥')  # 钓鱼点1
-    # mpc.tracker.create_cached_local_map(use_middle_map=True)
-    # mpc.transform((x,y), country, anchor_name)  # 蒙德钓鱼点1
-    # mpc.transform((8851, 7627), '稻妻')
-    # mpc.transform((253, 92), '璃月')  # 璃月港合成台
-
-    # mpc.transform((x,y), '枫丹')
     # 4. 使用模板匹配检测屏幕内所有的锚点
     # center = gc.get_genshin_screen_center()
     # mpc.ms.position = center
@@ -300,3 +303,5 @@ if __name__ == '__main__':
 
     # 6. 筛选叠层锚点
     # 7. 选择筛选后的锚点并传送
+    mpc.transform((x,y),country, anchor_name)
+    # mpc.transform((x,y),country)
