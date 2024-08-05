@@ -1,13 +1,20 @@
-# 资源路径
-resource_path: 'G:\\PyCharmProgram\\minimap_server\\minimap_server\\resources'
+debug_enable: 1
+
+# 地图资源路径
+resource_path: 'G:\PyCharmProgram\minimap\minimap\resources'
+#resource_path: 'resources'
+# 点位资源路径
+points_path: 'G:\\PyCharmProgram\\minimap\\minimap\\autotrack\\pathlist'
 
 #定位中心坐标
 #        self.PIX_CENTER_AX = 15593.268  # 璃月天衡山右边那个十字圆环
 #        self.PIX_CENTER_AY = 13526.913
 center_x: 15593.298
 center_y: 13528.16
-
 window_name: '原神'  # 游戏窗口名称
+
+# 自动拾取开关,（还没做)
+enable_pickup: 1
 minimap:
   # 一定要设置为127.0.0.1而不是localhost，否则速度可能会很慢
   host: 127.0.0.1

@@ -5,28 +5,27 @@ import time
 import numpy as np
 from flask import Flask, request, jsonify, send_file
 from capture.genshin_capture import GenShinCapture
-from matchmap.sifttest.sifttest4_1 import MiniMap
+from matchmap.sifttest.sifttest5 import MiniMap
 from matchmap.gia_rotation import RotationGIA
 import cv2
 from myutils.configutils import cfg
+from myutils.imgutils import crop_img
+import logging
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
+
+if cfg.get('debug_enable') == 1:
+    debug_enable = True
+else:
+    debug_enable = False
+
 
 class FlaskApp(Flask):
-    minimap = MiniMap(debug_enable=True)
+    minimap = MiniMap(debug_enable=debug_enable)
+    large_map = minimap.map_2048['img']
     minimap.get_position()
     rotate = RotationGIA(True)
-
-    def cvshow(self):
-        while True:
-            time.sleep(0.1)
-            localmap = self.minimap.local_map
-            if localmap is not None:
-                m = np.max(localmap.shape)
-                if m > 300:
-                    localmap = cv2.resize(localmap, None, fx=500 / m, fy=500 / m)
-                cv2.imshow('Server local map', localmap)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
+    GenShinCapture.add_observer(rotate)
+    GenShinCapture.add_observer(minimap)
 
 def cvimg_to_base64(cvimg):
     _, img_encoded = cv2.imencode('.jpg', cvimg)
@@ -55,6 +54,8 @@ def create_cached_local_map():
         if pos:
             pos = app.minimap.relative_axis_to_pix_axis(pos)
             result = app.minimap.global_match_cache(pos)
+    else:
+        result = app.minimap.create_local_map_cache_thread()
 
     return jsonify({"result": result})
 
@@ -88,23 +89,25 @@ def get_region_map():
 
         pix_pos = app.minimap.relative_axis_to_pix_axis((x,y))
 
-        tem_local_map = app.minimap.crop_img(app.minimap.map_2048['img'], pix_pos[0], pix_pos[1], radius)
+        tem_local_map = crop_img(app.minimap.map_2048['img'], pix_pos[0], pix_pos[1], radius)
 
         _, img_encoded = cv2.imencode('.jpg', tem_local_map)
         return send_file(BytesIO(img_encoded), mimetype='image/jpeg')
 
 @app.route('/minimap/get_local_map', methods=['GET'])
 def get_local_map():
-    local_map = app.minimap.local_map
-    if local_map is None:
+    local_map_pos = app.minimap.local_map_pos
+    if local_map_pos is None:
         return jsonify({'result': False})
 
-    position = app.minimap.local_map_pos
-    img_base64 = cvimg_to_base64(local_map)
+    pix_pos = app.minimap.local_map_pos
+    width = app.minimap.local_map_size
+    tem_local_map = crop_img(app.large_map, pix_pos[0], pix_pos[1], width)
+    img_base64 = cvimg_to_base64(tem_local_map)
     data = {
         'result': True,
         'data': {
-            'position': position,
+            'position': pix_pos,
             'xywh': None,
             'img_base64': img_base64
         }
@@ -126,5 +129,5 @@ if __name__ == '__main__':
     {url}/usermap/get_position', methods=['GET']
     {url}/usermap/create_cache', methods=['POST']
     """)
-    # app.run(host=host, port=port, debug=False)
-    app.run(port=5000,debug=False)
+    app.run(host=host, port=port, debug=False)
+    # app.run(port=5000,debug=False)
