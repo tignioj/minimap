@@ -74,7 +74,7 @@ class BasePathExecutor(BaseController):
         #  当前路径结束后，应当退出循环，结束线程，以便于开启下一个线程展示新的路径
         self.log(f"准备展示路径, path_end={self.is_path_end}, stop_listen={self.stop_listen}")
         while not self.stop_listen:
-            if self.stop_listen: return
+            if self.stop_listen or self.is_path_end: return
             time.sleep(0.5)
             if positions is not None and len(positions) > 0:
                 img = get_points_img_live(positions, name, radius=800)
@@ -153,14 +153,13 @@ class BasePathExecutor(BaseController):
                 rot = self.get_next_point_rotation(coordinates)
                 if rot: self.to_degree(rot)
 
+                self.kb_press("w")
                 if small_step_enable and running_small_step:
-                    time.sleep(0.08)
+                    time.sleep(0.05)
                     self.debug("小碎步松开w")
                     self.kb_release('w')
-                    time.sleep(0.08)
-
-                time.sleep(0.05)
-                self.kb_press("w")
+                    # self.kb_press_and_release('d')
+                time.sleep(0.02)
 
             except MovingStuckException as e:
                 self.debug(e)
@@ -198,7 +197,8 @@ class BasePathExecutor(BaseController):
 
         self.last_update_time = time.time()
         msg = f"更新状态: cost:{time.time() - start},next:{self.next_point}, current pos:{self.current_position}, rotation:{self.current_rotation},is_path_end:{self.is_path_end}, is_object_detected_end:{self._thread_object_detect_finished}"
-        self.rate_limiter.execute(self.debug, msg)
+        self.logger.debug(msg)
+        # self.rate_limiter.execute(self.debug, msg)
 
     def get_next_point_rotation(self, next_point):
         from autotrack.utils import calculate_angle
@@ -298,7 +298,6 @@ class BasePathExecutor(BaseController):
                     self.is_path_end = True
 
         self.log("文件{}执行完毕".format(path))
-
         self.is_path_end = True
 
         # 等待线程结束
