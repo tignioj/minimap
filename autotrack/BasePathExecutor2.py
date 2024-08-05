@@ -90,7 +90,7 @@ class BasePathExecutor(BaseController):
         计算多少秒内的总位移
         :return:
         """
-        if len(self.position_history) < 2:
+        if len(self.position_history) < 7:
             return 100000000 # Not enough data to calculate displacement
 
         total_displacement = 0
@@ -102,6 +102,10 @@ class BasePathExecutor(BaseController):
             prev_pos = curr_pos
 
         return total_displacement
+
+    def on_nearby(self, coordinates):
+        self.log(f'接近点位{coordinates}了')
+        self.debug('疯狂按下f')
 
     # 移动
     # 异常：原地踏步
@@ -124,7 +128,8 @@ class BasePathExecutor(BaseController):
         while not point1_near_by_point2(self.current_position, coordinates, near_by_threshold):
             if self.stop_listen: return
             try:
-                if time.time() - point_start_time >= self.stuck_time_threshold: raise MovingTimeOutException("跑点超时！")
+                if time.time() - point_start_time >= self.stuck_time_threshold:
+                    raise MovingTimeOutException("跑点超时！")
                 pos = self.current_position
                 if not pos:
                     self.log("获取地址失败，正在等待刷新地址, 松开wsad")
@@ -136,6 +141,7 @@ class BasePathExecutor(BaseController):
                     continue
 
                 if point1_near_by_point2(pos, coordinates, self.near_by_threshold):
+                    self.on_nearby(coordinates)
                     running_small_step = True
 
                 self.rate_limiter_history.execute(self.position_history.append, self.current_position)
@@ -162,6 +168,7 @@ class BasePathExecutor(BaseController):
                 self.kb_press_and_release(self.Key.space)  # 避免卡住
                 self.kb_press_and_release('a')  # 避免卡住
                 self.kb_press_and_release(self.Key.space)  # 避免卡住
+                self.kb_press("w")
             except MovingTimeOutException:
                 self.logger.debug('点位执行超时, 跳过该点位')
                 self.kb_press_and_release("x")  # 避免攀爬
@@ -248,7 +255,7 @@ class BasePathExecutor(BaseController):
                 self.debug(f"当前位置{self.current_position}, 正在前往点位{point}")
                 self.next_point = point
                 if point['type'] == 'start':  # 传送
-                    # self.map_controller.transform((point['x'], point['y']), point['country'], create_local_map_cache=True)
+                    self.map_controller.transform((point['x'], point['y']), point['country'], create_local_map_cache=True)
 
                     thread_object_detect = threading.Thread(target=self._thread_object_detection)
                     thread_object_detect.start()
@@ -322,7 +329,8 @@ if __name__ == '__main__':
     # p = BasePathExecutor(debug_enable=True, show_path_viewer=True)
     p = BasePathExecutor(debug_enable=True, show_path_viewer=True)
     # p.path_execute(getjson('调查_璃月_测试2_2024-07-30_06_09_55.json'))
-    p.path_execute(getjson('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json'))
+    # p.path_execute(getjson('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json'))
+    p.path_execute(getjson('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json'))
     # p.path_execute(getjson("钓鱼_蒙德_低语森林_2024-04-26_15_11_25.json"))
     # p.path_execute(getjson("2024-04-22_15_09_28_蒙德_fish_mengde_qinquanzhen.json"))
     # p.path_execute(getjson("2024-04-22_23_30_42_蒙德_fish_mengde_chenxijiuzhuang.json"))  # 钓鱼点有冰史莱姆
