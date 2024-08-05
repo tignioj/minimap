@@ -9,7 +9,7 @@ import sys
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     style="%",
-    datefmt="%Y-%m-%d %H:%M",
+    datefmt="%Y-%m-%d_%H:%M",
     level=logging.DEBUG,
     handlers=[
         # logging.FileHandler(f'{os.path.basename(__file__)}.log'),
@@ -59,7 +59,7 @@ class MyLogger(logging.Logger):
 
         formatter_file = logging.Formatter(
             fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%m-%d %H:%M:%S'
+            datefmt='%m-%d %H:%M'
         )
 
         # 保存日志文件
@@ -72,17 +72,17 @@ class MyLogger(logging.Logger):
             if not os.path.exists(__err_path): os.mkdir(__err_path)
             if not os.path.exists(__info_path): os.mkdir(__info_path)
 
-            timestr = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+            timestr = datetime.now().strftime("%Y-%m-%d")
             err_filename = f"{__err_path}/{timestr}.log"
             info_filename = f"{__info_path}/{timestr}.log"
 
-            file_handler = RotatingFileHandler(err_filename, mode="a", encoding="utf-8", maxBytes=max_byte, backupCount=50)
+            file_handler = RotatingFileHandler(err_filename, mode="a", encoding="utf-8", maxBytes=max_byte, backupCount=10)
             file_handler.setLevel(logging.ERROR)  # 仅保存错误级别以上的日志
             self.addHandler(file_handler)
             file_handler.setFormatter(formatter_file)
 
             # 普通日志文件
-            info_file_handler = RotatingFileHandler(info_filename, mode="a", encoding="utf-8", maxBytes=max_byte, backupCount=200)
+            info_file_handler = RotatingFileHandler(info_filename, mode="a", encoding="utf-8", maxBytes=max_byte, backupCount=10)
             info_file_handler.setLevel(logging.INFO)  # 仅INFO级别以上的日志
             info_file_handler.setFormatter(formatter_file)
             self.addHandler(info_file_handler)
@@ -94,18 +94,21 @@ class MyLogger(logging.Logger):
 
 if __name__ == '__main__':
     mylogger = MyLogger('mylogger', save_log=True)
-    mylogger.debug('debug')
-    mylogger.info('info')
-    mylogger.warning('warning')
-    mylogger.error('error')
-    mylogger.critical('critical')
+    n = 20
+    while n > 0:
+        n -= 1
+        mylogger.debug('debug')
+        mylogger.info('info')
+        mylogger.warning('warning')
+        mylogger.error('error')
+        mylogger.critical('critical')
 
-    try:
-        a,b = 1,0
-        res = a/b
-    except ZeroDivisionError:
-        mylogger.error('division by zero', exc_info=True)  # 保留堆栈信息
-        # mylogger.exception('division by zero')  # 正常处理
+        try:
+            a,b = 1,0
+            res = a/b
+        except ZeroDivisionError:
+            mylogger.error('division by zero', exc_info=True)  # 保留堆栈信息
+            # mylogger.exception('division by zero')  # 正常处理
 
     print(mylogger.parent, mylogger.getEffectiveLevel())
 
