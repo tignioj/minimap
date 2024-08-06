@@ -58,7 +58,11 @@ class MiniMap:
         self.__paimon_appear_delay_timer = Timer(0)  # 派蒙延迟计时器
         self.__paimon_appear_delay_timer.start()
 
-        self.local_map_size = 500 # 缓存局部地图宽高
+        local_map_size = cfg.get('local_map_size', 1024)
+        if local_map_size < 512: local_map_size = 512
+        if local_map_size > 10240: local_map_size = 10240
+        self.logger.info(f'搜索范围设置为{local_map_size}')
+        self.local_map_size = local_map_size  # 缓存局部地图宽高
         self.local_map_descriptors, self.local_map_keypoints = None, None # 局部地图缓存
 
         # 局部地图的坐标缓存
@@ -452,7 +456,7 @@ if __name__ == '__main__':
         t0 = time.time()
         pos = mp.get_position()
     #     pos = mp.get_user_map_position()
-        print(pos,time.time() - t0)
+    #     print(pos,time.time() - t0)
 
 
         # mp.log('相对位置:', pos)
