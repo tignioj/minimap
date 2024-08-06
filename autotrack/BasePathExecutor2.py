@@ -54,8 +54,16 @@ class BasePathExecutor(BaseController):
         if self.stuck_movement_threshold < 2: self.stuck_movement_threshold = 2
         elif self.stuck_movement_threshold > 50: self.stuck_movement_threshold = 50
 
+        self.path_viewer_width = cfg.get('path_viewer_width', 500)
+        if self.path_viewer_width < 50: self.path_viewer_width = 50
+        elif self.path_viewer_width > 4096: self.path_viewer_width = 4096
+
         self.allow_small_steps = cfg.get('allow_small_steps', 1) == 1
         self.enable_crazy_f = cfg.get('enable_crazy_f', 1) == 1
+        self.enable_loop_press_e = cfg.get('enable_loop_press_e', 1) == 1
+        self.enable_loop_press_z = cfg.get('enable_loop_press_z', 1) == 1
+        self.enable_loop_jump = cfg.get('enable_loop_jump', 1) == 1
+        self.enable_dash = cfg.get('enable_dash', 1) == 1
 
         self.rate_limiter_history = RateLimiter(1)  # 一秒钟之内只能执行一次
 
@@ -84,11 +92,11 @@ class BasePathExecutor(BaseController):
         from autotrack.KeyPointViewer import get_points_img_live
         #  当前路径结束后，应当退出循环，结束线程，以便于开启下一个线程展示新的路径
         self.log(f"准备展示路径, path_end={self.is_path_end}, stop_listen={self.stop_listen}")
-        while not self.stop_listen:
+        while not self.stop_listen and not self.is_path_end:
             if self.stop_listen or self.is_path_end: return
-            time.sleep(0.5)
+            time.sleep(0.3)
             if positions is not None and len(positions) > 0:
-                img = get_points_img_live(positions, name, radius=800)
+                img = get_points_img_live(positions, name, radius=self.path_viewer_width)
                 if img is None: continue
                 cv2.imshow('path viewer', img)
                 cv2.moveWindow('path viewer', 10, 10)
@@ -140,9 +148,19 @@ class BasePathExecutor(BaseController):
         from myutils.timerutils import RateLimiter
         rate_limiter_debugprint = RateLimiter(1)
 
+        rate_limiter_press_e = RateLimiter(1)
+        rate_limiter_press_z = RateLimiter(1)
+        rate_limiter_press_jump = RateLimiter(1)
+        rate_limiter_press_dash = RateLimiter(1)
+
         running_small_step = False  # 当距离过远的时候，不需要小碎步行动
         while not point1_near_by_point2(self.current_position, coordinates, near_by_threshold):
             if self.stop_listen: return
+            t = time.time()
+
+            if self.enable_loop_press_z: rate_limiter_press_z.execute(self.kb_press_and_release, 'z')
+            if self.enable_loop_press_e: rate_limiter_press_e.execute(self.kb_press_and_release, 'e')
+
             try:
                 if time.time() - point_start_time >= self.move_next_point_allow_max_time:
                     raise MovingTimeOutException("跑点超时！")
@@ -155,6 +173,7 @@ class BasePathExecutor(BaseController):
                     self.kb_release('d')
                     time.sleep(1)
                     continue
+
 
                 if point1_near_by_point2(pos, coordinates, self.near_by_threshold):
                     self.on_nearby(coordinates)
@@ -169,13 +188,18 @@ class BasePathExecutor(BaseController):
                 rot = self.get_next_point_rotation(coordinates)
                 if rot: self.to_degree(rot)
 
+                if not point1_near_by_point2(self.current_position, coordinates, 20):
+                    # TODO BUG: 执行间隔太短将不生效
+                    if self.enable_dash: rate_limiter_press_dash.execute(self.mouse_right_click)
+                    if self.enable_loop_jump: rate_limiter_press_jump.execute(self.kb_press_and_release, self.Key.space)
+
                 self.kb_press("w")
                 if small_step_enable and running_small_step and self.allow_small_steps:
                     time.sleep(0.05)
                     self.debug("小碎步松开w")
                     self.kb_release('w')
                     # self.kb_press_and_release('d')
-                time.sleep(0.02)
+                # time.sleep(0.02)
 
             except MovingStuckException as e:
                 self.debug(e)
@@ -193,6 +217,8 @@ class BasePathExecutor(BaseController):
                 self.kb_press_and_release('d')  # 避免卡住
                 self.kb_press_and_release('w')  # 避免卡住
                 return
+
+            self.logger.debug('cost time: ' + str(time.time()-t))
         self.kb_release('w')
 
 
@@ -247,7 +273,6 @@ class BasePathExecutor(BaseController):
     def path_execute(self, path):
         self.log("开始执行{}".format(path))
         self.reset_state()
-
         with open(path, encoding="utf-8") as r:
             json_obj = json.load(r)
             self.object_to_detect = json_obj["name"]
@@ -269,7 +294,7 @@ class BasePathExecutor(BaseController):
                 self.debug(f"当前位置{self.current_position}, 正在前往点位{point}")
                 self.next_point = point
                 if point['type'] == 'start':  # 传送
-                    self.map_controller.transform((point['x'], point['y']), point['country'], create_local_map_cache=True)
+                    # self.map_controller.transform((point['x'], point['y']), point['country'], create_local_map_cache=True)
 
                     thread_object_detect = threading.Thread(target=self._thread_object_detection)
                     thread_object_detect.start()
@@ -329,7 +354,7 @@ class BasePathExecutor(BaseController):
 
 def _execute_all():
     # p.path_execute(getjson('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json'))
-    points_path = cfg.get('points_path', PROJECT_PATH)
+    points_path = cfg.get('points_path', os.path.join(PROJECT_PATH,'resources', 'pathlist'))
     show_path_viewer = cfg.get('show_path_viewer', True)
     debug_enable = cfg.get('debug_enable', True)
     p = BasePathExecutor(debug_enable=debug_enable, show_path_viewer=show_path_viewer)
@@ -359,8 +384,8 @@ def getjson(filename):
 if __name__ == '__main__':
     # 测试点位
     import json, os
-    p = BasePathExecutor(debug_enable=True, show_path_viewer=True)
-    p.path_execute(getjson('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json'))
+    # p = BasePathExecutor(debug_enable=True, show_path_viewer=True)
+    # p.path_execute(getjson('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json'))
     # p.path_execute(getjson('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json'))
     # p.path_execute(getjson("钓鱼_蒙德_低语森林_2024-04-26_15_11_25.json"))
     # p.path_execute(getjson("2024-04-22_15_09_28_蒙德_fish_mengde_qinquanzhen.json"))
@@ -375,4 +400,4 @@ if __name__ == '__main__':
     # p.path_execute(getjson("染之庭_稻妻_无想刃狭间_2024-04-27_06_16_04.json"))
 
     # // TODO 在终点把视角调整到正确的位置
-    # _execute_all()
+    _execute_all()
