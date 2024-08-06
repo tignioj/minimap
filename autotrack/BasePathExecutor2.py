@@ -96,11 +96,12 @@ class BasePathExecutor(BaseController):
             time.sleep(0.3)
             # self.logger.debug(f"路径展示中, path_end={self.is_path_end}, stop_listen={self.stop_listen}")
             if positions is not None and len(positions) > 0:
-                win_name = f'{threading.currentThread().name}path viewer'
+                win_name = f'path_viewer {threading.currentThread().name}'
+                # win_name = 'path viewer'
                 img = get_points_img_live(positions, name, radius=self.path_viewer_width)
                 if img is None: continue
                 cv2.imshow(win_name, img)
-                # cv2.moveWindow('path viewer', 10, 10)
+                cv2.moveWindow(win_name, 10, 10)
                 cv2.waitKey(1)
             else:
                 self.logger.debug('路径列表为空，无法展示')
@@ -287,7 +288,7 @@ class BasePathExecutor(BaseController):
         while not pos:
             pos = self.current_position
             if self.stop_listen: return None
-            print(f'已经等待{time.time()-start_time:}')
+            self.logger.debug(f'正在等待位置中，已经等待{time.time()-start_time:}')
             if time.time() - start_time > wait_times:
                 return None
             time.sleep(0.001)
