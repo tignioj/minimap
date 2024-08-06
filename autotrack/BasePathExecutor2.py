@@ -14,6 +14,7 @@ from controller.OCRController import OCRController
 from capture.genshin_capture import GenShinCapture
 from autotrack.utils import point1_near_by_point2
 from myutils.timerutils import RateLimiter
+from myutils.configutils import cfg, PROJECT_PATH
 
 class MovingStuckException(Exception):
     pass
@@ -41,12 +42,22 @@ class BasePathExecutor(BaseController):
         self.next_point = None
         self.is_path_end = False  # 是否到达终点
         self.near_by_threshold = 8  # A,B距离多少个像素点表示他们是临近
-        self.near_by_threshold_small_step = 2  # 目标点
-        self.stuck_time_threshold = 15
-        self.object_to_detect = None  # 目标检测对象, 例如 钓鱼
-        self.position_history = deque(maxlen=8)
-        self.rate_limiter_history = RateLimiter(1)  # 一秒钟之内只能执行一次
+        self.near_by_threshold_small_step = 2  # 开启小碎步时，A,B判定距离是否接近的阈值
 
+        self.move_next_point_allow_max_time = cfg.get('move_next_point_allow_max_time', 20)
+        if self.move_next_point_allow_max_time < 5: self.move_next_point_allow_max_time = 5
+        elif self.move_next_point_allow_max_time > 60: self.move_next_point_allow_max_time = 60
+
+        self.object_to_detect = None  # 目标检测对象, 例如 钓鱼
+        self.position_history = deque(maxlen=8)  # 一秒钟存1次，计算总距离
+        self.stuck_movement_threshold = cfg.get('stuck_movement_threshold', 20)
+        if self.stuck_movement_threshold < 2: self.stuck_movement_threshold = 2
+        elif self.stuck_movement_threshold > 50: self.stuck_movement_threshold = 50
+
+        self.allow_small_steps = cfg.get('allow_small_steps', 1) == 1
+        self.enable_crazy_f = cfg.get('enable_crazy_f', 1) == 1
+
+        self.rate_limiter_history = RateLimiter(1)  # 一秒钟之内只能执行一次
 
         self.last_update_time = time.time()
         self.UPDATE_POSITION_INTERVAL = 0.05  # 0.05s更新一次位置
@@ -103,9 +114,14 @@ class BasePathExecutor(BaseController):
 
         return total_displacement
 
+    def crazy_f(self):
+        self.kb_press_and_release('f')
+
     def on_nearby(self, coordinates):
-        self.log(f'接近点位{coordinates}了')
-        self.debug('疯狂按下f')
+        self.logger.debug(f'接近点位{coordinates}了')
+        if self.enable_crazy_f:
+            self.debug('疯狂按下f')
+            self.crazy_f()
 
     # 移动
     # 异常：原地踏步
@@ -128,7 +144,7 @@ class BasePathExecutor(BaseController):
         while not point1_near_by_point2(self.current_position, coordinates, near_by_threshold):
             if self.stop_listen: return
             try:
-                if time.time() - point_start_time >= self.stuck_time_threshold:
+                if time.time() - point_start_time >= self.move_next_point_allow_max_time:
                     raise MovingTimeOutException("跑点超时！")
                 pos = self.current_position
                 if not pos:
@@ -147,14 +163,14 @@ class BasePathExecutor(BaseController):
                 self.rate_limiter_history.execute(self.position_history.append, self.current_position)
                 # self.position_history.append(self.current_position)  # 记录历史路径
                 total_displacement = self.calculate_total_displacement()  # 8秒内的位移
-                if total_displacement < 15: raise MovingStuckException(f"8秒内位移平均值为{total_displacement}, 判定为卡住了！")
+                if total_displacement < self.stuck_movement_threshold: raise MovingStuckException(f"8秒内位移平均值为{total_displacement}, 判定为卡住了！")
 
                 rate_limiter_debugprint.execute(self.debug, f"执行{coordinates}点位,已用{time.time() - point_start_time}秒")
                 rot = self.get_next_point_rotation(coordinates)
                 if rot: self.to_degree(rot)
 
                 self.kb_press("w")
-                if small_step_enable and running_small_step:
+                if small_step_enable and running_small_step and self.allow_small_steps:
                     time.sleep(0.05)
                     self.debug("小碎步松开w")
                     self.kb_release('w')
@@ -181,12 +197,10 @@ class BasePathExecutor(BaseController):
 
 
     def on_move_after(self, point):
-        """
-        生命周期方法
-        :param point:
-        :return:
-        """
-        pass
+        self.log(f'到达点位{point}了')
+        if self.enable_crazy_f:
+            self.debug('疯狂按下f')
+            self.crazy_f()
 
     def update_state(self):
         start = time.time()
@@ -313,9 +327,29 @@ class BasePathExecutor(BaseController):
         return True
 
 
+def _execute_all():
+    # p.path_execute(getjson('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json'))
+    points_path = cfg.get('points_path', PROJECT_PATH)
+    show_path_viewer = cfg.get('show_path_viewer', True)
+    debug_enable = cfg.get('debug_enable', True)
+    p = BasePathExecutor(debug_enable=debug_enable, show_path_viewer=show_path_viewer)
+    if not os.path.exists(points_path):
+        p.logger.error('路径不存在！')
+        return
+    filenames = os.listdir(points_path)
+    try:
+        for filename in filenames:
+            p.path_execute(os.path.join(points_path, filename))
+    except Exception as e:
+        p.logger.error(f'发生错误: {e}')
+    finally:
+        print("全部执行完成，按下m")
+        p.kb_press_and_release("m")
+        # print("30秒后进入睡眠")
+        # time.sleep(30)
+
 def getjson(filename):
     # 获取当前脚本所在的目录
-    current_file_path = os.path.dirname(__file__)
     target = filename.split("_")[0]
     relative_path = f"pathlist/{target}"
     # 拼接资源目录的路径
@@ -325,11 +359,9 @@ def getjson(filename):
 if __name__ == '__main__':
     # 测试点位
     import json, os
-    # p = BasePathExecutor(debug_enable=True, show_path_viewer=True)
     p = BasePathExecutor(debug_enable=True, show_path_viewer=True)
-    # p.path_execute(getjson('调查_璃月_测试2_2024-07-30_06_09_55.json'))
+    p.path_execute(getjson('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json'))
     # p.path_execute(getjson('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json'))
-    p.path_execute(getjson('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json'))
     # p.path_execute(getjson("钓鱼_蒙德_低语森林_2024-04-26_15_11_25.json"))
     # p.path_execute(getjson("2024-04-22_15_09_28_蒙德_fish_mengde_qinquanzhen.json"))
     # p.path_execute(getjson("2024-04-22_23_30_42_蒙德_fish_mengde_chenxijiuzhuang.json"))  # 钓鱼点有冰史莱姆
@@ -343,3 +375,4 @@ if __name__ == '__main__':
     # p.path_execute(getjson("染之庭_稻妻_无想刃狭间_2024-04-27_06_16_04.json"))
 
     # // TODO 在终点把视角调整到正确的位置
+    # _execute_all()
