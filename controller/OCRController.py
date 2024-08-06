@@ -11,8 +11,8 @@ from server.ServerAPI import get_ocr_result
 class OCRController(BaseController):
     def __init__(self, debug_enable=False):
         self.debug_enable = debug_enable
-        super().__init__(OCRController)
         self.gc = GenShinCapture
+        super().__init__(debug_enable, self.gc)
         self.ocr_result = None
 
         self.update_timer = 0
@@ -35,8 +35,8 @@ class OCRController(BaseController):
     def click(self, x, y):
         pos = self.gc.get_screen_position((x, y))
         self.log((x, y), "->", pos)
-        self.ms.position = pos
-        self.ms.click(self.Button.left)
+        self.set_ms_position(pos)
+        self.mouse_left_click()
 
     def get_line_center(self, rect):
         """
@@ -81,6 +81,7 @@ class OCRController(BaseController):
         :return:
         """
         match_texts = self.find_match_text(target_text, match_all)
+
         if match_texts is None: return False
 
         l = len(match_texts)

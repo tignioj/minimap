@@ -1,5 +1,6 @@
 import sys
 import os
+import threading
 import time
 from pynput import mouse
 from pynput.mouse import Button
@@ -10,31 +11,93 @@ from pynput import keyboard
 PyCharm需要用管理员方式启动，否则游戏内输入无效！
 """
 
+import logging
 from datetime import datetime
 from mylogger.MyLogger3 import MyLogger
 import win32api, win32con
 from matchmap.minimap_interface import MinimapInterface
 from capture.genshin_capture import GenShinCapture
 
+logger = MyLogger('BaseController', logging.DEBUG)
+def wait_for_window(handler):
+    while not GenShinCapture.is_active():
+        if handler.stop_listen:
+            logger.debug('你停止运行了')
+            sys.exit(0)
+        logger.debug('不是原神窗口，暂停运行')
+        time.sleep(1)
+
+class _KeyBoardController(keyboard.Controller):
+    def __init__(self, handler):
+        super().__init__()
+        self.handler = handler
+
+    def press(self, key):
+        wait_for_window(self.handler)
+        super().press(key)
+
+    def release(self, key):
+        wait_for_window(self.handler)
+        super().release(key)
+
+class _MouseController(mouse.Controller):
+    def __init__(self, handler):
+        super().__init__()
+        self.handler = handler
+
+    def press(self, button):
+        wait_for_window(self.handler)
+        super().press(button)
+
+    def release(self, button):
+        wait_for_window(self.handler)
+        super().release(button)
+
+    def move(self, x, y):
+        wait_for_window(self.handler)
+        super().move(x,y)
+
+    def click(self, button, count=1):
+        wait_for_window(self.handler)
+        super().click(button, count)
+
+    @property
+    def position(self):
+        """Custom behavior for getting the position."""
+        return super().position  # Call parent getter method
+
+    @position.setter
+    def position(self, pos):
+        """Custom behavior for setting the position."""
+        # Example custom logic before calling the parent setter
+        # if pos[0] < 0 or pos[1] < 0:
+        #     raise ValueError("Position coordinates must be non-negative.")
+        # Directly call the parent setter method
+        mouse.Controller.position.fset(self, pos)  # Call parent setter method
+
+
 class BaseController:
 
     def log(self, *args):
         if self.debug_enable:
-            self.logger.info(args)
+            self.logger.debug(args)
 
     """
     提供操作人物的方法
     """
-
-    def __init__(self, debug_enable=False, gc = None):
+    def __init__(self, debug_enable=False, gc=None):
         self.Key = Key
         self.tracker = MinimapInterface
-        self.logger = MyLogger(self.__class__.__name__, save_log=False)
-        if gc is None:
-            self.gc = GenShinCapture  # genshin capture
+        self.logger = logger
+
+        if debug_enable: self.logger.setLevel(logging.DEBUG)
+        else: self.logger.setLevel(logging.INFO)
+        if gc is None: self.gc = GenShinCapture  # genshin capture
+
         self.Button = Button
-        self.keyboard = Controller()
-        self.ms = mouse.Controller()
+        self.__keyboard = _KeyBoardController(self)
+        self.__ms = _MouseController(self)
+
         self.stop_listen = False
         self.debug_enable = debug_enable
         self.kb_listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
@@ -42,8 +105,17 @@ class BaseController:
         self.kb_listener.start()
         self.ms_listener.start()
 
+    def set_ms_position(self, pos):
+        wait_for_window(self)
+        # self.__ms.move(pos[0], pos[1])
+        self.__ms.position = pos
+
+    def get_ms_position(self):
+        return self.__ms.position
+
     def _on_click(self, x, y, button, pressed):
         pass
+
     def ui_close_button(self):
         """
         右上角关闭按钮, 用于关闭地图、关闭烹饪界面
@@ -51,9 +123,17 @@ class BaseController:
         """
         pos = (self.gc.w - 60, 40)
         pos = self.gc.get_screen_position(pos)
-        self.ms.position = pos
-        self.ms.click(self.Button.left)
+        self.__ms.position = pos
+        self.mouse_left_click()
 
+    def ms_click(self, button):
+        self.__ms.click(button)
+
+    def mouse_left_click(self):
+        self.ms_click(self.Button.left)
+
+    def mouse_right_click(self):
+        self.ms_click(self.Button.right)
 
     def kb_press_and_release(self, key):
         self.kb_press(key)
@@ -65,15 +145,10 @@ class BaseController:
         :param key:
         :return:
         """
-        # if self.stop_listen: return
-        self.keyboard.press(key)
+        self.__keyboard.press(key)
 
     def kb_release(self, key):
-        # if self.stop_listen:
-        #     return
-        # 即使停止了也要释放
-        # self.log(f"松开按键'{key}'")
-        self.keyboard.release(key)
+        self.__keyboard.release(key)
 
     def _on_press(self, key):
         try:
@@ -83,6 +158,9 @@ class BaseController:
             if key == Key.esc:
                 self.log('你按下了esc退出程序')
                 self.stop_listen = True
+                self.ms_listener.stop()
+                self.kb_listener.stop()
+                sys.exit(0)
 
     def _on_release(self, key):
         pass
@@ -97,21 +175,27 @@ class BaseController:
         :param duration_ms:持续时间（毫秒）
         :return:
         """
-        self.ms.position = position_from
+        self.__ms.position = position_from
         x, y = position_from
         finalx, finaly = x + dx, y + dy
-        self.ms.press(Button.left)
+        self.ms_press(Button.left)
         move_times = 5  # 移动次数(不要设高了，避免漂移)
         gap_time = (duration_ms / move_times) * 0.001  # 移动次数除以间隔
         gap_x = dx / move_times
         gap_y = dy / move_times
         while move_times > 0:
             time.sleep(gap_time)
-            x, y = self.ms.position
-            self.ms.position = (x + gap_x, y + gap_y)
+            x, y = self.get_ms_position()
+            self.set_ms_position((x + gap_x, y + gap_y))
             move_times -= 1
-        self.ms.position = (finalx, finaly)  # 确保鼠标在最终位置
-        self.ms.release(Button.left)
+        self.set_ms_position((finalx, finaly))  # 确保鼠标在最终位置
+        self.ms_release(Button.left)
+
+    def ms_press(self, button):
+        self.__ms.press(button)
+
+    def ms_release(self, button):
+        self.__ms.release(button)
 
     def to_degree(self, degree):
         """
@@ -121,8 +205,8 @@ class BaseController:
         """
         start = time.time()
         while True:
+            wait_for_window(self)
             if time.time() - start > 2: break  # 避免超过2秒
-
             current_rotation = self.tracker.get_rotation()
             # 假设要求转向到45，获取的是60，则 degree - current_rotation = -15
             # 假设要求转向到45，获取的是10则 degree - current_rotation = 30
@@ -156,25 +240,16 @@ class BaseController:
             win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
 
 
+def task():
+    while True:
+        time.sleep(1)
+        bc.kb_press_and_release(bc.Key.space)
+
 if __name__ == '__main__':
     bc = BaseController(debug_enable=True)
-    # bc.ui_close_button()
-    # 拖动测试
-    pos = bc.ms.position
-    center = bc.gc.get_genshin_screen_center()
-    print(bc.gc.get_genshin_screen_center())
-    bc.ms.position = center
-    time.sleep(0.1)
-    # scale_x = bc.gc.w / 2 / 2349
-    # scale_y = bc.gc.h / 2 / 1303
-    scale_x = bc.gc.w / 2 / 2019
-    scale_y = bc.gc.h / 2 / 1120
-    dx,dy = 168, 220
-    anchor_x = center[0] - dx * scale_x
-    anchor_y = center[1] - dy * scale_y
-    print(scale_x, scale_y)
-    bc.ms.position = (anchor_x, anchor_y)
-
+    t = threading.Thread(target=task)
+    t.start()
+    t.join()
     # Logger.log("good", instance=BaseController)
     # bc.drag(GenShinCapture.get_genshin_screen_center(),1000, 200, 500)
     # bc.ms.position = (3858.0, 2322.0)

@@ -13,13 +13,13 @@ class LocationException(Exception):
 
 class MapController(BaseController):
     def __init__(self, tracker=None, ocr=None, debug_enable=False):
-        super(MapController, self).__init__()
+        super(MapController, self).__init__(debug_enable)
         if tracker is None:
             from matchmap.minimap_interface import MinimapInterface
             tracker = MinimapInterface
         if ocr is None:
             from controller.OCRController import OCRController
-            ocr = OCRController()
+            ocr = OCRController(debug_enable)
 
         self.stop_listen = False
         self.tracker = tracker
@@ -50,7 +50,7 @@ class MapController(BaseController):
     def click_anchor(self, anchor_name=None):
         if anchor_name is None: anchor_name = '传送锚点'
 
-        self.ms.click(self.Button.left)  # 点击锚点
+        self.mouse_left_click()  # 点击锚点
         time.sleep(1)  # 等待这一步很重要
         if self.ocr.find_text_and_click(anchor_name):
             self.log(f"点击{anchor_name}")
@@ -64,11 +64,11 @@ class MapController(BaseController):
 
     def kb_press(self, key):
         if self.stop_listen: return
-        self.keyboard.press(key)
+        super().kb_press(key)
 
     def kb_release(self, key):
         # 即使停止了也要释放
-        self.keyboard.release(key)
+        super().kb_release(key)
 
     # 1. 按下M键打开大地图
     def open_middle_map(self):
@@ -91,7 +91,7 @@ class MapController(BaseController):
         self.log("正在关闭大地图")
         self.ui_close_button()
         time.sleep(1)
-        self.ms.click(self.Button.left)
+        self.mouse_left_click()
 
     # 2. 切换到固定的缩放大小（依赖层岩巨源）
     def scale_middle_map(self, country):
@@ -158,6 +158,8 @@ class MapController(BaseController):
     def move_to_point(self, point, country):
         if self.stop_listen: return
         nearby_threshold = min(self.gc.h,self.gc.w) // 2 - 20
+
+
         self.move(point, nearby_threshold)
         delta_x, delta_y = self.get_dx_dy_from_target_position(point)
         if delta_x is None or abs(delta_x) > nearby_threshold or abs(delta_y) > nearby_threshold:
@@ -176,7 +178,6 @@ class MapController(BaseController):
         error_counter = 5
         while move_times > 0 and error_counter > 0:
             if self.stop_listen: return
-
             move_times -= 1
             if delta_x is None:
                 error_counter -= 1
@@ -211,7 +212,7 @@ class MapController(BaseController):
         anchor_y = center[1] - dy * self.scale_y
         anchor_pos = (anchor_x, anchor_y)
         self.log('移动鼠标到最终位置{}'.format(anchor_pos))
-        self.ms.position = anchor_pos
+        self.set_ms_position(anchor_pos)
 
     def transform(self, position, country, anchor_name=None, create_local_map_cache=True):
         """
