@@ -7,12 +7,16 @@ import numpy as np
 from mylogger.MyLogger3 import MyLogger
 from io import BytesIO
 import logging
-logger = MyLogger('apiclient', logging.INFO)
+from myutils.configutils import cfg
+logger = MyLogger('server_api', logging.INFO)
 logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
 
 # gc = GenShinCapture()
-url = 'http://127.0.0.1:5000/'
-ocr_url = 'http://127.0.0.1:5001/'
+cfg_minimap = cfg.get('minimap')
+cfg_ocr = cfg.get('ocr')
+url = f'http://{cfg_minimap.get("host")}:{cfg_minimap.get("port")}/'
+ocr_url = f'http://{cfg_ocr.get("host")}:{cfg_ocr.get("port")}/'
+# ocr_url = 'http://127.0.0.1:5001/'
 
 def __log(*args):
     logger.info(args)
@@ -142,10 +146,10 @@ if __name__ == '__main__':
         time.sleep(0.05)
         start = time.time()
         pos = position()
-        # pos = user_map_position()
         rot = rotation()
+        # get_ocr_result()
         cost = time.time() - start
-        print(f'pos {pos}, cost{cost}')
+        print(f'pos {pos},rotation {rot}, time cost{cost}')
         # print(f'rotation is {rot},  cost: {cost}')
     # create_cached_local_map(use_middle_map=True)
 
