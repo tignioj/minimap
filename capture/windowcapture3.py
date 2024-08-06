@@ -56,6 +56,20 @@ class WindowCapture:
         self.__update_rect()
         self.last_screen = None
 
+    def activate_window(self):
+        """
+        将窗口置于前台
+        :return:
+        """
+        if self.hwnd is not None:
+            win32gui.SetForegroundWindow(self.hwnd)
+    def is_active(self):
+        """
+        判断窗口是否处于前台
+        :return:
+        """
+        return win32gui.GetForegroundWindow() == self.hwnd
+
     def __update_rect(self):
         # find the handle for the window we want to capture
         self.hwnd = win32gui.FindWindow(None,self.window_name)
