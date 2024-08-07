@@ -63,8 +63,8 @@ class PathWrapper:
             p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'))
             self.points.append(p)
 
-
 class BasePathExecutor(BaseController):
+
     # 到达下一个点位采取何种移动方式？
     # TODO 暂时飞行模式和跳跃模式做同样的狂按空格处理
     MOVE_TYPE_NORMAL = 'path'  # (默认)正常步行模式
@@ -286,6 +286,31 @@ class BasePathExecutor(BaseController):
             # self.log(f"计算角度 ,当前:{self.current_position}, next{nextp}, 结果{deg}")
             return deg
 
+    def _thread_path_viewer(self):
+        if not cfg.get('show_path_viewer', 1): return  # 无需展示路径
+        path = self.path_obj
+        from autotrack.KeyPointViewer import get_points_img_live
+        #  当前路径结束后，应当退出循环，结束线程，以便于开启下一个线程展示新的路径
+        logger.info(f"准备展示路径:{path.target_name}")
+        win_name = f'path_viewer {threading.currentThread().name}'
+        while not self.stop_listen and not self.is_path_end:
+            time.sleep(0.3)
+            if len(path.points) > 0:
+                # win_name = 'path viewer'
+                img = get_points_img_live(path.points, path.target_name, radius=cfg.get('path_viewer_width', 500))
+                if img is None: continue
+                cv2.imshow(win_name, img)
+                cv2.moveWindow(win_name, 10, 10)
+                cv2.waitKey(1)
+            else:
+                logger.debug('路径列表为空，无法展示')
+        try:
+            cv2.destroyWindow(win_name)
+        except:
+
+            logger.debug('还没开始展示就结束了')
+        logger.debug("路径展示结束")
+
     def _thread_update_state(self):
         while not self.is_path_end and not self.stop_listen and not self._thread_update_state_finished:
             # self.log(f"多线程更新状态中, {self.stop_listen}")
@@ -319,30 +344,35 @@ class BasePathExecutor(BaseController):
             self.logger.warning(f"空白路线, 跳过")
             return
 
+        # 传送的时候可以顺便缓存局部地图，因此把传送放在第一行
         self.map_controller.transform((self.path_obj.points[0].x, self.path_obj.points[0].y), self.path_obj.country, create_local_map_cache=True)
-
-        thread_object_detect = threading.Thread(target=self._thread_object_detection)
-        thread_object_detect.start()
         # 开始更新位置
         thread_update_state = threading.Thread(target=self._thread_update_state)
         thread_update_state.start()
+        # 路径展示
+        thread_path_viewer = threading.Thread(target=self._thread_path_viewer)
+        thread_path_viewer.start()
+        # 目标检测
+        thread_object_detect = threading.Thread(target=self._thread_object_detection)
+        thread_object_detect.start()
         # 异常线程
         thread_exception = threading.Thread(target=self._thread_exception_detect)
         thread_exception.start()
 
-        self.wait_for_position_update(10)
-            # self.debug(f"由于超过10秒没有获取到位置,跳过点位{point}")
-            # continue  # 上面的while循环未能成功加载位置，跳到下一个点位
 
         for point in self.path_obj.points[1:]:
             if self.stop_listen: return
+
+            # 阻塞等待位置刷新
+            if not self.wait_for_position_update(10):
+                self.debug(f"由于超过10秒没有获取到位置,跳过点位{point}")
+                continue  # 上面的while循环未能成功加载位置，跳到下一个点位
 
             self.debug(f"当前位置{self.current_position}, 正在前往点位{point}")
             self.next_point = point
             if not point1_near_by_point2(self.current_position, (point.x, point.y), 500):
                 # 如果当前点位距离下一个点位过远，可能是由于角色死亡被传送
                 self.log("当前点位距离下一个点位过远，可能是由于角色死亡被传送, 提前终止{}")
-                self.reset_state()
                 return False
 
             small_step_enable = point.type == self.object_to_detect or point.type == 'end'
@@ -359,6 +389,7 @@ class BasePathExecutor(BaseController):
         self.is_path_end = True
         # 等待线程结束
         thread_object_detect.join()
+        thread_path_viewer.join()
         thread_update_state.join()
         thread_exception.join()
         self.log("线程已全部结束")
@@ -367,70 +398,32 @@ class BasePathExecutor(BaseController):
 
         return True
 
-class ExecutorWrapper:
-    def __init__(self):
-        self.path_end = False
-    def path_viewer(self, bp:BasePathExecutor=None):
-        path = bp.path_obj
-        from autotrack.KeyPointViewer import get_points_img_live
-        #  当前路径结束后，应当退出循环，结束线程，以便于开启下一个线程展示新的路径
-        logger.info(f"准备展示路径:{path.target_name}")
-        win_name = f'path_viewer {threading.currentThread().name}'
-        while not self.path_end and not bp.is_path_end and not bp.stop_listen:
-            time.sleep(0.3)
-            if len(path.points) > 0:
-                # win_name = 'path viewer'
-                img = get_points_img_live(path.points, path.target_name, radius=cfg.get('path_viewer_width', 500))
-                if img is None: continue
-                cv2.imshow(win_name, img)
-                cv2.moveWindow(win_name, 10, 10)
-                cv2.waitKey(1)
-            else:
-                logger.debug('路径列表为空，无法展示')
-        try:
-            cv2.destroyWindow(win_name)
-        except:
 
-            logger.debug('还没开始展示就结束了')
-        logger.debug("路径展示结束")
+def execute_one(jsonfile):
+    logger.info(f"开始执行{jsonfile}")
+    pw = PathWrapper(jsonfile)
+    debug_enable = cfg.get('debug_enable', True)
+    BasePathExecutor(pw, debug_enable=debug_enable).execute()
+    logger.info(f"文件{jsonfile}执行完毕")
+    return True
 
-    def execute_one(self, jsonfile):
-        logger.info(f"开始执行{jsonfile}")
-        pw = PathWrapper(jsonfile)
-        thread_path_viewer = None
-
-        debug_enable = cfg.get('debug_enable', True)
-
-        bp = BasePathExecutor(pw, debug_enable=debug_enable)
-        if cfg.get('show_path_viewer', 0) == 1:
-            thread_path_viewer = threading.Thread(target=self.path_viewer, args=(bp,))
-            thread_path_viewer.start()
-        bp.execute()
-
-
-        if thread_path_viewer:
-            thread_path_viewer.join()
-        self.path_end = True
-        logger.info(f"文件{jsonfile}执行完毕")
-        return True
-
-    def execute_all(self):
-        points_path = cfg.get('points_path', os.path.join(PROJECT_PATH,'resources', 'pathlist'))
-        if not os.path.exists(points_path):
-            logger.error('路径不存在！')
-            return
-        filenames = os.listdir(points_path)
-        try:
-            for filename in filenames:
-                self.execute_one(os.path.join(points_path, filename))
-        except Exception as e:
-            logger.error(f'发生错误: {e}')
-        finally:
-            logger.info("全部执行完成，按下m")
-            import controller.BaseController
-            BaseController().kb_press_and_release('m')
-            # print("30秒后进入睡眠")
-            # time.sleep(30)
+def execute_all():
+    points_path = cfg.get('points_path', os.path.join(PROJECT_PATH,'resources', 'pathlist'))
+    if not os.path.exists(points_path):
+        logger.error('路径不存在！')
+        return
+    filenames = os.listdir(points_path)
+    try:
+        for filename in filenames:
+            execute_one(os.path.join(points_path, filename))
+    except Exception as e:
+        logger.error(f'发生错误: {e}')
+    finally:
+        logger.info("全部执行完成，按下m")
+        import controller.BaseController
+        BaseController().kb_press_and_release('m')
+        # print("30秒后进入睡眠")
+        # time.sleep(30)
 
 def getjson(filename):
     # 获取当前脚本所在的目录
@@ -443,6 +436,7 @@ def getjson(filename):
 if __name__ == '__main__':
     # 测试点位
     import json, os
-    ew = ExecutorWrapper()
-    # ew.execute_one(getjson('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json'))
-    ew.execute_one(getjson('甜甜花_枫丹_中央实验室遗址_test_2024-08-07_10_28_37.json'))
+    # execute_one(getjson('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json'))
+    # ew.execute_one(getjson('甜甜花_枫丹_中央实验室遗址_test_2024-08-07_10_28_37.json'))
+    execute_all()
+
