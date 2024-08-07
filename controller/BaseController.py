@@ -73,6 +73,7 @@ class _MouseController(mouse.Controller):
         # if pos[0] < 0 or pos[1] < 0:
         #     raise ValueError("Position coordinates must be non-negative.")
         # Directly call the parent setter method
+        wait_for_window(self.handler)
         mouse.Controller.position.fset(self, pos)  # Call parent setter method
 
 
@@ -106,8 +107,6 @@ class BaseController:
         self.ms_listener.start()
 
     def set_ms_position(self, pos):
-        wait_for_window(self)
-        # self.__ms.move(pos[0], pos[1])
         self.__ms.position = pos
 
     def get_ms_position(self):
