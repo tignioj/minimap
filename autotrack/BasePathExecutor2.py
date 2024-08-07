@@ -3,7 +3,7 @@ import sys
 import threading
 import time
 import cv2
-
+import json
 import logging
 import numpy as np
 from controller.BaseController import BaseController
@@ -12,14 +12,57 @@ from controller.MapController2 import MapController
 from controller.OCRController import OCRController
 from capture.genshin_capture import GenShinCapture
 from autotrack.utils import point1_near_by_point2
-from myutils.timerutils import RateLimiter
 from myutils.configutils import cfg, PROJECT_PATH
+from myutils.timerutils import RateLimiter
+from mylogger.MyLogger3 import MyLogger
+logger = MyLogger('path_executor')
 
 class MovingStuckException(Exception):
     pass
 
 class MovingTimeOutException(Exception):
     pass
+
+
+class Point:
+    TYPE_START = 'start'
+    TYPE_PATH = 'path'
+    TYPE_TARGET = 'target'
+    TYPE_END = 'end'
+
+    def __init__(self, x, y, type=TYPE_PATH, action=None):
+        self.x = x
+        self.y = y
+        self.type = type
+        self.target_name = None
+        self.action = action
+
+from typing import List
+class PathWrapper:
+    def raise_error(self, msg):
+        logger.error(msg)
+        raise Exception(msg)
+    def __init__(self, jsonfile):
+        with open(jsonfile, encoding="utf-8") as r:
+            json_obj = json.load(r)
+            target_name = json_obj.get('name')
+            positions = json_obj.get('positions')
+
+        if positions is None or len(positions) < 1:
+            self.raise_error(f"空白路线, 跳过")
+
+        self.absolute_path = jsonfile
+        # 冗余信息
+        if positions[0].get('type') != "start":
+            self.raise_error(f"第一个点位必须是start")
+
+        self.points: List[Point] = []
+        self.country = positions[0].get('country')
+        self.target_name = target_name
+        for point in positions:
+            p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'))
+            self.points.append(p)
+
 
 class BasePathExecutor(BaseController):
     # 到达下一个点位采取何种移动方式？
@@ -28,34 +71,43 @@ class BasePathExecutor(BaseController):
     MOVE_TYPE_FLY = 'fly'  # 飞行模式
     MOVE_TYPE_JUMP = 'jump'  # 跳跃模式
 
-    def __init__(self, gc=None, debug_enable=False, ocr=None, show_path_viewer=False):
+    def __init__(self, path: PathWrapper, debug_enable=False):
         super().__init__(debug_enable=debug_enable)
-        self.show_path_viewer = show_path_viewer
-        if ocr is None: ocr = OCRController(debug_enable=debug_enable)
-        self.ocr = ocr
-        self.gc = gc
+        self.ocr = OCRController(debug_enable=debug_enable)
+        # 传送用
+        self.map_controller = MapController(tracker=self.tracker, debug_enable=debug_enable)
+        self.debug_enable = debug_enable
+        self.path_obj = path
 
-        # 状态
-        self.current_position = None
-        self.current_rotation = None  # 当前视角
-        self.next_point = None
-        self.is_path_end = False  # 是否到达终点
-        self.near_by_threshold = 8  # A,B距离多少个像素点表示他们是临近
-        self.near_by_threshold_small_step = 2  # 开启小碎步时，A,B判定距离是否接近的阈值
-
+        ################## 参数 #########################
         self.move_next_point_allow_max_time = cfg.get('move_next_point_allow_max_time', 20)
-        if self.move_next_point_allow_max_time < 5: self.move_next_point_allow_max_time = 5
-        elif self.move_next_point_allow_max_time > 60: self.move_next_point_allow_max_time = 60
+        if self.move_next_point_allow_max_time < 5:
+            self.move_next_point_allow_max_time = 5
+        elif self.move_next_point_allow_max_time > 60:
+            self.move_next_point_allow_max_time = 60
 
         self.object_to_detect = None  # 目标检测对象, 例如 钓鱼
         self.position_history = deque(maxlen=8)  # 一秒钟存1次，计算总距离
         self.stuck_movement_threshold = cfg.get('stuck_movement_threshold', 20)
-        if self.stuck_movement_threshold < 2: self.stuck_movement_threshold = 2
-        elif self.stuck_movement_threshold > 50: self.stuck_movement_threshold = 50
+        if self.stuck_movement_threshold < 2:
+            self.stuck_movement_threshold = 2
+        elif self.stuck_movement_threshold > 50:
+            self.stuck_movement_threshold = 50
+
+        # 精度：当前位置距离目标点距离多少个像素点表示他们是临近, 小碎步时候要用到
+        self.target_nearby_threshold = cfg.get('target_nearby_threshold', 2)
+        if self.target_nearby_threshold < 0.1: self.target_nearby_threshold = 0.1
+        if self.target_nearby_threshold > 10: self.target_nearby_threshold = 10
+
+        self.path_point_nearby_threshold = cfg.get('path_point_nearby_threshold', 2)
+        if self.path_point_nearby_threshold < 2: self.path_point_nearby_threshold = 2
+        if self.path_point_nearby_threshold > 50: self.path_point_nearby_threshold = 50
 
         self.path_viewer_width = cfg.get('path_viewer_width', 500)
-        if self.path_viewer_width < 50: self.path_viewer_width = 50
-        elif self.path_viewer_width > 4096: self.path_viewer_width = 4096
+        if self.path_viewer_width < 50:
+            self.path_viewer_width = 50
+        elif self.path_viewer_width > 4096:
+            self.path_viewer_width = 4096
 
         self.allow_small_steps = cfg.get('allow_small_steps', 1) == 1
         self.enable_crazy_f = cfg.get('enable_crazy_f', 1) == 1
@@ -64,21 +116,23 @@ class BasePathExecutor(BaseController):
         self.enable_loop_jump = cfg.get('enable_loop_jump', 1) == 1
         self.enable_dash = cfg.get('enable_dash', 1) == 1
 
-        self.rate_limiter_history = RateLimiter(1)  # 一秒钟之内只能执行一次
-
         self.last_update_time = time.time()
         self.UPDATE_POSITION_INTERVAL = 0.05  # 0.05s更新一次位置
 
+        ############ 状态 ##############
+        self.current_position = None
+        self.current_rotation = None  # 当前视角
+        self.next_point = None
+        self.prev_point = None
+        self.is_path_end = False  # 是否到达终点
         # 多线程
         self._thread_object_detect_finished = False  # 目标检测任务
         self._thread_update_state_finished = False  # 更新状态
 
-        # 传送用
-        self.map_controller = MapController(tracker=self.tracker, debug_enable=debug_enable)
+        ######## 其他 #######
+        self.rate_limiter1_history = RateLimiter(1)  # 一秒钟之内只能执行一次
+        self.rate_limiter5_debug_print = RateLimiter(5)  # 5秒内只能执行一次
 
-        # 调试
-        self.debug_enable = debug_enable
-        self.rate_limiter = RateLimiter(5)  # 5秒内只能执行一次
 
     def _thread_object_detection(self):
         pass
@@ -86,27 +140,6 @@ class BasePathExecutor(BaseController):
     def debug(self, *args):
         if self.stop_listen: return
         self.logger.debug(args)
-
-    def points_viewer(self, positions, name):
-        from autotrack.KeyPointViewer import get_points_img_live
-        #  当前路径结束后，应当退出循环，结束线程，以便于开启下一个线程展示新的路径
-        self.log(f"准备展示路径{positions}, path_end={self.is_path_end}, stop_listen={self.stop_listen}")
-        while True:
-            if self.stop_listen or self.is_path_end: return
-            time.sleep(0.3)
-            # self.logger.debug(f"路径展示中, path_end={self.is_path_end}, stop_listen={self.stop_listen}")
-            if positions is not None and len(positions) > 0:
-                win_name = f'path_viewer {threading.currentThread().name}'
-                # win_name = 'path viewer'
-                img = get_points_img_live(positions, name, radius=self.path_viewer_width)
-                if img is None: continue
-                cv2.imshow(win_name, img)
-                cv2.moveWindow(win_name, 10, 10)
-                cv2.waitKey(1)
-            else:
-                self.logger.debug('路径列表为空，无法展示')
-        cv2.destroyWindow(win_name)
-        self.log("路径展示结束")
 
     def calculate_total_displacement(self):
         """
@@ -146,11 +179,10 @@ class BasePathExecutor(BaseController):
 
 
         # 是否接近下一个点位的距离阈值
-        near_by_threshold = self.near_by_threshold
-        if small_step_enable: near_by_threshold = self.near_by_threshold_small_step
+        if small_step_enable: near_by_threshold = self.target_nearby_threshold
+        else: near_by_threshold = self.path_point_nearby_threshold
 
         # 当接近目的地时，调整更小的阈值, 使得小碎步可以更精准走到目的地
-        from myutils.timerutils import RateLimiter
         rate_limiter_debugprint = RateLimiter(1)
 
         rate_limiter_press_e = RateLimiter(1)
@@ -179,12 +211,11 @@ class BasePathExecutor(BaseController):
                     time.sleep(1)
                     continue
 
-
-                if point1_near_by_point2(pos, coordinates, self.near_by_threshold):
+                if point1_near_by_point2(pos, coordinates, self.path_point_nearby_threshold):
                     self.on_nearby(coordinates)
                     running_small_step = True
 
-                self.rate_limiter_history.execute(self.position_history.append, self.current_position)
+                self.rate_limiter1_history.execute(self.position_history.append, self.current_position)
                 # self.position_history.append(self.current_position)  # 记录历史路径
                 total_displacement = self.calculate_total_displacement()  # 8秒内的位移
                 if total_displacement < self.stuck_movement_threshold: raise MovingStuckException(f"8秒内位移平均值为{total_displacement}, 判定为卡住了！")
@@ -244,8 +275,7 @@ class BasePathExecutor(BaseController):
 
         self.last_update_time = time.time()
         msg = f"更新状态: cost:{time.time() - start},next:{self.next_point}, current pos:{self.current_position}, rotation:{self.current_rotation},is_path_end:{self.is_path_end}, is_object_detected_end:{self._thread_object_detect_finished}"
-        # self.logger.debug(msg)
-        self.rate_limiter.execute(self.debug, msg)
+        self.rate_limiter5_debug_print.execute(self.debug, msg)
 
     def get_next_point_rotation(self, next_point):
         from autotrack.utils import calculate_angle
@@ -255,18 +285,6 @@ class BasePathExecutor(BaseController):
             deg = calculate_angle(x0, y0, nextp[0], nextp[1])
             # self.log(f"计算角度 ,当前:{self.current_position}, next{nextp}, 结果{deg}")
             return deg
-
-    def reset_state(self):
-        self.current_position = None
-        self.current_rotation = None  # 当前视角
-        self.next_point = None
-        self.is_path_end = True # 是否到达终点
-        self.near_by_threshold = 8  # A,B距离多少个像素点表示他们是临近
-        self.object_to_detect = None  # 目标检测对象, 例如 钓鱼
-
-        # 多线程
-        self._thread_object_detect_finished = False  # 目标检测任务
-        self._thread_update_state_finished = False  # 更新状态
 
     def _thread_update_state(self):
         while not self.is_path_end and not self.stop_listen and not self._thread_update_state_finished:
@@ -294,103 +312,125 @@ class BasePathExecutor(BaseController):
             time.sleep(0.001)
         return pos
 
-    def path_execute(self, path):
-        self.logger.info("开始执行{}".format(path))
-        self.reset_state()
-        with open(path, encoding="utf-8") as r:
-            json_obj = json.load(r)
-            self.object_to_detect = json_obj["name"]
-            self.log(f"当前采集任务:{self.object_to_detect}")
-            path_list = json_obj['positions']
-            if len(path_list) < 1:
-                self.logger.warning(f"空白路线, 跳过")
-                return
-            if path_list[0].get('type') != 'start':
-                self.logger.error(f"第一个点位必须是start,跳过该路线")
-                return
+    def execute(self):
+        self.logger.debug(f'开始执行{self.path_obj.absolute_path}')
+        self.object_to_detect = self.path_obj.target_name
+        if len(self.path_obj.points) < 1:
+            self.logger.warning(f"空白路线, 跳过")
+            return
 
-            self.is_path_end = False
-            thread_path_viewer = None
-            if self.show_path_viewer:
-                thread_path_viewer = threading.Thread(target=self.points_viewer, args=(path_list, self.object_to_detect))
-                thread_path_viewer.start()
+        self.map_controller.transform((self.path_obj.points[0].x, self.path_obj.points[0].y), self.path_obj.country, create_local_map_cache=True)
 
-            for point in path_list:
-                if self.stop_listen: return
-                self.debug(f"当前位置{self.current_position}, 正在前往点位{point}")
-                self.next_point = point
+        thread_object_detect = threading.Thread(target=self._thread_object_detection)
+        thread_object_detect.start()
+        # 开始更新位置
+        thread_update_state = threading.Thread(target=self._thread_update_state)
+        thread_update_state.start()
+        # 异常线程
+        thread_exception = threading.Thread(target=self._thread_exception_detect)
+        thread_exception.start()
 
-                if point['type'] == 'start':  # 传送
-                    self.map_controller.transform((point['x'], point['y']), point['country'], create_local_map_cache=True)
+        self.wait_for_position_update(10)
+            # self.debug(f"由于超过10秒没有获取到位置,跳过点位{point}")
+            # continue  # 上面的while循环未能成功加载位置，跳到下一个点位
 
-                    thread_object_detect = threading.Thread(target=self._thread_object_detection)
-                    thread_object_detect.start()
-                    # 开始更新位置
-                    thread_update_state = threading.Thread(target=self._thread_update_state)
-                    thread_update_state.start()
+        for point in self.path_obj.points[1:]:
+            if self.stop_listen: return
 
-                    # 异常线程
-                    thread_exception = threading.Thread(target=self._thread_exception_detect)
-                    thread_exception.start()
+            self.debug(f"当前位置{self.current_position}, 正在前往点位{point}")
+            self.next_point = point
+            if not point1_near_by_point2(self.current_position, (point.x, point.y), 500):
+                # 如果当前点位距离下一个点位过远，可能是由于角色死亡被传送
+                self.log("当前点位距离下一个点位过远，可能是由于角色死亡被传送, 提前终止{}")
+                self.reset_state()
+                return False
 
-                if not self.wait_for_position_update(10):
-                    self.debug(f"由于超过10秒没有获取到位置,跳过点位{point}")
-                    continue  # 上面的while循环未能成功加载位置，跳到下一个点位
+            small_step_enable = point.type == self.object_to_detect or point.type == 'end'
+            self.move((point.x, point.y), small_step_enable)
+            self.debug("已到达", point)
 
-                if not point1_near_by_point2(self.current_position,
-                                             (point['x'], point['y']), 500):
-                    # 如果当前点位距离下一个点位过远，可能是由于角色死亡被传送
-                    self.log("当前点位距离下一个点位过远，可能是由于角色死亡被传送, 提前终止{}".format(path))
-                    # 重置状态
-                    self.reset_state()
-                    return False
+            self.on_move_after(point)
 
-                small_step_enable = point['type'] == self.object_to_detect or point['type'] == 'end'
-                self.move((point['x'], point['y']), small_step_enable)
-                self.debug("已到达", point)
+            if point.type == Point.TYPE_END:
+                self.log("已经走到终点")
+                break
 
-                self.on_move_after(point)
-
-                if point['type'] == "end":
-                    self.log("已经走到终点")
-                    break
-
-        self.log("文件{}执行完毕".format(path))
+        self.log("文件{}执行完毕")
         self.is_path_end = True
-
         # 等待线程结束
         thread_object_detect.join()
         thread_update_state.join()
         thread_exception.join()
-        if self.show_path_viewer:
-            thread_path_viewer.join()
         self.log("线程已全部结束")
 
         # 重置状态
-        self.reset_state()
+
         return True
 
+class ExecutorWrapper:
+    def __init__(self):
+        self.path_end = False
+    def path_viewer(self, bp:BasePathExecutor=None):
+        path = bp.path_obj
+        from autotrack.KeyPointViewer import get_points_img_live
+        #  当前路径结束后，应当退出循环，结束线程，以便于开启下一个线程展示新的路径
+        logger.info(f"准备展示路径:{path.target_name}")
+        win_name = f'path_viewer {threading.currentThread().name}'
+        while not self.path_end and not bp.is_path_end and not bp.stop_listen:
+            time.sleep(0.3)
+            if len(path.points) > 0:
+                # win_name = 'path viewer'
+                img = get_points_img_live(path.points, path.target_name, radius=cfg.get('path_viewer_width', 500))
+                if img is None: continue
+                cv2.imshow(win_name, img)
+                cv2.moveWindow(win_name, 10, 10)
+                cv2.waitKey(1)
+            else:
+                logger.debug('路径列表为空，无法展示')
+        try:
+            cv2.destroyWindow(win_name)
+        except:
 
-def _execute_all():
-    # p.path_execute(getjson('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json'))
-    points_path = cfg.get('points_path', os.path.join(PROJECT_PATH,'resources', 'pathlist'))
-    show_path_viewer = cfg.get('show_path_viewer', True)
-    debug_enable = cfg.get('debug_enable', True)
-    p = BasePathExecutor(debug_enable=debug_enable, show_path_viewer=show_path_viewer)
-    if not os.path.exists(points_path):
-        p.logger.error('路径不存在！')
-        return
-    filenames = os.listdir(points_path)
-    try:
-        for filename in filenames:
-            p.path_execute(os.path.join(points_path, filename))
-    except Exception as e:
-        p.logger.error(f'发生错误: {e}')
-    finally:
-        p.logger.info("全部执行完成，按下m")
-        p.kb_press_and_release("m")
-        # print("30秒后进入睡眠")
-        # time.sleep(30)
+            logger.debug('还没开始展示就结束了')
+        logger.debug("路径展示结束")
+
+    def execute_one(self, jsonfile):
+        logger.info(f"开始执行{jsonfile}")
+        pw = PathWrapper(jsonfile)
+        thread_path_viewer = None
+
+        debug_enable = cfg.get('debug_enable', True)
+
+        bp = BasePathExecutor(pw, debug_enable=debug_enable)
+        if cfg.get('show_path_viewer', 0) == 1:
+            thread_path_viewer = threading.Thread(target=self.path_viewer, args=(bp,))
+            thread_path_viewer.start()
+        bp.execute()
+
+
+        if thread_path_viewer:
+            thread_path_viewer.join()
+        self.path_end = True
+        logger.info(f"文件{jsonfile}执行完毕")
+        return True
+
+    def execute_all(self):
+        points_path = cfg.get('points_path', os.path.join(PROJECT_PATH,'resources', 'pathlist'))
+        if not os.path.exists(points_path):
+            logger.error('路径不存在！')
+            return
+        filenames = os.listdir(points_path)
+        try:
+            for filename in filenames:
+                self.execute_one(os.path.join(points_path, filename))
+        except Exception as e:
+            logger.error(f'发生错误: {e}')
+        finally:
+            logger.info("全部执行完成，按下m")
+            import controller.BaseController
+            BaseController().kb_press_and_release('m')
+            # print("30秒后进入睡眠")
+            # time.sleep(30)
 
 def getjson(filename):
     # 获取当前脚本所在的目录
@@ -403,20 +443,6 @@ def getjson(filename):
 if __name__ == '__main__':
     # 测试点位
     import json, os
-    # p = BasePathExecutor(debug_enable=True, show_path_viewer=True)
-    # p.path_execute(getjson('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json'))
-    # p.path_execute(getjson('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json'))
-    # p.path_execute(getjson("钓鱼_蒙德_低语森林_2024-04-26_15_11_25.json"))
-    # p.path_execute(getjson("2024-04-22_15_09_28_蒙德_fish_mengde_qinquanzhen.json"))
-    # p.path_execute(getjson("2024-04-22_23_30_42_蒙德_fish_mengde_chenxijiuzhuang.json"))  # 钓鱼点有冰史莱姆
-    # p.path_execute(getjson("2024-04-23_10_14_34_璃月_fish_liyue_guiliyuan.json"))  # 可能会不小心上桥
-    # p.path_execute(getjson("2024-04-23_14_18_25_璃月_fish_liyue-luhuachi.json")) #bad
-    # while not p.path_execute(getjson("2024-04-23_15_06_07_璃月_fish_liyue_liyuegang.json")): pass
-    # while not p.path_execute(getjson("2024-04-25_07_28_31_璃月_fish_liyue_liyuegang.json")): print( "没有执行成功，再次执行！！")  # alhpa 翻车
-    # while not p.path_execute(getjson("2024-04-23_23_45_06_稻妻_fish_daoqi_mingzhuitan.json")): print( "没有执行成功，再次执行！！")
-    # p.path_execute(getjson("2024-04-24_00_20_44_稻妻_fish_daoqi_yueshicun.json"))
-    # p.path_execute(getjson("2024-04-25_02_13_52_稻妻_fish_daoqi_yueshicun2.json"))
-    # p.path_execute(getjson("染之庭_稻妻_无想刃狭间_2024-04-27_06_16_04.json"))
-
-    # // TODO 在终点把视角调整到正确的位置
-    _execute_all()
+    ew = ExecutorWrapper()
+    # ew.execute_one(getjson('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json'))
+    ew.execute_one(getjson('甜甜花_枫丹_中央实验室遗址_test_2024-08-07_10_28_37.json'))
