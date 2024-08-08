@@ -42,13 +42,13 @@ def get_user_map_position():
 @app.route('/usermap/create_cache', methods=['POST'])
 def create_cached_local_map():
     data = request.json  # 获取JSON数据
-    xywh = data.get('xywh')
+    center_pos = data.get('center_pos')
     use_middle_map = data.get('use_middle_map')
     result = False
-
-    if xywh:
-        (x,y,w,h) = xywh
-        result = app.minimap.global_match_cache((x,y))
+    if center_pos:
+        # 用户传过来的是相对位置，要转换成绝对位置
+        pix_pos = app.minimap.relative_axis_to_pix_axis(center_pos)
+        result = app.minimap.global_match_cache(pix_pos)
     elif use_middle_map:
         pos = app.minimap.get_user_map_position()
         if pos:

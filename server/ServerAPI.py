@@ -44,8 +44,8 @@ def position():
 def user_map_position():
     return requests.get(f"{url}/usermap/get_position").json()
 
-def create_cached_local_map(xywh=None, use_middle_map=False):
-    jsondata = {'xywh': xywh, 'use_middle_map': use_middle_map}
+def create_cached_local_map(center_pos=None, use_middle_map=False):
+    jsondata = {'center_pos': center_pos, 'use_middle_map': use_middle_map}
     result = requests.post(f"{url}/usermap/create_cache", json=jsondata).json()
     __log(result)
 
@@ -117,41 +117,18 @@ def get_local_map():
 if __name__ == '__main__':
     # 发送POST请求
     gc = GenShinCapture
-    # while True:
-    #     t0 = time.time()
-    #     res = get_ocr_result()
-    #     print(time.time() - t0, res)
-    # create_cached_local_map(xywh=(7662, 5388, 1500, 1500))
-    # create_cached_local_map(xywh=(0, 0, 1500, 1500))
-
-    create_cached_local_map()
-    # lm = get_local_map()
-    # cv2.imshow('lm',lm['map'])
-    # cv2.waitKey(0)
-
-    # rm = get_region_map(0, 0, 1000)
-    # cv2.imshow('rm',rm)
-    # cv2.waitKey(0)
-
-    # res = ocr_result()
-    # print(res)
-    p1 = [-7209.0248359375, -10994.55801953125]
-    p2 = [-8929.54485546875, -10048.055333984375]
-    dx = p2[0]-p1[0]
-    dy = p2[1]-p1[1]
-    print(dx,dy)
-
     # create_cached_local_map(use_middle_map=False)
-    while True:
-        time.sleep(0.05)
-        start = time.time()
-        pos = position()
-        rot = rotation()
-        # get_ocr_result()
-        cost = time.time() - start
-        print(f'pos {pos},rotation {rot}, time cost{cost}')
+    # create_cached_local_map((-7211.3272, -10996.9493))
+    create_cached_local_map((0,0))
+    # while True:
+    #     time.sleep(0.05)
+    #     start = time.time()
+    #     pos = position()
+    #     rot = rotation()
+    #     # get_ocr_result()
+    #     cost = time.time() - start
+    #     print(f'pos {pos},rotation {rot}, time cost{cost}')
         # print(f'rotation is {rot},  cost: {cost}')
-    # create_cached_local_map(use_middle_map=True)
 
     # import threading
     # for i in range(10):
