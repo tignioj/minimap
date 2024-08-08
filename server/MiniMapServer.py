@@ -50,6 +50,7 @@ def create_cached_local_map():
         pix_pos = app.minimap.relative_axis_to_pix_axis(center_pos)
         result = app.minimap.global_match_cache(pix_pos)
     elif use_middle_map:
+        # 现在传送移动地图不是移动到中心点，传送的时候禁止用此方法创建缓存
         pos = app.minimap.get_user_map_position()
         if pos:
             pos = app.minimap.relative_axis_to_pix_axis(pos)

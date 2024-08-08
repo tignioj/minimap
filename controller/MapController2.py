@@ -229,7 +229,7 @@ class MapController(BaseController):
         try:
             self.move_to_point(position, country)  # 移动大地图到锚点位置（中心点)
         # 避免minimap全局匹配，直接指定区域缓存局部地图作为匹配
-            self.tracker.create_cached_local_map(use_middle_map=create_local_map_cache)
+            self.tracker.create_cached_local_map(center=position)
             self.click_anchor(anchor_name)  # 点击传送锚点
         except LocationException:
             self.logger.error('移动过程中出现无法匹配地图的情况，正在重试传送')
