@@ -4,8 +4,7 @@ import time
 from typing import List
 import cv2
 from matchmap.minimap_interface import MinimapInterface
-from myexecutor.executor_utils import load_json, Point
-import os
+from myutils.jsonutils import load_json, Point, getjson_path_byname
 
 
 # MinimapInterface.create_cached_local_map()
@@ -34,26 +33,20 @@ def calculate_angle(x0, y0, x1, y1):
         return angle + math.pi
 
 
-def getjson(filename):
-    # 获取当前脚本所在的目录
-    target = filename.split("_")[0]
-    from myutils.configutils import resource_path
-    # 拼接资源目录的路径
-    file = os.path.join(resource_path,'pathlist',target, filename)
-    return file
-
 def show_points(points, object_to_detect=None, width=1024, scale=None):
     if len(points) < 1:
         return
 
     region_img = get_points_img(points,object_to_detect, width,scale=scale)
     # region_img = cv2.resize(region_img, None, fx=0.5, fy=0.5)
-    cv2.imshow('points', region_img)
-    # cv2.imwrite('jiuguan.png', region_img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    from PIL import Image
+    img = Image.fromarray(cv2.cvtColor(region_img, cv2.COLOR_BGR2RGB))
+    img.show()
+    # cv2.imshow('points', region_img)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
 
-def get_points_img(points: List[Point], object_to_detect, width=2048, user_position=None, scale=None):
+def get_points_img(points: List[Point], object_to_detect=None, width=2048, user_position=None, scale=None):
     if points is None or len(points) < 1: return
 
     point_start = points[0]
@@ -81,8 +74,8 @@ def get_points_img(points: List[Point], object_to_detect, width=2048, user_posit
         y2 = int(last_point.y - point_start.y + width // 2 - dy)
         point_B = (x2,y2)
         # 画线
-        # cv2.line(image, point_A, point_B, (255, 0, 0), 2)
-        cv2.arrowedLine(region_img, point_B, point_A, (255, 0, 0), 1, tipLength=0.2)
+        cv2.line(region_img, point_A, point_B, (255, 0,0), 1)
+        # cv2.arrowedLine(region_img, point_B, point_A, (255, 0, 0), 1, tipLength=0.2)
         last_point = point
 
         # 画点（在指定坐标处绘制一个红色的点，大小为2）
@@ -165,14 +158,15 @@ if __name__ == '__main__':
     # jsonfile = getjson('调查_须弥_鸡哥左下角_2024-04-29_13_45_26.json')
     # jsonfile = getjson('调查_璃月_测试4_绝云间_2024-07-30_09_12_47.json')
     # jsonfile = getjson('调查_稻妻_名椎滩_2024-04-28_05_54_44.json')
-    # jsonfile = getjson('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json')
+    jsonfile = getjson_path_byname('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json')
     # jsonfile = getjson('jiuguan_蒙德_test_scale2_20240808.json')
-    jsonfile = getjson('jiuguan_蒙德_wfsd_20240808.json')
+    # jsonfile = getjson_path_byname('jiuguan_蒙德_wfsd_20240808.json')
+    # jsonfile = getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json')
+    # jsonfile = getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json')
     json_map = load_json(jsonfile)
-    import json
-    # show_points(json_map['positions'], json_map['name'], 1024, scale=2)
-    while True:
-        time.sleep(0.1)
-        show_points_live(json_map.get('positions'))
-        # show_points(p.points, p.target_name, 1024)
+    show_points(json_map['positions'], json_map['name'], 1024, scale=1)
+    # show_points(json_map.get('positions'), json_map['name'],width=1200,scale=3)
+    # while True:
+    #     time.sleep(0.1)
+        # show_points_live(json_map.get('positions'), json_map['name'],scale=1.5)
     #     show_points_live(path_list, object_to_detect=object_to_detect, width=1024)
