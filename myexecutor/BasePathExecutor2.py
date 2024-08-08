@@ -11,10 +11,12 @@ from collections import deque
 from controller.MapController2 import MapController
 from controller.OCRController import OCRController
 from capture.genshin_capture import GenShinCapture
-from autotrack.utils import point1_near_by_point2
+from myexecutor.executor_utils import point1_near_by_point2
 from myutils.configutils import cfg, PROJECT_PATH
 from myutils.timerutils import RateLimiter
 from mylogger.MyLogger3 import MyLogger
+from typing import List
+
 logger = MyLogger('path_executor')
 
 class MovingStuckException(Exception):
@@ -23,45 +25,28 @@ class MovingStuckException(Exception):
 class MovingTimeOutException(Exception):
     pass
 
+# from typing import List
 
-class Point:
-    TYPE_START = 'start'
-    TYPE_PATH = 'path'
-    TYPE_TARGET = 'target'
-    TYPE_END = 'end'
 
-    def __init__(self, x, y, type=TYPE_PATH, action=None):
-        self.x = x
-        self.y = y
-        self.type = type
-        self.target_name = None
-        self.action = action
-
-from typing import List
-class PathWrapper:
-    def raise_error(self, msg):
-        logger.error(msg)
-        raise Exception(msg)
-    def __init__(self, jsonfile):
-        with open(jsonfile, encoding="utf-8") as r:
-            json_obj = json.load(r)
-            target_name = json_obj.get('name')
-            positions = json_obj.get('positions')
-
-        if positions is None or len(positions) < 1:
-            self.raise_error(f"空白路线, 跳过")
-
-        self.absolute_path = jsonfile
-        # 冗余信息
-        if positions[0].get('type') != "start":
-            self.raise_error(f"第一个点位必须是start")
-
-        self.points: List[Point] = []
-        self.country = positions[0].get('country')
-        self.target_name = target_name
-        for point in positions:
-            p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'))
-            self.points.append(p)
+# class PathWrapper:
+#     def raise_error(self, msg):
+#         logger.error(msg)
+#         raise Exception(msg)
+#
+#     def __init__(self, jsonfile):
+#         with open(jsonfile, encoding="utf-8") as r:
+#             json_obj = json.load(r)
+#             self.country = json_obj.get('country', '蒙德')
+#             self.target_name = json_obj.get('name')
+#             positions = json_obj.get('positions')
+#
+#         if positions is None or len(positions) < 1: self.raise_error(f"空白路线, 跳过")
+#
+#         self.absolute_path = jsonfile
+#         self.points: List[Point] = []
+#         for point in positions:
+#             p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'))
+#             self.points.append(p)
 
 class BasePathExecutor(BaseController):
 
@@ -71,13 +56,21 @@ class BasePathExecutor(BaseController):
     MOVE_TYPE_FLY = 'fly'  # 飞行模式
     MOVE_TYPE_JUMP = 'jump'  # 跳跃模式
 
-    def __init__(self, path: PathWrapper, debug_enable=False):
+
+
+    def __init__(self, json_file_path, debug_enable=False):
         super().__init__(debug_enable=debug_enable)
+        from myexecutor.executor_utils import load_json
+        json_map = load_json(json_file_path)
+        self.country = json_map['country'] # 传送到什么区域
+        self.target_name = json_map['name'] # 目标名称
+        self.points = json_map['positions']
+        self.json_file_path = json_file_path
+
         self.ocr = OCRController(debug_enable=debug_enable)
         # 传送用
         self.map_controller = MapController(tracker=self.tracker, debug_enable=debug_enable)
         self.debug_enable = debug_enable
-        self.path_obj = path
 
         ################## 参数 #########################
         self.move_next_point_allow_max_time = cfg.get('move_next_point_allow_max_time', 20)
@@ -278,7 +271,7 @@ class BasePathExecutor(BaseController):
         self.rate_limiter5_debug_print.execute(self.debug, msg)
 
     def get_next_point_rotation(self, next_point):
-        from autotrack.utils import calculate_angle
+        from myexecutor.executor_utils import calculate_angle
         if self.current_position and next_point:
             nextp = (next_point[0], next_point[1])
             x0, y0 = self.current_position[0], self.current_position[1]
@@ -288,16 +281,15 @@ class BasePathExecutor(BaseController):
 
     def _thread_path_viewer(self):
         if not cfg.get('show_path_viewer', 1): return  # 无需展示路径
-        path = self.path_obj
-        from autotrack.KeyPointViewer import get_points_img_live
+        from myexecutor.KeyPointViewer import get_points_img_live
         #  当前路径结束后，应当退出循环，结束线程，以便于开启下一个线程展示新的路径
-        logger.info(f"准备展示路径:{path.target_name}")
+        logger.info(f"准备展示路径:{self.target_name}")
         win_name = f'path_viewer {threading.currentThread().name}'
         while not self.stop_listen and not self.is_path_end:
             time.sleep(0.3)
-            if len(path.points) > 0:
+            if len(self.points) > 0:
                 # win_name = 'path viewer'
-                img = get_points_img_live(path.points, path.target_name, radius=cfg.get('path_viewer_width', 500))
+                img = get_points_img_live(self.points, self.target_name, radius=cfg.get('path_viewer_width', 500))
                 if img is None: continue
                 cv2.imshow(win_name, img)
                 cv2.moveWindow(win_name, 10, 10)
@@ -338,14 +330,15 @@ class BasePathExecutor(BaseController):
         return pos
 
     def execute(self):
-        self.logger.debug(f'开始执行{self.path_obj.absolute_path}')
-        self.object_to_detect = self.path_obj.target_name
-        if len(self.path_obj.points) < 1:
+        self.logger.debug(f'开始执行{self.json_file_path}')
+        self.object_to_detect = self.target_name
+        if len(self.points) < 1:
             self.logger.warning(f"空白路线, 跳过")
             return
 
         # 传送的时候可以顺便缓存局部地图，因此把传送放在第一行
-        self.map_controller.transform((self.path_obj.points[0].x, self.path_obj.points[0].y), self.path_obj.country, create_local_map_cache=True)
+        self.map_controller.transform((self.points[0].x, self.points[0].y),
+                                      self.country, create_local_map_cache=True)
         # 开始更新位置
         thread_update_state = threading.Thread(target=self._thread_update_state)
         thread_update_state.start()
@@ -360,7 +353,7 @@ class BasePathExecutor(BaseController):
         thread_exception.start()
 
 
-        for point in self.path_obj.points[1:]:
+        for point in self.points[1:]:
             if self.stop_listen: return
 
             # 阻塞等待位置刷新
@@ -376,14 +369,12 @@ class BasePathExecutor(BaseController):
                 return False
 
             small_step_enable = point.type == self.object_to_detect or point.type == 'end'
+            point.x -= 5.84
             self.move((point.x, point.y), small_step_enable)
             self.debug("已到达", point)
 
             self.on_move_after(point)
 
-            if point.type == Point.TYPE_END:
-                self.log("已经走到终点")
-                break
 
         self.log("文件{}执行完毕")
         self.is_path_end = True
@@ -401,9 +392,8 @@ class BasePathExecutor(BaseController):
 
 def execute_one(jsonfile):
     logger.info(f"开始执行{jsonfile}")
-    pw = PathWrapper(jsonfile)
     debug_enable = cfg.get('debug_enable', True)
-    BasePathExecutor(pw, debug_enable=debug_enable).execute()
+    BasePathExecutor(jsonfile, debug_enable=debug_enable).execute()
     logger.info(f"文件{jsonfile}执行完毕")
     return True
 
@@ -428,15 +418,16 @@ def execute_all():
 def getjson(filename):
     # 获取当前脚本所在的目录
     target = filename.split("_")[0]
-    relative_path = f"pathlist/{target}"
+    from myutils.configutils import resource_path
     # 拼接资源目录的路径
-    file = os.path.join(relative_path, filename)
+    file = os.path.join(resource_path,'pathlist',target, filename)
     return file
 
 if __name__ == '__main__':
     # 测试点位
     import json, os
     # execute_one(getjson('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json'))
+    execute_one(getjson('jiuguan_蒙德_wfsd_20240808.json'))
     # ew.execute_one(getjson('甜甜花_枫丹_中央实验室遗址_test_2024-08-07_10_28_37.json'))
-    execute_all()
+    # execute_all()
 

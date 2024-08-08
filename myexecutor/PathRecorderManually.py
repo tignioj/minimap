@@ -14,7 +14,8 @@ PyCharm需要用管理员方式启动，否则游戏内输入无效！
 from pynput import keyboard
 from pynput.keyboard import Key
 import json
-
+from myexecutor.executor_utils import Point, load_json
+from typing import List
 
 class PathRecorder:
     """
@@ -33,26 +34,27 @@ class PathRecorder:
         self.debug_enable = debug_enable
         self.auto_tracker = MinimapInterface
         # 记录路径的列表，内容为x,y,type
-        self.positions = []
+        self.positions: List[Point] = []
+        self.path_viewer_scale = 1.5  # 预览地图放大倍率
 
-        self.path_viewer_radius = 800  # 路径预览地图的大小
-
-        if edit_mode and os.path.exists(edit_file_path):
-            with open(edit_file_path, 'r', encoding='utf-8') as f:
-                json_obj = json.load(f)
+        if edit_mode:
+            if os.path.exists(edit_file_path):
+                json_obj = load_json(edit_file_path)
                 name = json_obj['name']
-                self.positions = json_obj["positions"]
-                start_point = self.positions[0]
-                country = start_point['country']
-                xywh = (start_point['x'], start_point['y'], 1000, 1000)
-                self.auto_tracker.create_cached_local_map(xywh=xywh)
+                self.positions:List[Point] = json_obj["positions"]
+                country = json_obj['country']
+                x = self.positions[0].x
+                y = self.positions[0].y
+                self.auto_tracker.create_cached_local_map((x,y))
                 self.record_json_path = edit_file_path
+            else:
+                raise FileNotFoundError(edit_file_path)
         else:
-            save_path = f"pathlist/{name}"
+            save_path = f"../resources/pathlist/{name}"
             if not os.path.exists(save_path):
                 os.mkdir(save_path)
             timestr = datetime.now().strftime("%Y-%m-%d_%H_%M_%S")
-            self.record_json_path = f"pathlist/{name}/{name}_{country}_{region}_{timestr}.json"
+            self.record_json_path = f"../resources/pathlist/{name}/{name}_{country}_{region}_{timestr}.json"
 
         if country is None:
             raise Exception('必须指定国家')
@@ -94,15 +96,16 @@ class PathRecorder:
         self.listener.join()
 
     def points_viewer(self):
-        from autotrack.KeyPointViewer import get_points_img_live
-        from matchmap.minimap_interface import MinimapInterface
+        from myexecutor.KeyPointViewer import get_points_img_live
+        from myutils.configutils import cfg
+        width = cfg.get('path_viewer_width', 500)
         while True:
-            time.sleep(0.5)
-            img = get_points_img_live(self.positions, self.name, radius=self.path_viewer_radius)
+            time.sleep(0.02)
+            img = get_points_img_live(self.positions, self.name, width=width, scale=self.path_viewer_scale)
             if img is None: continue
             # img = cv2.resize(img, None, fx=0.6, fy=0.6)
             cv2.imshow('path viewer', img)
-            # cv2.moveWindow('path viewer', 10,10)
+            cv2.moveWindow('path viewer', 10,10)
             cv2.setWindowProperty('path viewer', cv2.WND_PROP_TOPMOST, 1)
             cv2.waitKey(20)
             # 绘制出已保存的点位在地图的位
@@ -127,7 +130,8 @@ class PathRecorder:
         # Serializing json
         dictionary = {
             "name": self.name,
-            "positions": self.positions
+            "positions": self.positions,
+            "country": self.country
         }
         json_object = json.dumps(dictionary, indent=4, ensure_ascii=False)
         # Writing to sample.json
@@ -146,11 +150,10 @@ class PathRecorder:
         print("结束获取位置", position)
         # rotation = self.auto_tracker.get_rotation()
         if position:
-            point = {'x': position[0], 'y': position[1], 'type': type}
-            if type == 'start':
-                point['country'] = self.country
-            print("成功记录当前点位", point)
-            self.positions.append(point)
+            # point = {'x': position[0], 'y': position[1], 'type': type}
+            p = Point(position[0], position[1], type)
+            print("成功记录当前点位", p)
+            self.positions.append(p)
             return True
         else:
             print(f"无法插入{type}点位, 原因是位置无法正确获取")
@@ -166,9 +169,9 @@ class PathRecorder:
         json_object = json.dumps(dictionary, indent=4, ensure_ascii=False)
         # Writing to sample.json
         timestr = datetime.now().strftime("%Y-%m-%d_%H_%M_%S")
-        if not os.path.exists('pathlist/temp'):
-            os.mkdir('pathlist/temp')
-        temp_record_json_path = f"pathlist/temp/{self.name}_{self.country}_{self.region}_{timestr}.json"
+        if not os.path.exists('../resources/pathlist/temp'):
+            os.mkdir('../resources/pathlist/temp')
+        temp_record_json_path = f"../resources/pathlist/temp/{self.name}_{self.country}_{self.region}_{timestr}.json"
         with open(temp_record_json_path, mode="w",
                   encoding="utf-8") as outfile:
             outfile.write(json_object)
@@ -178,19 +181,18 @@ class PathRecorder:
     def on_press(self, key):
         try:
             c = key.char
-            if c == '+':
-                self.path_viewer_radius += 50
-                print(f"当前地图大小:{self.path_viewer_radius}")
-
+            if c == '=':
+                self.path_viewer_scale += 0.5
             elif c == '-':
-                self.path_viewer_radius -= 50
-                print(f"当前地图大小:{self.path_viewer_radius}")
+                self.path_viewer_scale -= 0.5
+            elif c == '.':
+                print("你按下了., 手动插入途径点位'path'")
+                self.save_current_position('path')  # 插入点位
 
-
-            if self.path_viewer_radius < 100:
-                self.path_viewer_radius = 100
-            if self.path_viewer_radius > 2000:
-                self.path_viewer_radius = 2000
+            if self.path_viewer_scale < 0.1:
+                self.path_viewer_scale = 0.1
+            if self.path_viewer_scale > 10:
+                self.path_viewer_scale =10
 
             # print('alphanumeric key {0} pressed'.format(key.char))
         except AttributeError:
@@ -199,46 +201,23 @@ class PathRecorder:
                     self.start_record()
                 else:
                     self.stop_record()
-
             # print('special key {0} pressed'.format(key))
-            if key == Key.enter:
-                print("你按下了enter, 手动插入途径点位'path'")
-                self.save_current_position('path')  # 插入点位
             elif key == Key.insert:
                 print(f'你按下了insert, 插入{self.name}点位')
                 self.save_current_position(self.name)
-            elif key == Key.home:
-                print('你按下了home, 尝试插入起始点位')
-                if len(self.positions) > 0:
-                    print("无法插入起始点位，如果要重新插入起始点位请先按下Delete清空当前所有点位")
-                start_ok = self.save_current_position('start')  # 插入起始点位
-                if start_ok:
-                    print("成功插入起始点位")
-                else:
-                    print("插入起始点位失败，请重新按下HOME插入起始点位")
             elif key == Key.end:
-                print('你按下了end, 尝试插入结束点位并保存')
-                end_ok = self.save_current_position('end')  # 插入结束点位
-                if end_ok:
-                    self.save_json()
-                else:
-                    print("插入结束点位失败，请重新按下END插入结束点位")
-            elif key == Key.page_down:
-                print("你按下了page_down, 基于m地图创建局部地图中")
-                self.auto_tracker.create_cached_local_map(use_middle_map=True)
-
+                print('你按下了end, 尝试存储当前点位为json')
+                self.save_json()
             elif key == Key.page_up:
                 print("你按下了page_up, 准备回放")
                 if self.is_recording:
                     print("请先停止记录再回放")
                 else:
-                    from autotrack.BasePathExecutor2 import BasePathExecutor
+                    from myexecutor.BasePathExecutor2 import BasePathExecutor
                     jsonfile = self.__get_temp_json_file()
                     try:
                         if os.path.exists(jsonfile):
-                            c = BasePathExecutor(jsonfile, show_path_viewer=True, debug_enable=True)
-                            c.show_path_viewer = False
-                            c.path_execute(jsonfile)
+                            BasePathExecutor(jsonfile, debug_enable=True).execute()
                         else:
                             print(f"回放的文件路径'{jsonfile}'不存在！")
                     except Exception as e:
@@ -249,7 +228,6 @@ class PathRecorder:
                             os.remove(jsonfile)
                         except Exception as e:
                             print("删除临时文件失败，原因", e)
-
             elif key == Key.backspace:
                 print("你按下了Backspace，删掉上一个点位")
                 if not self.is_recording:
@@ -332,7 +310,7 @@ def gouliange():
 def getjson(filename):
     # 获取当前脚本所在的目录
     target = filename.split("_")[0]
-    relative_path = f"pathlist/{target}"
+    relative_path = f"../resources/pathlist/{target}"
     # 拼接资源目录的路径
     file = os.path.join(relative_path, filename)
     return file
@@ -355,14 +333,15 @@ def edit_json(filename):
 def collect_path_record():
     # PathRecorder(name='甜甜花', region='誓言岬', country='蒙德', debug_enable=True)
     # PathRecorder(name='甜甜花', region='清泉镇', country='蒙德', debug_enable=True)
-    PathRecorder(name='搜刮', region='望风角', country='蒙德', debug_enable=True)
+    # PathRecorder(name='搜刮', region='望风角', country='蒙德', debug_enable=True)
+    PathRecorder(name='甜甜花', region='中央实验室遗址_test', country='枫丹', debug_enable=True)
 
     # PathRecorder(name='甜甜花', region='中央实验室遗址', country='枫丹', debug_enable=True)
 
 
 if __name__ == '__main__':
     # gouliange()
-    collect_path_record()
+    # collect_path_record()
     # edit_json('搜刮_蒙德_望风角_2024-08-04_16_52_58.json')
     # edit_json('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json')
-    # edit_json('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json')
+    edit_json('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json')
