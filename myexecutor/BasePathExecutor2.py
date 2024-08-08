@@ -6,7 +6,8 @@ from collections import deque
 from controller.MapController2 import MapController
 from controller.OCRController import OCRController
 from myutils.executor_utils import point1_near_by_point2
-from myutils.jsonutils import getjson_path_byname
+from typing import List
+import json
 from myutils.configutils import cfg, PROJECT_PATH
 from myutils.timerutils import RateLimiter
 from mylogger.MyLogger3 import MyLogger
@@ -19,28 +20,28 @@ class MovingStuckException(Exception):
 class MovingTimeOutException(Exception):
     pass
 
-# from typing import List
+class Point:
+    TYPE_PATH = 'path'
+    TYPE_TARGET = 'target'
 
+    def __init__(self, x, y, type=TYPE_PATH, action=None):
+        self.x = x
+        self.y = y
+        self.type = type
+        self.action = action
 
-# class PathWrapper:
-#     def raise_error(self, msg):
-#         logger.error(msg)
-#         raise Exception(msg)
-#
-#     def __init__(self, jsonfile):
-#         with open(jsonfile, encoding="utf-8") as r:
-#             json_obj = json.load(r)
-#             self.country = json_obj.get('country', '蒙德')
-#             self.target_name = json_obj.get('name')
-#             positions = json_obj.get('positions')
-#
-#         if positions is None or len(positions) < 1: self.raise_error(f"空白路线, 跳过")
-#
-#         self.absolute_path = jsonfile
-#         self.points: List[Point] = []
-#         for point in positions:
-#             p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'))
-#             self.points.append(p)
+    def __str__(self):
+        return str(self.__dict__)
+
+class PointEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Point):
+            point = { 'x': obj.x, 'y': obj.y}
+            # 避免解析None
+            if obj.type: point['type'] = obj.type
+            if obj.action: point['action'] = obj.action
+            return point
+        return super().default(obj)
 
 class BasePathExecutor(BaseController):
 
@@ -52,13 +53,34 @@ class BasePathExecutor(BaseController):
 
 
 
+    @staticmethod
+    def load_json(json_file_path):
+        json_map = {
+            "country": None,
+            "positions": None,
+            "name": None
+        }
+        from myutils.configutils import resource_path
+        with open(json_file_path, encoding="utf-8") as r:
+            json_obj = json.load(r)
+            json_map['country'] = json_obj.get('country', '蒙德')
+            json_map['name'] = json_obj.get('name')
+            positions = json_obj.get('positions')
+
+        if json_map is None or len(positions) < 1: raise Exception(f"空白路线, 跳过")
+        json_map['positions']: List[Point] = []
+        for point in positions:
+            p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'))
+            json_map['positions'].append(p)
+        return json_map
+
     def __init__(self, json_file_path, debug_enable=False):
         super().__init__(debug_enable=debug_enable)
         from myutils.jsonutils import load_json
-        json_map = load_json(json_file_path)
+        json_map = self.load_json(json_file_path)
         self.country = json_map['country'] # 传送到什么区域
         self.target_name = json_map['name'] # 目标名称
-        self.points = json_map['positions']
+        self.points:List[Point] = json_map['positions']
         self.json_file_path = json_file_path
 
         self.ocr = OCRController(debug_enable=debug_enable)
@@ -154,8 +176,13 @@ class BasePathExecutor(BaseController):
     def crazy_f(self):
         self.kb_press_and_release('f')
 
-    def on_nearby(self, coordinates):
-        self.logger.debug(f'接近点位{coordinates}了')
+    def on_nearby(self, next_point: Point):
+        """
+        当接近点位时，此方法会不断执行知道到达点位
+        :param next_point:
+        :return:
+        """
+        self.logger.debug(f'接近点位{next_point}了')
         if self.enable_crazy_f:
             self.debug('疯狂按下f')
             self.crazy_f()
@@ -233,7 +260,7 @@ class BasePathExecutor(BaseController):
                     self.debug("小碎步松开w")
                     self.kb_release('w')
                     time.sleep(self.UPDATE_POSITION_INTERVAL)
-                    self.on_nearby(coordinates)
+                    self.on_nearby(self.next_point)
                 except MovingStuckException as e:
                     self.logger.error(e)
                     self.do_action_if_moving_stuck()
@@ -291,7 +318,6 @@ class BasePathExecutor(BaseController):
         try:
             cv2.destroyWindow(win_name)
         except:
-
             logger.debug('还没开始展示就结束了')
         logger.debug("路径展示结束")
 
@@ -363,7 +389,7 @@ class BasePathExecutor(BaseController):
             # point.y -= 3
             # point.x -= 0.6
             self.move((point.x, point.y), small_step_enable)
-            self.debug("已到达", point)
+            self.debug(f"已到达{point}")
 
             self.on_move_after(point)
 
@@ -400,6 +426,7 @@ def execute_all():
             execute_one(os.path.join(points_path, filename))
     except Exception as e:
         logger.error(f'发生错误: {e}')
+        raise e
     finally:
         logger.info("全部执行完成，按下m")
         import controller.BaseController
@@ -411,10 +438,11 @@ def execute_all():
 if __name__ == '__main__':
     # 测试点位
     import os
-    # execute_one(getjson('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json'))
+    from myutils.jsonutils import getjson_path_byname
+    execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json'))
     # execute_one(getjson_path_byname('jiuguan_蒙德_wfsd_20240808.json'))
     # execute_one(getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json'))
     # execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_12_43.json'))
-    execute_one(getjson_path_byname('风车菊_蒙德_清泉镇_2024-08-08_14_46_25.json'))
+    # execute_one(getjson_path_byname('风车菊_蒙德_清泉镇_2024-08-08_14_46_25.json'))
     # execute_all()
 

@@ -4,34 +4,8 @@ import time
 from typing import List
 import cv2
 from matchmap.minimap_interface import MinimapInterface
-from myutils.jsonutils import load_json, Point, getjson_path_byname
-
-
-# MinimapInterface.create_cached_local_map()
-
-def calculate_angle(x0, y0, x1, y1):
-    import math
-    # 计算斜率
-    dx = x1 - x0
-    dy = y1 - y0
-
-    # 特殊情况处理
-    if dx == 0:
-        if dy > 0:
-            return math.pi / 2  # 90度
-        elif dy < 0:
-            return 3 * math.pi / 2  # 270度
-        else:
-            return None  # 无法确定角度
-
-    angle = math.atan(dy / dx)
-
-    # 判断角度是否在正确的象限
-    if dx > 0:
-        return angle if dy >= 0 else angle + 2 * math.pi
-    else:
-        return angle + math.pi
-
+from myutils.jsonutils import getjson_path_byname
+from myexecutor.BasePathExecutor2 import Point,BasePathExecutor
 
 def show_points(points, object_to_detect=None, width=1024, scale=None):
     if len(points) < 1:
@@ -151,19 +125,13 @@ def show_points_live(points: List[Point], object_to_detect=None, width=1024,scal
 
 
 if __name__ == '__main__':
-    # jsonfile = getjson('调查_稻妻_九条阵屋_2024-04-27_16_48_26.json')
-    # jsonfile = getjson('调查_稻妻_无相火_2024-04-27_15_37_44.json')
-    # jsonfile = getjson('调查_稻妻_名椎滩_2024-04-28_05_54_44.json')
-    # jsonfile = getjson('调查_稻妻_沉眠之庭副本西侧_2024-04-28_15_56_01.json')
-    # jsonfile = getjson('调查_须弥_鸡哥左下角_2024-04-29_13_45_26.json')
-    # jsonfile = getjson('调查_璃月_测试4_绝云间_2024-07-30_09_12_47.json')
-    # jsonfile = getjson('调查_稻妻_名椎滩_2024-04-28_05_54_44.json')
-    jsonfile = getjson_path_byname('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json')
+    # jsonfile = getjson_path_byname('甜甜花_蒙德_清泉镇_2024-08-08_15_42_55.json')
+    jsonfile = getjson_path_byname('搜刮_蒙德_追星山谷_2024-04-30_11_42_02.json')
     # jsonfile = getjson('jiuguan_蒙德_test_scale2_20240808.json')
     # jsonfile = getjson_path_byname('jiuguan_蒙德_wfsd_20240808.json')
     # jsonfile = getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json')
     # jsonfile = getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json')
-    json_map = load_json(jsonfile)
+    json_map = BasePathExecutor.load_json(jsonfile)
     show_points(json_map['positions'], json_map['name'], 1024, scale=1)
     # show_points(json_map.get('positions'), json_map['name'],width=1200,scale=3)
     # while True:
