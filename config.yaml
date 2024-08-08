@@ -28,8 +28,14 @@ enable_crazy_f: 0
 move_next_point_allow_max_time: 20
 # 8秒内移动的总距离(像素)在多少范围内认为卡住，允许范围(2~50)
 stuck_movement_threshold: 20
+
+# 对于目标点精确到多少个像素认为接近, 允许范围(0.1~10) 目前没有那么高静定，建议 > 1,否则可能原地打转
+target_nearby_threshold: 2
+# 对于途径点精确到多少个像素认为接近, 允许范围(2~50)
+path_point_nearby_threshold: 8  # 对于途径点精确度奥多少个像素认为接近
+
 # 是否在接近非途径点的时候，使用小碎步
-allow_small_steps: 0
+allow_small_steps: 1
 
 # 跑路的时候不断按下按键（例如e技能开盾，z也可以装砍树的道具)
 enable_loop_press_e: 0
