@@ -14,7 +14,7 @@ PyCharm需要用管理员方式启动，否则游戏内输入无效！
 from pynput import keyboard
 from pynput.keyboard import Key
 import json
-from myexecutor.executor_utils import Point, load_json
+from myutils.jsonutils import Point, load_json, PointEncoder
 from typing import List
 
 class PathRecorder:
@@ -73,20 +73,23 @@ class PathRecorder:
         1. 全局快捷键:
             F9: 进入记录模式, 再次按下F9退出记录模式。
             -: 缩小展示地图
-            +: 放大展示地图
+            =: 放大展示地图
             PageUP: 根据当前记录的点位进行回放
-            PageDown: 打开大地图按下PageDown可以快速缓存局部地图
-        3. 进入记录模式后的快捷键:
-            1) Home: 插入起始路径点(必须在锚点附近，用于传送),
+        2. 进入记录模式后的快捷键:
+            1) Insert: 目标检测点位 (首个点位无论是否为目标对象，必须在锚点附近，用于传送)
             2) .: 插入途径点
-            3) Insert: 目标检测点位
-            4) Delete: 清空路径
-            5) BackSpace: 删除上一个点位
-            6) End: 插入结束路径点同时保存
+            3) Delete: 清空路径
+            4) BackSpace: 删除上一个点位
+            5) End: 保存为json
         
-        流程：先按下F9进入记录模式，然后按下HOME插入起始点，人物行动后，按下Enter插入途径点，按下Insert插入目标检测点，按下End插入结束点位，F9推出记录模式， 最后按下PageUP回放
-        
-        (测试功能)默认情况下插入的type为path，你需要手动修改他们的类型，作用是:准备进入下一个点位时，采取不同的步行方式(fly, jump)，例如悬崖需要'fly'模式")
+        流程：
+        1) 传送到锚点附近别动, 按下F9进入记录模式
+        2) 按下Insert插入第一个点。接下来可以自由行动.
+        3) 按下英文句号插入途径点（非检测对象）
+        4) 重复2，3直到不需要再插入任何点位
+        5) 按下End保存json
+        6) 按下F9退出记录模式
+        7) 按下Page UP回放
         """
         print(txt)
         self.is_recording = False  # 是否开始录制的标志
@@ -133,7 +136,7 @@ class PathRecorder:
             "positions": self.positions,
             "country": self.country
         }
-        json_object = json.dumps(dictionary, indent=4, ensure_ascii=False)
+        json_object = json.dumps(dictionary, indent=4, ensure_ascii=False, cls=PointEncoder)
         # Writing to sample.json
         with open(self.record_json_path, mode="w",
                   encoding="utf-8") as outfile:
@@ -164,9 +167,10 @@ class PathRecorder:
         # Serializing json
         dictionary = {
             "name": self.name,
-            "positions": self.positions
+            "positions": self.positions,
+            "country": self.country  # TODO BUG: 没有写country的时候，MapController进入黑屏时，可能会一直找不到位置
         }
-        json_object = json.dumps(dictionary, indent=4, ensure_ascii=False)
+        json_object = json.dumps(dictionary, indent=4, ensure_ascii=False,cls=PointEncoder)
         # Writing to sample.json
         timestr = datetime.now().strftime("%Y-%m-%d_%H_%M_%S")
         if not os.path.exists('../resources/pathlist/temp'):
@@ -332,16 +336,16 @@ def edit_json(filename):
 
 def collect_path_record():
     # PathRecorder(name='甜甜花', region='誓言岬', country='蒙德', debug_enable=True)
-    # PathRecorder(name='甜甜花', region='清泉镇', country='蒙德', debug_enable=True)
+    PathRecorder(name='甜甜花', region='清泉镇', country='蒙德', debug_enable=True)
     # PathRecorder(name='搜刮', region='望风角', country='蒙德', debug_enable=True)
-    PathRecorder(name='甜甜花', region='中央实验室遗址_test', country='枫丹', debug_enable=True)
+    # PathRecorder(name='甜甜花', region='中央实验室遗址_test', country='枫丹', debug_enable=True)
 
     # PathRecorder(name='甜甜花', region='中央实验室遗址', country='枫丹', debug_enable=True)
 
 
 if __name__ == '__main__':
     # gouliange()
-    # collect_path_record()
+    collect_path_record()
     # edit_json('搜刮_蒙德_望风角_2024-08-04_16_52_58.json')
     # edit_json('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json')
-    edit_json('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json')
+    # edit_json('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json')

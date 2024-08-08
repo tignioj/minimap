@@ -1,5 +1,7 @@
 from mylogger.MyLogger3 import MyLogger
+import os
 from myutils.configutils import cfg
+from typing import List
 import numpy as np
 logger = MyLogger('track_utils')
 import json
@@ -8,39 +10,6 @@ import json
 def log(*args):
     logger.debug(args)
 
-class Point:
-    TYPE_PATH = 'path'
-    TYPE_TARGET = 'target'
-
-    def __init__(self, x, y, type=TYPE_PATH, action=None):
-        self.x = x
-        self.y = y
-        if type: self.type = type
-        if action: self.action = action
-
-
-
-
-from typing import List
-def load_json(json_file_path):
-    json_map = {
-        "country": None,
-        "positions": None,
-        "name": None
-    }
-    from myutils.configutils import resource_path
-    with open(json_file_path, encoding="utf-8") as r:
-        json_obj = json.load(r)
-        json_map['country'] = json_obj.get('country', '蒙德')
-        json_map['name'] = json_obj.get('name')
-        positions = json_obj.get('positions')
-
-    if json_map is None or len(positions) < 1: raise Exception(f"空白路线, 跳过")
-    json_map['positions']:List[Point] = []
-    for point in positions:
-        p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'))
-        json_map['positions'].append(p)
-    return json_map
 def point1_near_by_point2(point1, point2, threshold):
     """
     两点的欧氏距离是否小于阈值,是则返回True
