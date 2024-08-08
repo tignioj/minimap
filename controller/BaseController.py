@@ -17,8 +17,8 @@ from mylogger.MyLogger3 import MyLogger
 import win32api, win32con
 from matchmap.minimap_interface import MinimapInterface
 from capture.genshin_capture import GenShinCapture
+logger = MyLogger('BaseController')
 
-logger = MyLogger('BaseController', logging.DEBUG)
 def wait_for_window(handler):
     while not GenShinCapture.is_active():
         if handler.stop_listen:
@@ -89,7 +89,7 @@ class BaseController:
     def __init__(self, debug_enable=False, gc=None):
         self.Key = Key
         self.tracker = MinimapInterface
-        self.logger = logger
+        self.logger = MyLogger(self.__class__.__name__, logging.DEBUG)
 
         if debug_enable: self.logger.setLevel(logging.DEBUG)
         else: self.logger.setLevel(logging.INFO)
@@ -202,6 +202,7 @@ class BaseController:
         :param degree:
         :return:
         """
+        if degree is None: return
         start = time.time()
         while True:
             wait_for_window(self)
