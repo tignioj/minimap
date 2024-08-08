@@ -71,8 +71,8 @@ def __cv_show(name, img):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-def get_region_map(x, y, radius):
-    resp = requests.get(f"{url}/minimap/get_region_map?x={x}&y={y}&radius={radius}")
+def get_region_map(x, y, width):
+    resp = requests.get(f"{url}/minimap/get_region_map?x={x}&y={y}&width={width}")
     if resp.status_code == 200:
         # 处理图片
         img_bytes = BytesIO(resp.content)
