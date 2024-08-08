@@ -13,13 +13,17 @@ from mylogger.MyLogger3 import MyLogger
 import threading
 
 class MiniMap:
-    def __init__(self, debug_enable=False):
+    def __init__(self, debug_enable=None):
         """
         :param debug_enable:
         :param gc: GenshinCapture instance
         """
+        if debug_enable is None:
+            debug_enable = cfg.get('debug_enable', False)
+            if debug_enable: self.logger = MyLogger(__class__.__name__,level=logging.DEBUG, save_log=True)
+            else: self.logger = MyLogger(__class__.__name__, logging.INFO,save_log=True)
+
         self.debug_enable = debug_enable
-        self.logger = MyLogger(__class__.__name__, save_log=True)
         self.sift = cv2.SIFT.create()
 
         # from matchmap.load_save_sift_keypoint import load
@@ -254,13 +258,16 @@ class MiniMap:
         :param pos:
         :return:
         """
+        if pos is None:
+            self.logger.error('位置为空，创建局部缓存失败!')
+            return False
         # 获取指定区域的特征点
         self.local_map_keypoints, self.local_map_descriptors = self.filterKeypoints(pos[0], pos[1], self.local_map_size, self.local_map_size, keypoints=self.map_2048['kp'], descriptors=self.map_2048['des'] )
         if self.local_map_descriptors is None:
             self.logger.debug('指定区域内无特征点')
             return False
         self.local_map_pos = pos
-        self.logger.debug(f'全局匹配成功, 像素坐标{pos}, 相对坐标{self.pix_axis_to_relative_axis(pos)}')
+        self.logger.info(f'全局匹配成功, 像素坐标{pos}, 相对坐标{self.pix_axis_to_relative_axis(pos)}')
         return True
 
     def __has_paimon(self, update_screenshot=True):
@@ -364,7 +371,7 @@ class MiniMap:
         self.logger.debug(f'检测是否有全局匹配线程正在执行，检测结果为：{self.global_match_task_running}')
         if not self.global_match_task_running:
             self.global_match_task_running = True
-            self.logger.debug("正在创建线用于执行全局匹配")
+            self.logger.info("正在创建线用于执行全局匹配, 请稍后...")
             threading.Thread(target=self.__global_match).start()
             self.logger.debug("成功创建线程执行全局匹配")
             return True
@@ -444,19 +451,15 @@ class MiniMap:
 if __name__ == '__main__':
     # TODO: BUG 同一个位置，不同分辨率获取的位置有差异！
     from myutils.configutils import cfg
-    dn = cfg.get('debug_enable', False)
-    if dn == 1:
-        mp = MiniMap(debug_enable=True)
-    else:
-        mp = MiniMap(debug_enable=False)
+    mp = MiniMap()
     mp.logger.setLevel(logging.INFO)
     GenShinCapture.add_observer(mp)
     while True:
         time.sleep(0.05)
         t0 = time.time()
         pos = mp.get_position()
-    #     pos = mp.get_user_map_position()
-    #     print(pos,time.time() - t0)
+        # pos = mp.get_user_map_position()
+        # print(pos,time.time() - t0)
 
 
         # mp.log('相对位置:', pos)
