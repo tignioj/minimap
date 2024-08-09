@@ -25,10 +25,18 @@ class Point:
     TYPE_PATH = 'path'
     TYPE_TARGET = 'target'
 
-    def __init__(self, x, y, type=TYPE_PATH, action=None):
+    MOVE_MODE_NORMAL = 'normal'
+    MOVE_MODE_FLY = 'fly'  # fly的实现目前是疯狂按下空格，和jump相同( TODO 后续希望加入图像识别用户是否处于飞行状态用于启用飞行）
+    MOVE_MODE_JUMP = 'jump'
+    MOVE_MODE_SWIM = 'swim'  # swim 模式下，会禁止小碎步，因为小碎步的实现是疯狂按下w和停止w，这会加速消耗体力
+
+    ACTION_STOP_FLYING_ON_MOVE_DONE = 'stop_flying'  # 接近目标的时候是否下落攻击以停止飞行
+
+    def __init__(self, x, y, type=TYPE_PATH, move_mode=MOVE_MODE_NORMAL, action=None):
         self.x = x
         self.y = y
         self.type = type
+        self.move_mode = move_mode
         self.action = action
 
     def __str__(self):
@@ -40,6 +48,7 @@ class PointEncoder(json.JSONEncoder):
             point = { 'x': obj.x, 'y': obj.y}
             # 避免解析None
             if obj.type: point['type'] = obj.type
+            if obj.move_mode : point['move_mode'] = obj.move_mode
             if obj.action: point['action'] = obj.action
             return point
         return super().default(obj)
@@ -48,12 +57,6 @@ class BasePathExecutor(BaseController):
 
     # 到达下一个点位采取何种移动方式？
     # TODO 暂时飞行模式和跳跃模式做同样的狂按空格处理
-    MOVE_TYPE_NORMAL = 'path'  # (默认)正常步行模式
-    MOVE_TYPE_FLY = 'fly'  # 飞行模式
-    MOVE_TYPE_JUMP = 'jump'  # 跳跃模式
-
-
-
     @staticmethod
     def load_json(json_file_path):
         json_map = {
@@ -71,7 +74,7 @@ class BasePathExecutor(BaseController):
         if json_map is None or len(positions) < 1: raise Exception(f"空白路线, 跳过")
         json_map['positions']: List[Point] = []
         for point in positions:
-            p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'))
+            p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'), move_mode=point.get('move_mode'), action=point.get('action'))
             json_map['positions'].append(p)
         return json_map
 
@@ -135,8 +138,8 @@ class BasePathExecutor(BaseController):
         ############ 状态 ##############
         self.current_position = None
         self.current_rotation = None  # 当前视角
-        self.next_point = None
-        self.prev_point = None
+        self.next_point:Point = None
+        self.prev_point:Point = None
         self.is_path_end = False  # 是否到达终点
         # 多线程
         self._thread_object_detect_finished = False  # 目标检测任务
@@ -150,6 +153,7 @@ class BasePathExecutor(BaseController):
         self.rate_limiter_press_z = RateLimiter(1)
         self.rate_limiter_press_jump = RateLimiter(1)
         self.rate_limiter_press_dash = RateLimiter(1)
+        self.rate_limiter_fly = RateLimiter(0.1)
 
 
     def _thread_object_detection(self):
@@ -180,29 +184,29 @@ class BasePathExecutor(BaseController):
     def crazy_f(self):
         self.kb_press_and_release('f')
 
-    def on_nearby(self, next_point: Point):
+    def on_nearby(self, coordinates):
         """
         当接近点位时，此方法会不断执行知道到达点位
         :param next_point:
         :return:
         """
-        self.logger.debug(f'接近点位{next_point}了')
+        self.logger.debug(f'接近点位{self.next_point}了')
         if self.enable_crazy_f:
             self.debug('疯狂按下f')
             self.crazy_f()
 
     def do_action_if_moving_stuck(self):
         self.kb_press_and_release(random.choice('wsa'))  # 避免卡住, 不安下x，允许爬墙
-        time.sleep(0.005)
+        time.sleep(0.05)
         self.kb_press_and_release(self.Key.space)  # 避免卡住
-        time.sleep(0.5)
+        time.sleep(0.2)
 
     def do_action_if_timeout(self):
         self.logger.debug('点位执行超时, 跳过该点位')
         self.kb_press_and_release(random.choice('wsadx'))  # 避免卡住
         time.sleep(0.005)
         self.kb_press_and_release(self.Key.space)  # 避免卡住
-        time.sleep(0.5)
+        time.sleep(0.2)
         self.kb_release('w')
 
 
@@ -221,34 +225,57 @@ class BasePathExecutor(BaseController):
 
         # 转向: 注意，update_state()线程永远保证self.positions在首次赋值之后不再是空值,但是计算角度的函数可能会返回空值，因此还是要判断
         rot = self.get_next_point_rotation(coordinates)
-        if rot:
-            self.to_degree(self.get_next_point_rotation(coordinates))
-            # 前进: 注意要先转向后再前进，否则可能出错
-            self.kb_press("w")
+        if rot: self.to_degree(self.get_next_point_rotation(coordinates))
+        # 前进: 注意要先转向后再前进，否则可能出错
 
-    # 移动
-    # 异常：原地踏步
-    # 类型：途径点、调查点
+        # 小碎步实现方法：先按下w等待一小段时间再松开w，反复循环
+        # 小碎步的条件：当和目标点差距8个像素时候，就认为符合最基本条件
+        nearby = point1_near_by_point2(self.current_position, coordinates, 8)
+        if nearby: self.on_nearby(coordinates)
+        small_step_enable = (nearby and self.allow_small_steps
+                             and (self.next_point.type == self.object_to_detect)
+                             and (self.next_point.move_mode != self.next_point.MOVE_MODE_SWIM))
+        if small_step_enable: time.sleep(0.04)
+        self.kb_press("w")
+        # 小碎步
+        if small_step_enable:
+            self.logger.info('小碎步松开w')
+            time.sleep(0.04)
+            self.kb_release('w')
+
+        # 飞行
+        if self.next_point.move_mode == self.next_point.MOVE_MODE_FLY: self.rate_limiter_fly.execute(self.kb_press_and_release, self.Key.space)
+
+
+
+    # 移动(尽量不要阻塞））
+    # 异常：原地踏步、超时
+    # 类型：途径点、目标点
     # 行为：跳跃, 飞行，小碎步
-    # 拓展：自定义按键
-    def move(self, coordinates, small_step_enable=False):
+    # 行动：停止飞行（下落攻击）
+    # 拓展：自定义按键(未实现）
+    def move(self, coordinates):
         if self.stop_listen: return
         point_start_time = time.time()
         self.position_history.clear()
         # 大距离快速接近
-        while not point1_near_by_point2(self.current_position, coordinates, self.path_point_nearby_threshold):
+        while not point1_near_by_point2(self.current_position, coordinates, self.target_nearby_threshold):
             try:
                 if self.stop_listen: return
-                # 执行移动
-                time.sleep(self.update_user_status_interval)
+                # 途径点跳过
+                if (point1_near_by_point2(self.current_position, coordinates, self.path_point_nearby_threshold)
+                    and self.next_point.type == self.next_point.TYPE_PATH): break
+
                 self.__do_move(coordinates, point_start_time)
-                # 行动:如果距离点位超过20个像素值，则可以采取冲刺+跳跃操作
+                # 行动:如果距离点位超过20个像素值，则可以采取冲刺+跳跃操作以及飞行操作
                 if not point1_near_by_point2(self.current_position, coordinates, 20):
                     # 游戏特性: 必须先冲刺后再过0.几秒后，跳跃才生效
                     if self.enable_dash: self.rate_limiter_press_dash.execute(self.mouse_right_click)
-                    if self.enable_loop_jump:
+                    # 这里不加elif而是直接if的原因是，冲刺的同时可以进行跳跃。
+                    if self.enable_loop_jump or self.next_point.move_mode == self.next_point.MOVE_MODE_JUMP:
                         if self.enable_dash: time.sleep(0.005)  # 按键的操作间隔过短，后面的按键会失效！
                         self.rate_limiter_press_jump.execute(self.kb_press_and_release, self.Key.space)
+
             except MovingStuckException as e:
                 self.logger.error(e)
                 self.do_action_if_moving_stuck()
@@ -257,24 +284,10 @@ class BasePathExecutor(BaseController):
                 self.do_action_if_timeout()
                 return
 
-        # 当接近目的地时，调整更小的阈值, 使得小碎步可以更精准走到目的地
-        if small_step_enable and self.allow_small_steps:
-            while not point1_near_by_point2(self.current_position, coordinates, self.target_nearby_threshold):
-                if self.stop_listen: return
-                try:
-                    self.on_nearby(self.next_point)
-                    time.sleep(0.02)
-                    self.__do_move(coordinates, point_start_time)
-                    time.sleep(0.02)
-                    self.debug("小碎步松开w")
-                    self.kb_release('w')
-                except MovingStuckException as e:
-                    self.logger.error(e)
-                    self.do_action_if_moving_stuck()
-                except MovingTimeOutException as e:
-                    self.logger.error(e)
-                    self.do_action_if_timeout()
-                    return
+        # 到达目的地时，是否使用下落攻击
+        if self.next_point.action == self.next_point.ACTION_STOP_FLYING_ON_MOVE_DONE:
+            self.logger.debug("下落攻击以停止飞行！")
+            self.mouse_left_click()
 
         self.logger.debug(f'跑点{coordinates}用时：{time.time() - point_start_time}')
         self.kb_release('w')
@@ -386,18 +399,17 @@ class BasePathExecutor(BaseController):
                 continue  # 上面的while循环未能成功加载位置，跳到下一个点位
 
             self.debug(f"当前位置{self.current_position}, 正在前往点位{point}")
-            self.next_point = point
             if not point1_near_by_point2(self.current_position, (point.x, point.y), 500):
                 # 如果当前点位距离下一个点位过远，可能是由于角色死亡被传送
                 self.log("当前点位距离下一个点位过远，可能是由于角色死亡被传送, 提前终止{}")
                 self.is_path_end = True
                 return False
 
-            small_step_enable = point.type == self.object_to_detect
             # point.x -= 5.84
             # point.y -= 3
             # point.x -= 0.6
-            self.move((point.x, point.y), small_step_enable)
+            self.next_point = point
+            self.move((point.x, point.y))
             self.debug(f"已到达{point}")
 
             self.on_move_after(point)
@@ -453,6 +465,7 @@ if __name__ == '__main__':
     # execute_one(getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json'))
     # execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json'))
     # execute_one(getjson_path_byname('风车菊_蒙德_清泉镇_2024-08-08_14_46_25.json'))
-    execute_one(getjson_path_byname('调查_璃月_地中之岩_2024-04-29_06_23_28.json'))
+    # execute_one(getjson_path_byname('调查_璃月_地中之岩_2024-04-29_06_23_28.json'))
+    execute_one(getjson_path_byname('月莲_须弥_降魔山1_2024-08-09_11_38_45.json'))
     # execute_all()
 
