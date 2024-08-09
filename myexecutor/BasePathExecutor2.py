@@ -1,3 +1,4 @@
+import random
 import threading
 import time
 import cv2
@@ -90,43 +91,46 @@ class BasePathExecutor(BaseController):
 
         ################## 参数 #########################
         self.move_next_point_allow_max_time = cfg.get('move_next_point_allow_max_time', 20)
-        if self.move_next_point_allow_max_time < 5:
-            self.move_next_point_allow_max_time = 5
-        elif self.move_next_point_allow_max_time > 60:
-            self.move_next_point_allow_max_time = 60
+        if self.move_next_point_allow_max_time < 5: self.move_next_point_allow_max_time = 5
+        elif self.move_next_point_allow_max_time > 60: self.move_next_point_allow_max_time = 60
 
         self.object_to_detect = None  # 目标检测对象, 例如 钓鱼
         self.position_history = deque(maxlen=8)  # 一秒钟存1次，计算总距离
+
+        # 8秒内移动的总距离(像素)在多少范围内认为卡住，允许范围(2~50)
         self.stuck_movement_threshold = cfg.get('stuck_movement_threshold', 20)
-        if self.stuck_movement_threshold < 2:
-            self.stuck_movement_threshold = 2
-        elif self.stuck_movement_threshold > 50:
-            self.stuck_movement_threshold = 50
+        if self.stuck_movement_threshold < 2: self.stuck_movement_threshold = 2
+        elif self.stuck_movement_threshold > 50: self.stuck_movement_threshold = 50
 
         # 精度：当前位置距离目标点距离多少个像素点表示他们是临近, 小碎步时候要用到
         self.target_nearby_threshold = cfg.get('target_nearby_threshold', 2)
         if self.target_nearby_threshold < 0.1: self.target_nearby_threshold = 0.1
         if self.target_nearby_threshold > 10: self.target_nearby_threshold = 10
 
+        # 判断是否到达途径点的阈值
         self.path_point_nearby_threshold = cfg.get('path_point_nearby_threshold', 2)
         if self.path_point_nearby_threshold < 2: self.path_point_nearby_threshold = 2
         if self.path_point_nearby_threshold > 50: self.path_point_nearby_threshold = 50
 
+        # 路径展示器的宽高
         self.path_viewer_width = cfg.get('path_viewer_width', 500)
-        if self.path_viewer_width < 50:
-            self.path_viewer_width = 50
-        elif self.path_viewer_width > 4096:
-            self.path_viewer_width = 4096
+        if self.path_viewer_width < 50: self.path_viewer_width = 50
+        elif self.path_viewer_width > 4096: self.path_viewer_width = 4096
 
-        self.allow_small_steps = cfg.get('allow_small_steps', 1) == 1
-        self.enable_crazy_f = cfg.get('enable_crazy_f', 1) == 1
-        self.enable_loop_press_e = cfg.get('enable_loop_press_e', 1) == 1
-        self.enable_loop_press_z = cfg.get('enable_loop_press_z', 1) == 1
-        self.enable_loop_jump = cfg.get('enable_loop_jump', 1) == 1
-        self.enable_dash = cfg.get('enable_dash', 1) == 1
+        self.allow_small_steps = cfg.get('allow_small_steps', 1) == 1  # 是否允许小碎步接近目标：注意此选项对Point.type=='path'的途径点无效
+        self.enable_crazy_f = cfg.get('enable_crazy_f', 1) == 1  # 是否在接近目标点时候疯狂按下f：对途径点无效
+        self.enable_loop_press_e = cfg.get('enable_loop_press_e', 1) == 1  # 循环按下e开技能
+        self.enable_loop_press_z = cfg.get('enable_loop_press_z', 1) == 1  # 循环按下z使用道具
+        self.enable_loop_jump = cfg.get('enable_loop_jump', 1) == 1  # 循环按下空格跳跃
+        self.enable_dash = cfg.get('enable_dash', 1) == 1  # 循环按下鼠标右键冲刺
 
-        self.last_update_time = time.time()
-        self.UPDATE_POSITION_INTERVAL = 0.05  # 0.05s更新一次位置
+        # 0.05s更新一次位置, 值越小，请求位置信息越频繁
+        self.update_user_status_interval = cfg.get('update_user_status_interval', 0.2)
+        # self.update_user_status_interval = cfg.get('update_user_status_interval', 0.05)
+        # if self.update_user_status_interval > 0.1: self.update_user_status_interval = 0.1
+        # elif self.update_user_status_interval < 0.01: self.update_user_status_interval = 0.01
+
+        self.last_time_update_user_status = time.time()  # 上一次更新用户状态(当前位置、转向）的时间
 
         ############ 状态 ##############
         self.current_position = None
@@ -188,38 +192,39 @@ class BasePathExecutor(BaseController):
             self.crazy_f()
 
     def do_action_if_moving_stuck(self):
-        self.kb_press_and_release('d')  # 避免卡住
+        self.kb_press_and_release(random.choice('wsa'))  # 避免卡住, 不安下x，允许爬墙
+        time.sleep(0.005)
         self.kb_press_and_release(self.Key.space)  # 避免卡住
-        self.kb_press_and_release('a')  # 避免卡住
-        self.kb_press_and_release(self.Key.space)  # 避免卡住
-        self.kb_press("w")
+        time.sleep(0.5)
 
     def do_action_if_timeout(self):
         self.logger.debug('点位执行超时, 跳过该点位')
-        self.kb_press_and_release("x")  # 避免攀爬
+        self.kb_press_and_release(random.choice('wsadx'))  # 避免卡住
+        time.sleep(0.005)
         self.kb_press_and_release(self.Key.space)  # 避免卡住
-        self.kb_press_and_release('s')  # 避免卡住
-        self.kb_press_and_release('a')  # 避免卡住
-        self.kb_press_and_release('d')  # 避免卡住
-        self.kb_press_and_release('w')  # 避免卡住
+        time.sleep(0.5)
+        self.kb_release('w')
 
 
-    def __do_move(self, coordinates):
+    def __do_move(self, coordinates, point_start_time):
         # 开技能
         if self.enable_loop_press_z: self.rate_limiter_press_z.execute(self.kb_press_and_release, 'z')
         if self.enable_loop_press_e: self.rate_limiter_press_e.execute(self.kb_press_and_release, 'e')
 
-        # 是否卡住动的判断
+        # 限制1秒钟只能执行1次，这样就能记录每一秒的位移
         self.rate_limiter1_history.execute(self.position_history.append, self.current_position)
         total_displacement = self.calculate_total_displacement()  # 8秒内的位移
-        if total_displacement < self.stuck_movement_threshold: raise MovingStuckException(f"8秒内位移平均值为{total_displacement}, 判定为卡住了！")
+        if total_displacement < self.stuck_movement_threshold: raise MovingStuckException(f"8秒内位移总值为{total_displacement}, 判定为卡住了！")
 
-        # 转向: 注意，update_state()线程永远保证self.positions在首次赋值之后，不会是空值
+        # 超时判断
+        if time.time() - point_start_time > self.move_next_point_allow_max_time: raise MovingTimeOutException(f"执行点位超时, 跳过该点位！")
+
+        # 转向: 注意，update_state()线程永远保证self.positions在首次赋值之后不再是空值,但是计算角度的函数可能会返回空值，因此还是要判断
         rot = self.get_next_point_rotation(coordinates)
-        if rot: self.to_degree(self.get_next_point_rotation(coordinates))
-
-        # 前进: 注意要先转向后再前进，否则可能出错
-        self.kb_press("w")
+        if rot:
+            self.to_degree(self.get_next_point_rotation(coordinates))
+            # 前进: 注意要先转向后再前进，否则可能出错
+            self.kb_press("w")
 
     # 移动
     # 异常：原地踏步
@@ -229,44 +234,47 @@ class BasePathExecutor(BaseController):
     def move(self, coordinates, small_step_enable=False):
         if self.stop_listen: return
         point_start_time = time.time()
+        self.position_history.clear()
         # 大距离快速接近
         while not point1_near_by_point2(self.current_position, coordinates, self.path_point_nearby_threshold):
             try:
                 if self.stop_listen: return
                 # 执行移动
-                self.__do_move(coordinates)
+                time.sleep(self.update_user_status_interval)
+                self.__do_move(coordinates, point_start_time)
                 # 行动:如果距离点位超过20个像素值，则可以采取冲刺+跳跃操作
                 if not point1_near_by_point2(self.current_position, coordinates, 20):
                     # 游戏特性: 必须先冲刺后再过0.几秒后，跳跃才生效
                     if self.enable_dash: self.rate_limiter_press_dash.execute(self.mouse_right_click)
                     if self.enable_loop_jump:
-                        if self.enable_dash: time.sleep(0.005)  # 防止执行时间过短
+                        if self.enable_dash: time.sleep(0.005)  # 按键的操作间隔过短，后面的按键会失效！
                         self.rate_limiter_press_jump.execute(self.kb_press_and_release, self.Key.space)
-                time.sleep(self.UPDATE_POSITION_INTERVAL)  # 跑点频率保持和点位更新频率相同
             except MovingStuckException as e:
                 self.logger.error(e)
                 self.do_action_if_moving_stuck()
             except MovingTimeOutException as e:
                 self.logger.error(e)
                 self.do_action_if_timeout()
+                return
 
         # 当接近目的地时，调整更小的阈值, 使得小碎步可以更精准走到目的地
         if small_step_enable and self.allow_small_steps:
             while not point1_near_by_point2(self.current_position, coordinates, self.target_nearby_threshold):
                 if self.stop_listen: return
                 try:
-                    self.__do_move(coordinates)
-                    time.sleep(0.08)
+                    self.on_nearby(self.next_point)
+                    time.sleep(0.02)
+                    self.__do_move(coordinates, point_start_time)
+                    time.sleep(0.02)
                     self.debug("小碎步松开w")
                     self.kb_release('w')
-                    time.sleep(self.UPDATE_POSITION_INTERVAL)
-                    self.on_nearby(self.next_point)
                 except MovingStuckException as e:
                     self.logger.error(e)
                     self.do_action_if_moving_stuck()
                 except MovingTimeOutException as e:
                     self.logger.error(e)
                     self.do_action_if_timeout()
+                    return
 
         self.logger.debug(f'跑点{coordinates}用时：{time.time() - point_start_time}')
         self.kb_release('w')
@@ -285,7 +293,7 @@ class BasePathExecutor(BaseController):
         rot = self.tracker.get_rotation()
         if rot: self.current_rotation = rot
 
-        self.last_update_time = time.time()
+        self.last_time_update_user_status = time.time()
         msg = f"更新状态: cost:{time.time() - start},next:{self.next_point}, current pos:{self.current_position}, rotation:{self.current_rotation},is_path_end:{self.is_path_end}, is_object_detected_end:{self._thread_object_detect_finished}"
         self.rate_limiter5_debug_print.execute(self.debug, msg)
 
@@ -325,7 +333,7 @@ class BasePathExecutor(BaseController):
         while not self.is_path_end and not self.stop_listen and not self._thread_update_state_finished:
             # self.log(f"多线程更新状态中, {self.stop_listen}")
             self.update_state()
-            time.sleep(self.UPDATE_POSITION_INTERVAL)
+            time.sleep(self.update_user_status_interval)
 
     def _thread_exception_detect(self):
         pass
@@ -382,6 +390,7 @@ class BasePathExecutor(BaseController):
             if not point1_near_by_point2(self.current_position, (point.x, point.y), 500):
                 # 如果当前点位距离下一个点位过远，可能是由于角色死亡被传送
                 self.log("当前点位距离下一个点位过远，可能是由于角色死亡被传送, 提前终止{}")
+                self.is_path_end = True
                 return False
 
             small_step_enable = point.type == self.object_to_detect
@@ -439,10 +448,11 @@ if __name__ == '__main__':
     # 测试点位
     import os
     from myutils.jsonutils import getjson_path_byname
-    execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json'))
+    # execute_one(getjson_path_byname('风车菊_蒙德_清泉镇_2024-08-08_14_46_25.json'))
     # execute_one(getjson_path_byname('jiuguan_蒙德_wfsd_20240808.json'))
     # execute_one(getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json'))
-    # execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_12_43.json'))
+    # execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json'))
     # execute_one(getjson_path_byname('风车菊_蒙德_清泉镇_2024-08-08_14_46_25.json'))
+    execute_one(getjson_path_byname('调查_璃月_地中之岩_2024-04-29_06_23_28.json'))
     # execute_all()
 
