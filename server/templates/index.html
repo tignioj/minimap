@@ -18,26 +18,39 @@
     </style>
 </head>
 <body>
-<canvas id="myCanvas" width="600" height="600"></canvas>
+<canvas id="myCanvas" width="500" height="500"></canvas>
 <div id="editPanel">
     <label for="x">X: </label><input type="number" id="x" /><br />
     <label for="y">Y: </label><input type="number" id="y" /><br />
-    <label for="type">Type: </label><input type="text" id="type" /><br />
+
+    <input type="radio" id="typePath" name="type" value="path" checked />
+    <label for="typePath">路径</label>
+    <input type="radio" id="typeTarget" name="type" value="target" checked />
+    <label for="typeTarget">目标</label>
+
     <fieldset>
-        <legend>Move mode</legend>
+        <legend>行走方式</legend>
             <input type="radio" id="normal" name="moveMode" value="normal" checked />
-            <label for="normal">normal</label>
+            <label for="normal">普通</label>
 
             <input type="radio" id="fly" name="moveMode" value="fly" />
-            <label for="fly">fly</label>
+            <label for="fly">飞行</label>
 
             <input type="radio" id="jump" name="moveMode" value="jump" />
-            <label for="jump">jump</label>
+            <label for="jump">跳跃</label>
 
             <input type="radio" id="swim" name="moveMode" value="swim" />
-            <label for="swim">swim</label>
+            <label for="swim">游泳</label>
     </fieldset>
-    <label for="action">Action: </label><input type="text" id="action" /><br />
+    <fieldset>
+        <legend>动作</legend>
+        <input type="radio" id="actionNone" name="action" value="" checked />
+        <label for="actionNone">无动作</label>
+
+        <input type="radio" id="actionStopFlying" name="action" value="stop_flying"/>
+        <label for="actionStopFlying">下落攻击</label>
+    </fieldset>
+
     <button id="saveButton">Save</button>
     <button id="deleteButton">Delete</button>
     <button id="cancelButton">Cancel</button>
@@ -45,27 +58,66 @@
 </div>
 
 <div>
-    <label for="userX">X: </label><input type="number" id="userX" />
-    <label for="userY">Y: </label><input type="number" id="userY" />
-    <label for="userType">Type: </label><input type="text" value="path" id="userType" /><br />
+    <span id="msg">请点击开始记录获取用户位置</span> <br/>
+    <button id="startRecordButton">开始记录</button>
+    <button id="stopRecordButton">停止记录</button>
+    <button id="saveRecordButton">保存记录</button>
+    <button id="loadRecordButton">加载记录</button>
+</div>
+<hr/>
+<div>
+    <label for="nameInput">名称<input type="text" id="nameInput"/></label>
+    <label for="countrySelect">传送点所在国家</label>
+    <select id="countrySelect">
+        <option value="蒙德">蒙德</option>
+        <option value="璃月">璃月</option>
+        <option value="须弥">须弥</option>
+        <option value="稻妻">稻妻</option>
+        <option value="枫丹">枫丹</option>
+    </select>
+    <button id="playBackButton">回放</button>
+</div>
+<hr/>
+
+<div>
+
+    <fieldset>
+        <legend>点位信息</legend>
+        <label for="userX">X: </label><input type="number" id="userX" /> <label for="userY">Y: </label><input type="number" id="userY" />
+        <fieldset>
+            <legend>行走方式</legend>
+                <input type="radio" id="userNormal" name="userMoveMode" value="normal" checked />
+                <label for="normal">普通</label>
+
+                <input type="radio" id="userFly" name="userMoveMode" value="fly" />
+                <label for="fly">飞行</label>
+
+                <input type="radio" id="userJump" name="userMoveMode" value="jump" />
+                <label for="jump">跳跃</label>
+
+                <input type="radio" id="userSwim" name="userMoveMode" value="swim" />
+                <label for="swim">游泳</label>
+        </fieldset>
+        <fieldset>
+            <legend>点位类型</legend>
+                <input type="radio" id="userTypePath" name="userType" value="path" checked />
+                <label for="userTypePath">路径</label>
+                <input type="radio" id="userTypeTarget" name="userType" value="target" />
+                <label for="userTypeTarget">目标</label>
+        </fieldset>
+        <fieldset>
+            <legend>动作</legend>
+            <input type="radio" id="userActionNone" name="userAction" value="" checked />
+            <label for="userActionNone">无动作</label>
+
+            <input type="radio" id="userActionStopFlying" name="userAction" value="stop_flying"/>
+            <label for="userActionStopFlying">下落攻击</label>
+        </fieldset>
+    </fieldset>
+
     <button id="insertNodeButton">插入点位</button>
 </div>
 <hr/>
-<div>
-    <label for="country">请选择传送点所在国家</label>
-    <select id="country">
-        <option value="fly">蒙德</option>
-        <option value="normal">璃月</option>
-        <option value="jump">须弥</option>
-        <option value="swim">稻妻</option>
-        <option value="swim">枫丹</option>
-        <option value="swim">纳塔</option>
-    </select>
-</div>
-<hr/>
-<div>
-    <button>保存到json</button>
-</div>
 <script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
 <script src="{{url_for('static', filename='index.js')}}"></script>
 </body>

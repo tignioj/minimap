@@ -3,38 +3,39 @@ const ctx = canvas.getContext('2d');
 const editPanel = document.getElementById('editPanel');
 const xInput = document.getElementById('x');
 const yInput = document.getElementById('y');
-const typeInput = document.getElementById('type');
 // const moveModeInput = document.getElementById('moveMode');
-const actionInput = document.getElementById('action');
 const userXInput = document.getElementById('userX');
 const userYInput = document.getElementById('userY');
+const nameInput = document.getElementById('nameInput');
+const countrySelect = document.getElementById('countrySelect')
+
+const msgElement = document.getElementById("msg")
 
 const saveButton = document.getElementById('saveButton');
 const deleteButton = document.getElementById('deleteButton');
 const cancelButton = document.getElementById('cancelButton');
 const newButton = document.getElementById('newButton');
 const insertNodeButton = document.getElementById('insertNodeButton');
+const startRecordButton = document.getElementById('startRecordButton');
+const stopRecordButton = document.getElementById('stopRecordButton');
+const playBackButton = document.getElementById('playBackButton');
+const serverURL = 'http://127.0.0.1:5000'
 
 let selectedPointIndex = null;
 let draggingPointIndex = null;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 let isCtrlPressed = false;
-
+let isStartRecord = false;
 
 // 加载数据
-// data = jsonData;
-// console.log(jsonData)
-
 pos = { x: 0, y: 0, type: 'start' }
 points = []
 
-// fetch('data.json').then(response => response.json()).then(jsonData => {
-//     points = jsonData.positions
-//     console.log(points)
-//     draw()
-// })
-//
+function info(text) {
+    msgElement.innerText = text
+}
+
 // 更新画布中心
 function updateCanvasCenter(newPoint) {
     pos  = newPoint;
@@ -43,13 +44,37 @@ function updateCanvasCenter(newPoint) {
     offsetX = canvas.width / 2 - newPoint.x;
     offsetY = canvas.height / 2 - newPoint.y;
     draw()
+    drawMap(newPoint.x, newPoint.y)
     drawUserPoint(newPoint.x, newPoint.y);
-    console.log(pos)
+    // console.log(pos)
+}
+function drawMap(x,y) {
+    if (!isStartRecord) return
+    width = 500
+    imageUrl = `${serverURL}/minimap/get_region_map?x=${x}&y=${y}&width=${width}`
+    // 创建一个 Image 对象
+    const img = new Image();
+
+    // 设置跨域属性（如果图片服务器允许跨域）
+    img.crossOrigin = 'Anonymous';
+
+    // 设定 image 对象的 src 属性为 HTTP 请求的 URL
+    img.src = imageUrl;
+
+    // 等待图片加载完成
+    img.onload = function() {
+        // 绘制图片到 canvas 上
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        draw()
+        drawUserPoint(x,y)
+    };
 }
 
 // 请求服务器获取新位置
 function fetchNewPosition() {
-    fetch('http://127.0.0.1:5000/minimap/get_position') // 替换为实际的服务器地址
+    if(!isStartRecord) return
+    fetch(`${serverURL}/minimap/get_position`) // 替换为实际的服务器地址
         .then(response => response.json())
         .then(data => {
             const newPosition = {
@@ -62,18 +87,66 @@ function fetchNewPosition() {
         })
         .catch(error => console.error('Error fetching position:', error));
 }
-setInterval(fetchNewPosition, 1000); // 每5秒请求一次
 
+setInterval(fetchNewPosition, 100); // 每5秒请求一次
+startRecordButton.addEventListener('click', ()=> {
+    info("正在记录中,请不要刷新网页，否则数据丢失")
+    isStartRecord = true
+})
+stopRecordButton.addEventListener('click', ()=> {
+    info("已停止记录")
+    isStartRecord = false
+})
+
+function getPathObject() {
+    pathObj = {
+        name: nameInput.value
+    }
+}
+
+playBackButton.addEventListener('click', () => {
+    info('回放中, 已停止记录，按下ESC停止回放')
+    isStartRecord = false
+    const url = `${serverURL}/playback`; // 替换为实际的 API 端点
+
+    const data = {
+        name: nameInput.value,
+        country: countrySelect.value,
+        positions: points
+    };
+    fetch(url, {
+        method: 'POST', // 请求方法
+        headers: {
+            'Content-Type': 'application/json' // 指定发送的数据格式为 JSON
+        },
+        body: JSON.stringify(data) // 将 JavaScript 对象转换为 JSON 字符串
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok ' + response.statusText);
+        }
+        return response.json(); // 解析响应为 JSON
+    })
+    .then(data => {
+        console.log('Success:', data); // 处理成功的响应
+    })
+    .catch(error => {
+        console.error('Error:', error); // 处理错误
+    });
+
+})
 
 document.addEventListener("DOMContentLoaded", function() {
     const socket = io();
     socket.on('key_event', function(data) {
         // 处理从服务器接收到的键盘事件数据
-        console.log('Key event:', data.key);
+        // console.log('Key event:', data.key);
         if (data.key === 'insert') {
             insertPosition()
         } else if (data.key === 'backspace')
-            points.pop()
+            if (isStartRecord) {
+                points.pop()
+            }
         else if (data.key === 'delete') {
             points = []
         }
@@ -88,8 +161,6 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
-
-
 //################################## 快捷键
 document.addEventListener('keydown', (event) => {
     if (event.ctrlKey) {
@@ -98,7 +169,6 @@ document.addEventListener('keydown', (event) => {
     }
     console.log(event)
 });
-
 
 window.addEventListener('keydown', (event)=> {
     // 重新绑定键盘监听
@@ -181,9 +251,9 @@ saveButton.addEventListener('click', () => {
     if (selectedPointIndex !== null) {
         points[selectedPointIndex].x = parseFloat(xInput.value);
         points[selectedPointIndex].y = parseFloat(yInput.value);
-        points[selectedPointIndex].type = typeInput.value;
-        points[selectedPointIndex].action = actionInput.value;
-        points[selectedPointIndex].move_mode = getSelectedValue()
+        points[selectedPointIndex].type = getSelectedValue('type');
+        points[selectedPointIndex].action = getSelectedValue('action')
+        points[selectedPointIndex].move_mode = getSelectedValue('moveMode');
         hideEditPanel();
         draw();
     }
@@ -206,9 +276,9 @@ newButton.addEventListener('click', (event) => {
     if (selectedPointIndex !== null) {
         newX = parseFloat(xInput.value);
         newY  = parseFloat(yInput.value);
-        newType = typeInput.value;
-        newAction = actionInput.value;
-        newMoveMode = getSelectedValue()
+        newType = getSelectedValue('type')
+        newAction = getSelectedValue('action')
+        newMoveMode = getSelectedValue('moveMode')
         point = { x: newX - 10, y: newY , type: newType, action: newAction, move_mode: newMoveMode }
         points.splice(selectedPointIndex+1, 0, point);
         hideEditPanel();
@@ -216,22 +286,29 @@ newButton.addEventListener('click', (event) => {
     }
 })
 
-function insertPosition() {
+function getUserCustomNode() {
     node = {
         x: Number(userXInput.value),
         y: Number(userYInput.value),
-        type: 'path',
-        move_mode: 'normal'
+        type: getSelectedValue('userType'),
+        move_mode: getSelectedValue('userMoveMode'),
+        action: getSelectedValue('userAction')
     }
-    console.log(node)
+    return node
+}
+
+function insertPosition() {
+    if (!isStartRecord) {
+        return
+    }
+    node = getUserCustomNode()
     points.push(node)
 }
 insertNodeButton.addEventListener('click', insertPosition)
 
-
-function getSelectedValue() {
+function getSelectedValue(name) {
     // Get the selected radio button
-    const selectedRadio = document.querySelector('input[name="moveMode"]:checked');
+    const selectedRadio = document.querySelector(`input[name="${name}"]:checked`);
 
     // Check if a radio button is selected
     if (selectedRadio) {
@@ -241,19 +318,19 @@ function getSelectedValue() {
         return selectedValue
     } else {
         console.log('No radio button selected');
-        return "normal"
+        return ""
     }
 }
 
 
-function selectRadio(value) {
+function selectRadio(name,value) {
     // Deselect all radio buttons first
-    document.querySelectorAll('input[name="moveMode"]').forEach(radio => {
+    document.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
         radio.checked = false;
     });
 
     // Select the radio button with the specified value
-    const radioToSelect = document.querySelector(`input[name="moveMode"][value="${value}"]`);
+    const radioToSelect = document.querySelector(`input[name="${name}"][value="${value}"]`);
     if (radioToSelect) {
         radioToSelect.checked = true;
     }
@@ -276,8 +353,6 @@ offsetY = canvasHeight / 2 -y;
 scale = 1;
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     // Draw lines
     for (let i = 0; i < points.length - 1; i++) {
         drawLine(points[i], points[i + 1]);
@@ -366,10 +441,10 @@ function isPointWithin(px, py, x, y, radius = 5) {
 function showEditPanel(x, y, type, moveMode, action) {
     xInput.value = x;
     yInput.value = y;
-    typeInput.value = type;
+    selectRadio('type',type)
     // moveModeInput.value = moveMode == null ? '': moveMode;
-    selectRadio(moveMode)
-    actionInput.value = action == null ? '':action;
+    selectRadio("moveMode",moveMode)
+    selectRadio('action', action)
     editPanel.style.left = `${event.clientX}px`;
     editPanel.style.top = `${event.clientY}px`;
     editPanel.style.display = 'block';
