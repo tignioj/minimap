@@ -3,7 +3,7 @@ import threading
 import time
 
 import numpy as np
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 from capture.genshin_capture import GenShinCapture
 from matchmap.sifttest.sifttest5 import MiniMap
 from matchmap.gia_rotation import RotationGIA
@@ -12,6 +12,10 @@ from myutils.configutils import cfg
 from myutils.imgutils import crop_img
 import logging
 logging.getLogger('werkzeug').setLevel(logging.WARNING)
+from flask_cors import CORS
+from flask_socketio import SocketIO
+from pynput.keyboard import Controller, Listener
+
 
 if cfg.get('debug_enable') == 1:
     debug_enable = True
@@ -20,7 +24,7 @@ else:
 
 
 class FlaskApp(Flask):
-    minimap = MiniMap(debug_enable=debug_enable)
+    minimap = MiniMap()
     large_map = minimap.map_2048['img']
     minimap.get_position()
     rotate = RotationGIA(True)
@@ -32,8 +36,30 @@ def cvimg_to_base64(cvimg):
     return base64.b64encode(img_encoded).decode("utf-8")
 
 
-app = FlaskApp(__name__)
 
+def _on_press(key):
+    # print(f'key {key} pressed')
+    try:
+        c = key.char
+    except AttributeError:
+        c = key.name
+    socketio.emit('key_event', {'key': c})
+
+def _on_release(key):
+    # print(f'key {key} released')
+    socketio.emit('key_event', {'key': key})
+
+kb_listener = Listener(on_press=_on_press)
+kb_listener.start()
+
+
+app = FlaskApp(__name__)
+CORS(app)
+app.config['SECRET_KEY'] = 'mysecret'
+socketio = SocketIO(app)
+@app.route('/')
+def index():
+    return render_template('index.html')
 @app.route('/usermap/get_position', methods=['GET'])
 def get_user_map_position():
     return jsonify(app.minimap.get_user_map_position())
@@ -63,9 +89,7 @@ def create_cached_local_map():
 
 @app.route('/minimap/get_position', methods=['GET'])
 def get_position():
-    t = time.time()
     pos = app.minimap.get_position()
-    print('g cost:', time.time() - t)
     return jsonify(pos)
 
 
@@ -82,7 +106,7 @@ from io import BytesIO
 def get_region_map():
     x = request.args.get('x')
     y = request.args.get('y')
-    radius = request.args.get('radius')
+    radius = request.args.get('width')
     if x is not None and y is not None and radius is not None:
         radius = int(float(radius))
         x = int(float(x))
@@ -90,7 +114,15 @@ def get_region_map():
 
         pix_pos = app.minimap.relative_axis_to_pix_axis((x,y))
 
-        tem_local_map = crop_img(app.minimap.map_2048['img'], pix_pos[0], pix_pos[1], radius)
+        if app.large_map is None:
+            from myutils.configutils import get_bigmap_path
+            app.large_map = cv2.imread(get_bigmap_path(2048), cv2.IMREAD_GRAYSCALE)
+            if app.large_map is None:
+                raise Exception("无法加载大地图")
+
+        tem_local_map = crop_img(app.large_map, pix_pos[0], pix_pos[1], radius)
+        if tem_local_map is None:
+            raise Exception("无法裁剪大地图")
 
         _, img_encoded = cv2.imencode('.jpg', tem_local_map)
         return send_file(BytesIO(img_encoded), mimetype='image/jpeg')
@@ -117,6 +149,12 @@ def get_local_map():
 
 # threading.Thread(target=app.cvshow).start()
 
+def keyboard_listener():
+    def on_key_event(keyboard_event):
+        # 将键盘事件发送到所有连接的 WebSocket 客户端
+        socketio.emit('key_event', {'key': keyboard_event.name}, broadcast=True)
+
+
 if __name__ == '__main__':
     host = cfg['minimap']['host']
     port = cfg['minimap']['port']
@@ -130,5 +168,6 @@ if __name__ == '__main__':
     {url}/usermap/get_position', methods=['GET']
     {url}/usermap/create_cache', methods=['POST']
     """)
-    app.run(host=host, port=port, debug=False)
+    # app.run(host=host, port=port, debug=False)
+    socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True, debug=True)
     # app.run(port=5000,debug=False)
