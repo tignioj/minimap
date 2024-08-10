@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Example</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        #editPanel {
+            display: none;
+            position: absolute;
+            background: white;
+            border: 1px solid black;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="myCanvas" width="600" height="600"></canvas>
+<div id="editPanel">
+    <label for="x">X: </label><input type="number" id="x" /><br />
+    <label for="y">Y: </label><input type="number" id="y" /><br />
+    <label for="type">Type: </label><input type="text" id="type" /><br />
+    <fieldset>
+        <legend>Move mode</legend>
+            <input type="radio" id="normal" name="moveMode" value="normal" checked />
+            <label for="normal">normal</label>
+
+            <input type="radio" id="fly" name="moveMode" value="fly" />
+            <label for="fly">fly</label>
+
+            <input type="radio" id="jump" name="moveMode" value="jump" />
+            <label for="jump">jump</label>
+
+            <input type="radio" id="swim" name="moveMode" value="swim" />
+            <label for="swim">swim</label>
+    </fieldset>
+    <label for="action">Action: </label><input type="text" id="action" /><br />
+    <button id="saveButton">Save</button>
+    <button id="deleteButton">Delete</button>
+    <button id="cancelButton">Cancel</button>
+    <button id="newButton">New</button>
+</div>
+
+<div>
+    <label for="userX">X: </label><input type="number" id="userX" />
+    <label for="userY">Y: </label><input type="number" id="userY" />
+    <label for="userType">Type: </label><input type="text" value="path" id="userType" /><br />
+    <button id="insertNodeButton">插入点位</button>
+</div>
+<hr/>
+<div>
+    <label for="country">请选择传送点所在国家</label>
+    <select id="country">
+        <option value="fly">蒙德</option>
+        <option value="normal">璃月</option>
+        <option value="jump">须弥</option>
+        <option value="swim">稻妻</option>
+        <option value="swim">枫丹</option>
+        <option value="swim">纳塔</option>
+    </select>
+</div>
+<hr/>
+<div>
+    <button>保存到json</button>
+</div>
+<script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+<script src="{{url_for('static', filename='index.js')}}"></script>
+</body>
+</html>
