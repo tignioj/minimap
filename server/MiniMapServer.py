@@ -1,4 +1,5 @@
 import base64
+import json
 import threading
 import time
 
@@ -14,7 +15,9 @@ import logging
 logging.getLogger('werkzeug').setLevel(logging.WARNING)
 from flask_cors import CORS
 from flask_socketio import SocketIO
-from pynput.keyboard import Controller, Listener
+from pynput.keyboard import  Listener
+from mylogger.MyLogger3 import MyLogger
+logger = MyLogger('MiniMapServer')
 
 
 if cfg.get('debug_enable') == 1:
@@ -57,9 +60,41 @@ app = FlaskApp(__name__)
 CORS(app)
 app.config['SECRET_KEY'] = 'mysecret'
 socketio = SocketIO(app)
+playing_thread_running = False
 @app.route('/')
 def index():
     return render_template('index.html')
+
+lock = threading.Lock()
+def _thread_playback(jsondict):
+    global playing_thread_running
+    with lock:
+        playing_thread_running = True
+        try:
+            json_object = json.dumps(jsondict, indent=4, ensure_ascii=False)
+            with open('../resources/pathlist/月莲/月莲_test.json', mode="w",
+                      encoding="utf-8") as outfile:
+                outfile.write(json_object)
+            from myexecutor.BasePathExecutor2 import BasePathExecutor
+            bp = BasePathExecutor(json_dict=jsondict)
+            bp.execute()
+        except Exception as e:
+            logger.error(e)
+        finally:
+            playing_thread_running = False
+
+@app.route('/playback', methods=['POST'])
+def playback():
+    global playing_thread_running
+    if playing_thread_running: return jsonify({'result': False, 'msg': 'is already playing'})
+
+    jsondict = request.json
+    if jsondict is None: return jsonify({'result': False, 'msg': 'no jsonstr'})
+    threading.Thread(target=_thread_playback, args=(jsondict,)).start()
+    return jsonify({'result': True, 'msg': 'playback started'})
+
+
+
 @app.route('/usermap/get_position', methods=['GET'])
 def get_user_map_position():
     return jsonify(app.minimap.get_user_map_position())
@@ -147,12 +182,6 @@ def get_local_map():
     }
     return jsonify(data)
 
-# threading.Thread(target=app.cvshow).start()
-
-def keyboard_listener():
-    def on_key_event(keyboard_event):
-        # 将键盘事件发送到所有连接的 WebSocket 客户端
-        socketio.emit('key_event', {'key': keyboard_event.name}, broadcast=True)
 
 
 if __name__ == '__main__':

@@ -56,32 +56,47 @@ class PointEncoder(json.JSONEncoder):
 class BasePathExecutor(BaseController):
 
     # 到达下一个点位采取何种移动方式？
-    # TODO 暂时飞行模式和跳跃模式做同样的狂按空格处理
+
+    @staticmethod
+    def load_json_obj_from_dict(json_dict):
+        positions = json_dict['positions']
+        points:List[Point] = []
+        for point in positions:
+            p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'), move_mode=point.get('move_mode'),
+                      action=point.get('action'))
+            points.append(p)
+        json_dict['positions'] = points
+        return json_dict
+
     @staticmethod
     def load_json(json_file_path):
-        json_map = {
-            "country": None,
-            "positions": None,
-            "name": None
-        }
         from myutils.configutils import resource_path
         with open(json_file_path, encoding="utf-8") as r:
             json_obj = json.load(r)
-            json_map['country'] = json_obj.get('country', '蒙德')
-            json_map['name'] = json_obj.get('name')
+            json_map = {
+                'name': json_obj.get('name', '未定义'),
+                'country': json_obj.get('country', '蒙德'),
+                "positions": None
+            }
             positions = json_obj.get('positions')
+            if json_map is None or len(positions) < 1: raise Exception(f"空白路线, 跳过")
+            json_map['positions']: List[Point] = []
+            for point in positions:
+                p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'), move_mode=point.get('move_mode'),
+                          action=point.get('action'))
+                json_map['positions'].append(p)
+            return json_map
 
-        if json_map is None or len(positions) < 1: raise Exception(f"空白路线, 跳过")
-        json_map['positions']: List[Point] = []
-        for point in positions:
-            p = Point(x=point.get('x'), y=point.get('y'), type=point.get('type'), move_mode=point.get('move_mode'), action=point.get('action'))
-            json_map['positions'].append(p)
-        return json_map
-
-    def __init__(self, json_file_path, debug_enable=False):
+    def __init__(self, json_file_path=None, json_dict=None, debug_enable=False):
         super().__init__(debug_enable=debug_enable)
-        from myutils.jsonutils import load_json
-        json_map = self.load_json(json_file_path)
+        json_map = None
+        if json_dict:
+            json_map = self.load_json_obj_from_dict(json_dict)
+        elif json_file_path:
+            json_map = self.load_json(json_file_path)
+
+        if json_map is None:
+            raise Exception(f"无法加载json对象")
         self.country = json_map['country'] # 传送到什么区域
         self.target_name = json_map['name'] # 目标名称
         self.points:List[Point] = json_map['positions']
@@ -209,7 +224,6 @@ class BasePathExecutor(BaseController):
         time.sleep(0.2)
         self.kb_release('w')
 
-
     def __do_move(self, coordinates, point_start_time):
         # 开技能
         if self.enable_loop_press_z: self.rate_limiter_press_z.execute(self.kb_press_and_release, 'z')
@@ -245,7 +259,6 @@ class BasePathExecutor(BaseController):
 
         # 飞行
         if self.next_point.move_mode == self.next_point.MOVE_MODE_FLY: self.rate_limiter_fly.execute(self.kb_press_and_release, self.Key.space)
-
 
 
     # 移动(尽量不要阻塞））
@@ -466,6 +479,7 @@ if __name__ == '__main__':
     # execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json'))
     # execute_one(getjson_path_byname('风车菊_蒙德_清泉镇_2024-08-08_14_46_25.json'))
     # execute_one(getjson_path_byname('调查_璃月_地中之岩_2024-04-29_06_23_28.json'))
-    execute_one(getjson_path_byname('月莲_须弥_降魔山1_2024-08-09_11_38_45.json'))
+    # execute_one(getjson_path_byname('月莲_须弥_降魔山1_2024-08-09_11_38_45.json'))
+    execute_one(getjson_path_byname('月莲_test.json'))
     # execute_all()
 

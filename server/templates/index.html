@@ -15,6 +15,28 @@
             border: 1px solid black;
             padding: 10px;
         }
+
+        .file-input-wrapper {
+            display: inline-block;
+            position: relative;
+        }
+        .file-input-button {
+            cursor: pointer;
+            position: relative; /* Ensure button is positioned correctly */
+        }
+        .file-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 1; /* Ensure file input is on top of other elements */
+        }
+        .error-msg {
+            color: red
+        }
     </style>
 </head>
 <body>
@@ -62,7 +84,12 @@
     <button id="startRecordButton">开始记录</button>
     <button id="stopRecordButton">停止记录</button>
     <button id="saveRecordButton">保存记录</button>
-    <button id="loadRecordButton">加载记录</button>
+
+    <div class="file-input-wrapper">
+        <button class="file-input-button" id="loadRecordButton">加载记录</button>
+<!--   <button class="file-input-button">Choose JSON File</button>-->
+        <input type="file" id="fileInput" class="file-input" accept=".json">
+    </div>
 </div>
 <hr/>
 <div>

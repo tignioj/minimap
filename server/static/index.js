@@ -18,6 +18,8 @@ const newButton = document.getElementById('newButton');
 const insertNodeButton = document.getElementById('insertNodeButton');
 const startRecordButton = document.getElementById('startRecordButton');
 const stopRecordButton = document.getElementById('stopRecordButton');
+const saveRecordButton = document.getElementById('saveRecordButton');
+const loadRecordButton = document.getElementById('loadRecordButton')
 const playBackButton = document.getElementById('playBackButton');
 const serverURL = 'http://127.0.0.1:5000'
 
@@ -33,6 +35,13 @@ pos = { x: 0, y: 0, type: 'start' }
 points = []
 
 function info(text) {
+    msgElement.classList.remove('error-msg')
+    console.log(text)
+    msgElement.innerText = text
+}
+function errorMsg(text) {
+    msgElement.classList.add('error-msg')
+    console.error(text)
     msgElement.innerText = text
 }
 
@@ -49,7 +58,7 @@ function updateCanvasCenter(newPoint) {
     // console.log(pos)
 }
 function drawMap(x,y) {
-    if (!isStartRecord) return
+    // if (!isStartRecord) return
     width = 500
     imageUrl = `${serverURL}/minimap/get_region_map?x=${x}&y=${y}&width=${width}`
     // 创建一个 Image 对象
@@ -97,23 +106,28 @@ stopRecordButton.addEventListener('click', ()=> {
     info("已停止记录")
     isStartRecord = false
 })
-
+function isUndefinedNullOrEmpty(value) {
+    return value === undefined || value === null || value === "";
+}
 function getPathObject() {
-    pathObj = {
-        name: nameInput.value
-    }
+    name = nameInput.value
+    country = countrySelect.value
+    return {
+        name: isUndefinedNullOrEmpty(name) ? 'undefined' : name,
+        country: isUndefinedNullOrEmpty(countrySelect) ? '蒙德': country,
+        positions: points
+    };
 }
 
 playBackButton.addEventListener('click', () => {
+    if (points.length < 1)  {
+        info('空路径，无法回放！')
+        return
+    }
     info('回放中, 已停止记录，按下ESC停止回放')
     isStartRecord = false
     const url = `${serverURL}/playback`; // 替换为实际的 API 端点
-
-    const data = {
-        name: nameInput.value,
-        country: countrySelect.value,
-        positions: points
-    };
+    data = getPathObject()
     fetch(url, {
         method: 'POST', // 请求方法
         headers: {
@@ -135,6 +149,63 @@ playBackButton.addEventListener('click', () => {
     });
 
 })
+function saveDictAsJsonFile(dict, fileName) {
+    // 将对象转换为 JSON 字符串
+    const jsonString = JSON.stringify(dict, null, 2); // 格式化 JSON 字符串
+
+    // 创建 Blob 对象
+    const blob = new Blob([jsonString], { type: 'application/json' });
+
+    // 创建一个临时的链接
+    const url = URL.createObjectURL(blob);
+
+    // 创建一个隐藏的 <a> 元素
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+
+    // 触发下载
+    a.click();
+
+    // 清理
+    URL.revokeObjectURL(url);
+}
+saveRecordButton.addEventListener('click', () => {
+    obj = getPathObject()
+    saveDictAsJsonFile(obj, `${obj.name}_${obj.country}.json`)
+})
+loadRecordButton.addEventListener('click', () => {
+})
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        return;
+    }
+
+    // 读取文件内容
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const json = e.target.result;
+            const obj = JSON.parse(json);
+             // JSON.stringify(obj, null, 2);
+            console.log(obj); // 打印到控制台
+            nameInput.value = obj['name']
+            points = obj['positions']
+            pos = points[0]
+            countrySelect.value = obj['country']
+            updateCanvasCenter(pos)
+            info('加载成功')
+        } catch (error) {
+            errorMsg('json解析错误:', error);
+        }
+    };
+
+    reader.readAsText(file);
+}
+document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+
 
 document.addEventListener("DOMContentLoaded", function() {
     const socket = io();
@@ -167,16 +238,7 @@ document.addEventListener('keydown', (event) => {
         isCtrlPressed = true;
         hideEditPanel()
     }
-    console.log(event)
-});
-
-window.addEventListener('keydown', (event)=> {
-    // 重新绑定键盘监听
-    if (event.ctrlKey) {
-        isCtrlPressed = true;
-        hideEditPanel()
-    }
-    console.log(event)
+    // console.log(event)
 });
 
 document.addEventListener('keyup', (event) => {
@@ -384,6 +446,7 @@ function drawPoint(x, y, color) {
 }
 
 function drawUserPoint(x,y) {
+    if (!isStartRecord) return
     const canvasX = x * scale + offsetX;
     const canvasY = y * scale + offsetY;
 
