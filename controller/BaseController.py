@@ -16,18 +16,19 @@ from datetime import datetime
 from mylogger.MyLogger3 import MyLogger
 import win32api, win32con
 from matchmap.minimap_interface import MinimapInterface
-from capture.genshin_capture import GenShinCapture
+# from capture.genshin_capture import GenShinCapture
+from capture.capture_factory import capture
 logger = MyLogger('BaseController')
 
 def wait_for_window(handler):
-    while not GenShinCapture.is_active():
+    while not capture.is_active():
         if handler.stop_listen:
             logger.debug('你停止运行了')
             sys.exit(0)
         logger.debug('不是原神窗口，暂停运行')
         time.sleep(1)
 
-class _KeyBoardController(keyboard.Controller):
+class KeyBoardController(keyboard.Controller):
     def __init__(self, handler):
         super().__init__()
         self.handler = handler
@@ -40,7 +41,7 @@ class _KeyBoardController(keyboard.Controller):
         wait_for_window(self.handler)
         super().release(key)
 
-class _MouseController(mouse.Controller):
+class MouseController(mouse.Controller):
     def __init__(self, handler):
         super().__init__()
         self.handler = handler
@@ -93,11 +94,11 @@ class BaseController:
 
         if debug_enable: self.logger.setLevel(logging.DEBUG)
         else: self.logger.setLevel(logging.INFO)
-        if gc is None: self.gc = GenShinCapture  # genshin capture
+        if gc is None: self.gc = capture # genshin capture
 
         self.Button = Button
-        self.__keyboard = _KeyBoardController(self)
-        self.__ms = _MouseController(self)
+        self.__keyboard = KeyBoardController(self)
+        self.__ms = MouseController(self)
 
         self.stop_listen = False
         self.debug_enable = debug_enable

@@ -3,12 +3,11 @@ import os.path
 import time
 import cv2
 import numpy as np
-from capture.genshin_capture import GenShinCapture
+from capture.capture_factory import capture
 from myutils.configutils import get_bigmap_path, get_paimon_icon_path, cfg
 from myutils.timerutils import Timer
 from myutils.imgutils import crop_img
-
-gs = GenShinCapture
+gs = capture
 from mylogger.MyLogger3 import MyLogger
 import threading
 
@@ -86,9 +85,9 @@ class MiniMap:
         self.__GLOBAL_MATCH_UPDATE_TIME_INTERVAL = 5  # 上次匹配时间间隔
 
         # 确定中心点
-        self.PIX_CENTER_AX = None  # cfg['center_x']  # 15593.268  # 璃月天衡山右边那个十字圆环
-        self.PIX_CENTER_AY = None  # cfg['center_y']  # 13526.913
-        self.update(GenShinCapture.width, GenShinCapture.height)
+        self.PIX_CENTER_AX = cfg.get('center_x', 15593.298)  # 璃月天衡山右边那个十字圆环
+        self.PIX_CENTER_AY = cfg.get('center_y',13528.16)
+        self.update(capture.width, capture.height)
 
         # self.result_pos = None  # 最终坐标(像素)
 
@@ -261,13 +260,16 @@ class MiniMap:
         if pos is None:
             self.logger.error('位置为空，创建局部缓存失败!')
             return False
+        #  注意传入的pos不要作为最终定位的指标，仅用来筛选出局部匹配区域和判断小地图是否超过局部匹配区域。
+        # 理由：1) 因为minimap在该区域内匹配的结果包含了最终坐标，没必要和localmap做二次计算
+        #      2) 用户传入的pos可能和全局匹配结果有误差！
         # 获取指定区域的特征点
         self.local_map_keypoints, self.local_map_descriptors = self.filterKeypoints(pos[0], pos[1], self.local_map_size, self.local_map_size, keypoints=self.map_2048['kp'], descriptors=self.map_2048['des'] )
         if self.local_map_descriptors is None:
             self.logger.debug('指定区域内无特征点')
             return False
         self.local_map_pos = pos
-        self.logger.info(f'全局匹配成功, 像素坐标{pos}, 相对坐标{self.pix_axis_to_relative_axis(pos)}')
+        self.logger.info(f'缓存区域成功, 缓存的中心点像素坐标{pos}, 相对坐标{self.pix_axis_to_relative_axis(pos)}')
         return True
 
     def __has_paimon(self, update_screenshot=True):
@@ -276,7 +278,7 @@ class MiniMap:
         :return:
         """
         # 将图像转换为灰度
-        img = gs.get_paimon_ariea(update_screenshot)
+        img = gs.get_paimon_area(update_screenshot)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # 检测和计算图像和模板的关键点和描述符
@@ -321,9 +323,6 @@ class MiniMap:
         pix_pos = self.__match_position(small_image, keypoints_small, descriptors_small, self.local_map_keypoints,
                                     self.local_map_descriptors, self.bf_matcher)
         if pix_pos is None:
-            # cv2.imwrite('bad.jpg', small_image)
-            # pai = GenShinCapture.get_paimon_ariea(update_screenshot=False)
-            # cv2.imwrite('pai.jpg', pai)
             time_cost = time.time() - self.__last_time_global_match
             self.logger.error(f'局部匹配失败, 距离上次进行全局匹配已经过去{time_cost}秒')
             if time_cost > self.__GLOBAL_MATCH_UPDATE_TIME_INTERVAL:
@@ -347,7 +346,7 @@ class MiniMap:
         pix_pos_relative_to_global_map = self.pix_axis_to_relative_axis(pix_pos)
         self.logger.debug(f'局部匹配成功,结果为{pix_pos},转换坐标后为{pix_pos_relative_to_global_map}, 用时{time.time()-t0}')
         if threading.currentThread().name == 'MainThread' and self.debug_enable and self.map_2048['img'] is not None:
-            match_result = crop_img(self.map_2048['img'], pix_pos[0], pix_pos[1], GenShinCapture.mini_map_width * 2).copy()
+            match_result = crop_img(self.map_2048['img'], pix_pos[0], pix_pos[1], capture.mini_map_width * 2).copy()
             match_result = cv2.cvtColor(match_result, cv2.COLOR_GRAY2BGR)
             color = (0, 255, 0)
             if self.__position_out_of_local_map_range(pix_pos_relative_to_local_map): color = (0,0,255)
@@ -390,7 +389,7 @@ class MiniMap:
         :param absolute_position: 是否返回绝对位置
         :return:
         """
-        gs.update_screenshot()
+        gs.update_screenshot()  # 避免频繁请求截图，设置为手动更新截图的方式
         small_image = gs.get_mini_map(update_screenshot=False)
         keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
 
@@ -450,16 +449,18 @@ class MiniMap:
 
 if __name__ == '__main__':
     # TODO: BUG 同一个位置，不同分辨率获取的位置有差异！
+    # 解决思路：
+    # 1. 不同分辨率下裁剪的小地图要一致，保持圆形在正中间
     from myutils.configutils import cfg
     mp = MiniMap()
     mp.logger.setLevel(logging.INFO)
-    GenShinCapture.add_observer(mp)
+    capture.add_observer(mp)
     while True:
         time.sleep(0.05)
         t0 = time.time()
         pos = mp.get_position()
         # pos = mp.get_user_map_position()
-        # print(pos,time.time() - t0)
+        print(pos,time.time() - t0)
 
 
         # mp.log('相对位置:', pos)

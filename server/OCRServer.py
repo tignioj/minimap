@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from paddleocr import PaddleOCR
-from capture.genshin_capture import GenShinCapture
+from capture.capture_factory import capture
 import cv2
 from mylogger.MyLogger3 import MyLogger
 from myutils.configutils import cfg
@@ -20,9 +20,9 @@ class FlaskApp(Flask):
 app = FlaskApp(__name__)
 
 @app.route('/ocr', methods=['POST', 'GET'])
-def ocrimg():  # TODO bug: 不止为何有时候会找不到（‘探索度’）
+def ocr_result():  # TODO bug: 不止为何有时候会找不到（‘探索度’）
     if request.method == 'GET':
-        sc = GenShinCapture.get_screenshot()
+        sc = capture.get_screenshot()
         # sc = cv2.cvtColor(sc, cv2.COLOR_BGR2GRAY)
         # sc = cv2.resize(sc, None, fx=1.5, fy=1.5)
         # 由于做了缩放，客户端得到坐标后要x2
