@@ -28,11 +28,13 @@ let draggingPointIndex = null;
 let dragOffsetX = 0;
 let dragOffsetY = 0;
 let isCtrlPressed = false;
+let isAltPressed = false;
 let isStartRecord = false;
 
 // 加载数据
 pos = { x: 0, y: 0, type: 'start' }
 points = []
+isDraggingMap = false
 
 function info(text) {
     msgElement.classList.remove('error-msg')
@@ -238,13 +240,14 @@ document.addEventListener('keydown', (event) => {
         isCtrlPressed = true;
         hideEditPanel()
     }
+    if (event.altKey) {isAltPressed = true;}
     // console.log(event)
 });
-
 document.addEventListener('keyup', (event) => {
+    console.log(event)
     if (!event.ctrlKey) { isCtrlPressed = false; }
+    if (event.code) {isAltPressed = false;}
 });
-
 canvas.addEventListener('mousemove', (event) => {
     const canvasRect = canvas.getBoundingClientRect();
     const mouseX = event.clientX - canvasRect.left;
@@ -253,7 +256,27 @@ canvas.addEventListener('mousemove', (event) => {
     if (draggingPointIndex !== null) {
         const { x: newX, y: newY } = getWorldCoords(mouseX, mouseY);
         updatePointPosition(newX, newY);
+        drawMap(pos.x,pos.y)
         return;
+    } else if (isDraggingMap ) {
+        const currentX = event.clientX - canvas.getBoundingClientRect().left;
+        const currentY = event.clientY - canvas.getBoundingClientRect().top;
+
+        const dx = currentX - startX;
+        const dy = currentY - startY;
+
+        offsetX += dx;
+        offsetY += dy;
+
+        startX = currentX;
+        startY = currentY;
+        drawPoints()
+        // offsetX = canvasWidth / 2 - x
+        // offsetY = canvasHeight / 2 -y;
+        nx = canvasWidth /2 - offsetX
+        ny = canvasHeight/2 - offsetY
+        pos = {x:nx, y:ny}
+        drawMap(nx,ny)
     }
 
     let isHovered = false;
@@ -276,6 +299,10 @@ canvas.addEventListener('mousemove', (event) => {
     }
 });
 canvas.addEventListener('mousedown', (event) => {
+    isDraggingMap = true
+    startX = event.clientX - canvas.getBoundingClientRect().left;
+    startY = event.clientY - canvas.getBoundingClientRect().top;
+
     if (selectedPointIndex !== null) {
         draggingPointIndex = selectedPointIndex;
         const canvasRect = canvas.getBoundingClientRect();
@@ -291,6 +318,7 @@ canvas.addEventListener('mousedown', (event) => {
 
 canvas.addEventListener('mouseup', () => {
     draggingPointIndex = null;
+    isDraggingMap = false;
 });
 canvas.addEventListener('click', (event) => {
     if (draggingPointIndex === null) {
