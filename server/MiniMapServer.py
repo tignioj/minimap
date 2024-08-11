@@ -129,7 +129,7 @@ def get_position():
 
 @app.route('/minimap/get_rotation', methods=['GET'])
 def get_rotation():
-    img = GenShinCapture.get_mini_map()
+    img = capture.get_mini_map()
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     return jsonify(app.rotate.predict_rotation(img))
 
