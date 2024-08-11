@@ -2,59 +2,71 @@ import sys
 import time
 import numpy as np
 import cv2
-# from capture.windowcapture3 import WindowCapture
+from myutils.timerutils import RateLimiter
 from capture.observable_capture import ObservableCapture
 from myutils.configutils import cfg
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger('genshin_capture')
 
 class GenShinCaptureObj(ObservableCapture):
-    # 实现单例模式
-    _instance = None
-
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
     def __init__(self):
-        super().__init__(cfg['window_name'])
+        super().__init__(cfg.get('window_name', '原神'))
         # super().__init__('Genshin Impact')
         # 16:9
         self.minimap_radius = None
-        self.__update_minimap_size()
         self.mask = None
         self.paimon_area = None
+        self.user_status_area = None
         self.minimap = None
+        self.rate_limiter_update_screenshot = RateLimiter(0.01)  # 限制100帧
+        self.user_status_area_offset = 0,0,0,0
 
-    def get_paimon_ariea(self, update_screenshot=True):
+        # 更新截图区域
+        self.__update_crop_size()
+
+    def get_paimon_area(self, update_screenshot=True):
         """
         获取小地图派梦区域头像
         :return:
         """
-        if update_screenshot: self.update_screenshot()
-        return self.screenshot[0:100, 10:120]
+        self.rate_limiter_update_screenshot.execute(self.update_screenshot)
+        return self.paimon_area
+
 
     def crop_image(self, image, width, height, left_offset, top_offset):
         return image[top_offset:top_offset + height, left_offset:left_offset + width]
 
     def update_screenshot(self):
         self.screenshot = self.get_screenshot(use_alpha=True)
+        self.paimon_area = self.screenshot[0:100, 10:120]
+        self.user_status_area = self.screenshot[self.user_status_area_offset[0]:self.user_status_area_offset[1], self.user_status_area_offset[2]:self.user_status_area_offset[3]]
+        self.user_status_key_area = self.screenshot[self.user_status_area_offset[0]+50:self.user_status_area_offset[1],
+                                    self.user_status_area_offset[2]:self.user_status_area_offset[3]]
+
+    def get_user_status_area(self):
+        self.rate_limiter_update_screenshot.execute(self.update_screenshot)
+        return self.user_status_area
+    def get_user_status_key_area(self):
+        self.rate_limiter_update_screenshot.execute(self.update_screenshot)
+        return self.user_status_key_area
 
     def notice_update_event(self):
         super().notice_update_event()
-        self.__update_minimap_size()
+        self.__update_crop_size()
 
-    def __update_minimap_size(self):
-        if self.w == 1280 and self.h == 720:
+    def __update_crop_size(self):
+        if self.w == 1280:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 144, 144, 40, 11
-        elif self.w == 1600 and self.h == 900:
+            self.user_status_area_offset = self.h-85,self.h-20, self.w-150, self.w-20
+        elif self.w == 1600:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 180, 180, 50, 14
-        elif self.w == 1920 and self.h == 1080:
+            self.user_status_area_offset = self.h-110,self.h-25, self.w-185, self.w-30
+        elif self.w == 1920:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 216, 216, 60, 17
-        elif self.w == 2560 and self.h == 1440:
+            self.user_status_area_offset = self.h-130, self.h-25, self.w-225, self.w-35
+        elif self.w == 2560:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 288, 288, 80, 23  # 23
-            # self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 286, 286, 81, 23 # 23
+            self.user_status_area_offset = self.h-165, self.h-35, self.w-290, self.w-55
         else:
             msg = 'Resolution error, current resolution is: {}x{}, support 16:9 only'.format(self.w, self.h)
             logger.error(msg)
@@ -69,7 +81,6 @@ class GenShinCaptureObj(ObservableCapture):
         cv2.circle(self.circle_mask, center, radius, (255), thickness=cv2.FILLED)
 
 
-
     def get_mini_map(self, use_alpha=False, use_circled_mask=False, use_tag_mask=False, use_tag_mask_v2=False, update_screenshot=True):
         """
         获取1920x1080分辨率下的小地图
@@ -78,8 +89,7 @@ class GenShinCaptureObj(ObservableCapture):
         :param use_tag_mask:
         :return:
         """
-        if update_screenshot: self.update_screenshot()
-
+        self.rate_limiter_update_screenshot.execute(self.update_screenshot)
         cropped_image = self.crop_image(self.screenshot, width=self.mini_map_width, height=self.mini_map_height,
                                         left_offset=self.mini_map_left_offset, top_offset=self.mini_map_top_offset)
 
@@ -139,47 +149,31 @@ class GenShinCaptureObj(ObservableCapture):
             # print("shape", self.screenshot.shape)
             print("shape", self.get_screenshot().shape)
 
-GenShinCapture = GenShinCaptureObj()
 
-def saveimg():
+def _saveimg():
     time.sleep(4)
-    # cv2.imwrite(f'{GenShinCapture.w}x{GenShinCapture.h}.png', GenShinCapture.get_mini_map(update_screenshot=True))
-    # print('image saved')
-    from matchmap.sifttest.sifttest_minimap_resolution import detect
-    detect(GenShinCapture.get_mini_map(True))
+    cv2.imwrite(f'{gc.w}x{gc.h}.png', gc.get_mini_map(update_screenshot=True))
+    print('image saved')
 
 class __Observer:
     def update(self, width, height):
         print(f"Observer notified with width: {width}, height: {height}")
-        # threading.Thread(target=saveimg).start()
+        threading.Thread(target=_saveimg).start()
 
 if __name__ == '__main__':
     import cv2
-    gc = GenShinCapture
+    gc = GenShinCaptureObj()
     obs = __Observer()
     gc.add_observer(obs)
-
     import threading
-
-    # threading.Thread(target=gc.thread_genshin_capture).start()
     while True:
-        # map = gc.get_mini_map(use_alpha=True, use_circled_mask=True, use_tag_mask_v2=True)
         # b, g, r, alpha = cv2.split(map)
-        # print("screen center{}".format(gc.get_genshin_screen_center()))
-        # cv2.imshow("screen", gc.get_screenshot())
         t = time.time()
-        gc.update_screenshot()
-        # print('up',time.time() - t)
-
-        img = gc.get_paimon_ariea(update_screenshot=False)
-        # print('pai',time.time() - t)
-
-        mp = gc.get_mini_map(update_screenshot=False)
-        # print('time cost',time.time() - t)
-
-        cv2.imshow("paimon", img)
-        mp = cv2.resize(mp, None, fx=4, fy=4)
-        cv2.imshow("mp", mp)
-        key = cv2.waitKey(20)
-        if key & 0xFF == ord('q'): break
-    cv2.destroyAllWindows()
+        # gc.update_screenshot()
+        ua = gc.get_user_status_key_area()
+        cv2.imshow('ua', ua)
+        key = cv2.waitKey(2)
+        if key == ord('q'):
+            cv2.destroyAllWindows()
+            break
+        print('time taken:', time.time() - t)
