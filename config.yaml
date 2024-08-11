@@ -5,7 +5,7 @@ debug_enable: 1
 resource_path: 'G:\PyCharmProgram\minimap\minimap\resources'
 
 # 点位资源路径
-points_path: 'G:\PyCharmProgram\minimap\minimap\autotrack\pathlist\甜甜花'
+points_path: 'G:\PyCharmProgram\minimap\minimap\resources\pathlist\调查'
 
 ########################## 地图配置 #############################
 # 中心点设置璃月天衡山右边那个十字圆环
@@ -25,16 +25,17 @@ path_viewer_width: 500  # 路径展示的宽高，允许范围(50~4096)
 # 自动拾取开关(没有做ocr，仅是在接近点位的时候疯狂按下f)
 enable_crazy_f: 0
 # 移动到下一个点位最大允许时间（秒），超过该时间则跳过该点位, 允许范围(5~60)
+# 注意游泳模式下产生的位移距离较小，可能更容易触发超时异常
 move_next_point_allow_max_time: 20
 # 8秒内移动的总距离(像素)在多少范围内认为卡住，允许范围(2~50)
 stuck_movement_threshold: 20
 
-# 对于目标点精确到多少个像素认为接近, 允许范围(0.1~10) 目前没有那么高静定，建议 > 1,否则可能原地打转
+# 对于目标点精确到多少个像素认为接近, 允许范围(1~10) 目前没有那么高静定，建议 > 1,否则可能原地打转
 target_nearby_threshold: 2
 # 对于途径点精确到多少个像素认为接近, 允许范围(2~50)
 path_point_nearby_threshold: 8  # 对于途径点精确度奥多少个像素认为接近
 
-# 是否在接近非途径点的时候，使用小碎步
+# 是否允许小碎步接近目标：注意此选项对Point.type=='path'的途径点以及游泳模式下无效
 allow_small_steps: 1
 
 # 跑路的时候不断按下按键（例如e技能开盾，z也可以装砍树的道具)
@@ -44,6 +45,9 @@ enable_loop_jump: 0
 
 # 是否允许途径点冲刺
 enable_dash: 1
+
+# 多少秒更新一次位置(允许值0.01~0.1)
+update_user_status_interval: 0.2
 
 ############################ 传送配置 ##############################
 
