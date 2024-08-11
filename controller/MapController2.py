@@ -10,8 +10,11 @@ import random
 
 class LocationException(Exception):
     pass
+class MoveTimeoutException(Exception):
+    pass
 
 class MapController(BaseController):
+
     def __init__(self, tracker=None, ocr=None, debug_enable=False):
         super(MapController, self).__init__(debug_enable)
         if tracker is None:
@@ -77,10 +80,8 @@ class MapController(BaseController):
         self.log("按下m打开地图")
         for i in range(2):
             if not self.ocr.is_text_in_screen("探索度"):
-                self.kb_release('m')
-                self.kb_press('m')
-                self.kb_release('m')
-                time.sleep(1)
+                self.kb_press_and_release('m')
+                time.sleep(0.5)
             else:
                 open_ok = True
                 break
@@ -90,8 +91,6 @@ class MapController(BaseController):
     def close_middle_map(self):
         self.log("正在关闭大地图")
         self.ui_close_button()
-        time.sleep(1)
-        self.mouse_left_click()
 
     # 2. 切换到固定的缩放大小（依赖层岩巨源）
     def scale_middle_map(self, country):
@@ -134,7 +133,8 @@ class MapController(BaseController):
     #     dx = target_position[0] - current_position[0]
     #     dy = target_position[1] - current_position[1]
     def get_dx_dy_from_target_position(self, target_position=None):
-        if target_position is None: return None, None
+        if target_position is None: raise LocationException('传送目标未设置！')
+
         current_position = self.get_middle_map_position()
         if current_position is not None:
             try:
@@ -173,18 +173,13 @@ class MapController(BaseController):
         if nearby_threshold is None: nearby_threshold = min(self.gc.h, self.gc.w) // 2 - 20
         if self.stop_listen: return
         # 根据当前位置与下一个点位的差值决定移动方向和距离
-        move_times = 30
+        start_time = time.time()
         delta_x, delta_y = self.get_dx_dy_from_target_position(point)
-        error_counter = 5
-        while move_times > 0 and error_counter > 0:
+        diff = math.sqrt(delta_x ** 2 + delta_y ** 2)
+        while diff > nearby_threshold:
             if self.stop_listen: return
-            move_times -= 1
-            if delta_x is None:
-                error_counter -= 1
-                self.log('error_counter:', error_counter)
-                delta_x, delta_y = self.get_dx_dy_from_target_position(point)
-                continue
-
+            if time.time() - start_time > 15: raise MoveTimeoutException("移动地图超时！")
+            delta_x, delta_y = self.get_dx_dy_from_target_position(point)
             diff = math.sqrt(delta_x ** 2 + delta_y ** 2)
             step = diff
             if step > nearby_threshold: step = nearby_threshold
@@ -221,7 +216,7 @@ class MapController(BaseController):
         :return:
         """
         if self.stop_listen: return
-        self.log("开始传送到{}{}".format(country, position))
+        self.log(f"开始传送到{country}{position}, is_stop_listen = {self.stop_listen}")
         self.open_middle_map()  # 打开地图
         # self.middle_to_country(country)  # 切换侧边栏到指定地区
         self.scale_middle_map(country)  # 缩放比例调整（以及防止点到海域无法识别大地图)，并切换到指定地区
@@ -231,8 +226,11 @@ class MapController(BaseController):
         # 避免minimap全局匹配，直接指定区域缓存局部地图作为匹配
             self.tracker.create_cached_local_map(center=position)
             self.click_anchor(anchor_name)  # 点击传送锚点
-        except LocationException:
-            self.logger.error('移动过程中出现无法匹配地图的情况，正在重试传送')
+        except (LocationException,MoveTimeoutException) as e:
+            self.logger.error(f'移动过程中出现异常，正在重试传送{e}')
+            self.close_middle_map()
+            time.sleep(1)
+            self.close_middle_map()
             self.transform(position,country,anchor_name, create_local_map_cache)
             return
 
@@ -304,5 +302,5 @@ if __name__ == '__main__':
 
     # 6. 筛选叠层锚点
     # 7. 选择筛选后的锚点并传送
-    mpc.transform((x,y),country, anchor_name)
-    # mpc.transform((x,y),country)
+    # mpc.transform((x,y),country, anchor_name)
+    mpc.transform((x,y),country)
