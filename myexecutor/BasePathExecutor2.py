@@ -156,6 +156,9 @@ class BasePathExecutor(BaseController):
         self.next_point:Point = None
         self.prev_point:Point = None
         self.is_path_end = False  # 是否到达终点
+        # 卡住前的位移，用于卡住后，系统执行一段随机行走操作判断行走后和行走前的距离是否超过一定阈值时候认为取消卡住状态
+        self.stuck_before_position = None
+
         # 多线程
         self._thread_object_detect_finished = False  # 目标检测任务
         self._thread_update_state_finished = False  # 更新状态
@@ -168,6 +171,7 @@ class BasePathExecutor(BaseController):
         self.rate_limiter_press_z = RateLimiter(1)
         self.rate_limiter_press_jump = RateLimiter(1)
         self.rate_limiter_press_dash = RateLimiter(1)
+
         self.rate_limiter_fly = RateLimiter(0.1)
 
 
@@ -211,18 +215,29 @@ class BasePathExecutor(BaseController):
             self.crazy_f()
 
     def do_action_if_moving_stuck(self):
-        self.kb_press_and_release(random.choice('wsa'))  # 避免卡住, 不安下x，允许爬墙
-        time.sleep(0.05)
-        self.kb_press_and_release(self.Key.space)  # 避免卡住
-        time.sleep(0.2)
+        if self.gc.is_climbing(): self.kb_press('x')
+        time.sleep(0.1)
+        self.kb_press_and_release(random.choice('wsad'))  # 任意方向
+        time.sleep(0.1)
+        self.kb_press_and_release(self.Key.space)
+        # 判断是否产生了位移
+        if not point1_near_by_point2(self.stuck_before_position, self.current_position, 3):
+            # 大于3个像素就产生了位移
+            self.logger.debug('产生了3以上的位移，清空历史列表')
+            self.position_history.clear()
 
     def do_action_if_timeout(self):
         self.logger.debug('点位执行超时, 跳过该点位')
-        self.kb_press_and_release(random.choice('wsadx'))  # 避免卡住
-        time.sleep(0.005)
-        self.kb_press_and_release(self.Key.space)  # 避免卡住
-        time.sleep(0.2)
-        self.kb_release('w')
+        if self.gc.is_climbing(): self.kb_press('x')
+        time.sleep(0.1)
+        self.kb_press_and_release(random.choice('wsad'))  # 任意方向
+        time.sleep(0.1)
+        self.kb_press_and_release(self.Key.space)
+        # 判断是否产生了位移
+        if not point1_near_by_point2(self.stuck_before_position, self.current_position, 3):
+            # 大于3个像素就产生了位移
+            self.logger.debug('产生了3以上的位移，清空历史列表')
+            self.position_history.clear()
 
     def __do_move(self, coordinates, point_start_time):
         # 开技能
@@ -232,10 +247,14 @@ class BasePathExecutor(BaseController):
         # 限制1秒钟只能执行1次，这样就能记录每一秒的位移
         self.rate_limiter1_history.execute(self.position_history.append, self.current_position)
         total_displacement = self.calculate_total_displacement()  # 8秒内的位移
-        if total_displacement < self.stuck_movement_threshold: raise MovingStuckException(f"8秒内位移总值为{total_displacement}, 判定为卡住了！")
+        if total_displacement < self.stuck_movement_threshold:
+            self.stuck_before_position = coordinates
+            raise MovingStuckException(f"8秒内位移总值为{total_displacement}, 判定为卡住了！")
 
         # 超时判断
-        if time.time() - point_start_time > self.move_next_point_allow_max_time: raise MovingTimeOutException(f"执行点位超时, 跳过该点位！")
+        if time.time() - point_start_time > self.move_next_point_allow_max_time:
+            self.stuck_before_position = coordinates
+            raise MovingTimeOutException(f"执行点位超时, 跳过该点位！")
 
         # 转向: 注意，update_state()线程永远保证self.positions在首次赋值之后不再是空值,但是计算角度的函数可能会返回空值，因此还是要判断
         rot = self.get_next_point_rotation(coordinates)
@@ -258,7 +277,9 @@ class BasePathExecutor(BaseController):
             self.kb_release('w')
 
         # 飞行
-        if self.next_point.move_mode == self.next_point.MOVE_MODE_FLY: self.rate_limiter_fly.execute(self.kb_press_and_release, self.Key.space)
+        if self.next_point.move_mode == self.next_point.MOVE_MODE_FLY:
+            if not self.gc.is_flying():
+                self.rate_limiter_fly.execute(self.kb_press_and_release, self.Key.space)
 
 
     # 移动(尽量不要阻塞））
@@ -480,6 +501,6 @@ if __name__ == '__main__':
     # execute_one(getjson_path_byname('风车菊_蒙德_清泉镇_2024-08-08_14_46_25.json'))
     # execute_one(getjson_path_byname('调查_璃月_地中之岩_2024-04-29_06_23_28.json'))
     # execute_one(getjson_path_byname('月莲_须弥_降魔山1_2024-08-09_11_38_45.json'))
-    execute_one(getjson_path_byname('月莲_test.json'))
+    execute_one(getjson_path_byname('霓裳花_璃月 (1).json'))
     # execute_all()
 
