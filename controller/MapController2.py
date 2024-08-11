@@ -78,10 +78,10 @@ class MapController(BaseController):
         time.sleep(1.5)
         open_ok = False
         self.log("按下m打开地图")
-        for i in range(2):
+        for i in range(3):
             if not self.ocr.is_text_in_screen("探索度"):
                 self.kb_press_and_release('m')
-                time.sleep(0.5)
+                time.sleep(1)
             else:
                 open_ok = True
                 break
