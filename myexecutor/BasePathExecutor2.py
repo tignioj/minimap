@@ -266,7 +266,7 @@ class BasePathExecutor(BaseController):
         nearby = point1_near_by_point2(self.current_position, coordinates, 8)
         if nearby: self.on_nearby(coordinates)
         small_step_enable = (nearby and self.allow_small_steps
-                             and (self.next_point.type == self.object_to_detect)
+                             and (self.next_point.type == self.next_point.TYPE_TARGET)
                              and (self.next_point.move_mode != self.next_point.MOVE_MODE_SWIM))
         if small_step_enable: time.sleep(0.04)
         self.kb_press("w")
