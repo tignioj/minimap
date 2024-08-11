@@ -52,9 +52,9 @@ function updateCanvasCenter(newPoint) {
     scale = 1; // 可以根据需要调整缩放比例
     offsetX = canvas.width / 2 - newPoint.x;
     offsetY = canvas.height / 2 - newPoint.y;
-    draw()
     drawMap(newPoint.x, newPoint.y)
-    drawUserPoint(newPoint.x, newPoint.y);
+    // drawPoints()
+    // drawUserPoint(newPoint.x, newPoint.y);
     // console.log(pos)
 }
 function drawMap(x,y) {
@@ -75,7 +75,7 @@ function drawMap(x,y) {
         // 绘制图片到 canvas 上
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        draw()
+        drawPoints()
         drawUserPoint(x,y)
     };
 }
@@ -317,7 +317,7 @@ saveButton.addEventListener('click', () => {
         points[selectedPointIndex].action = getSelectedValue('action')
         points[selectedPointIndex].move_mode = getSelectedValue('moveMode');
         hideEditPanel();
-        draw();
+        drawPoints();
     }
 });
 
@@ -326,7 +326,7 @@ deleteButton.addEventListener('click', () => {
         points.splice(selectedPointIndex, 1);
         selectedPointIndex = null;
         hideEditPanel();
-        draw();
+        drawPoints();
     }
 });
 
@@ -344,7 +344,7 @@ newButton.addEventListener('click', (event) => {
         point = { x: newX - 10, y: newY , type: newType, action: newAction, move_mode: newMoveMode }
         points.splice(selectedPointIndex+1, 0, point);
         hideEditPanel();
-        draw();
+        drawPoints();
     }
 })
 
@@ -361,6 +361,7 @@ function getUserCustomNode() {
 
 function insertPosition() {
     if (!isStartRecord) {
+        errorMsg('请先开始记录再插入用户点位')
         return
     }
     node = getUserCustomNode()
@@ -414,7 +415,7 @@ offsetX = canvasWidth / 2 - x
 offsetY = canvasHeight / 2 -y;
 scale = 1;
 
-function draw() {
+function drawPoints() {
     // Draw lines
     for (let i = 0; i < points.length - 1; i++) {
         drawLine(points[i], points[i + 1]);
@@ -524,8 +525,7 @@ function updatePointPosition(newX, newY) {
         const point = points[draggingPointIndex];
         point.x = newX + dragOffsetX;
         point.y = newY + dragOffsetY;
-        draw();
+        drawPoints();
     }
 }
-
-draw();
+drawPoints();
