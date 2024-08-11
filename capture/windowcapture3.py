@@ -35,6 +35,45 @@ class WindowCapture:
     offset_x = 0
     offset_y = 0
 
+    # constructor
+    def __init__(self, window_name='原神'):
+        # DPI不是100%的时候，需要调用下面的方法正确才能获取窗口大小
+        # https://stackoverflow.com/questions/40869982/dpi-scaling-level-affecting-win32gui-getwindowrect-in-python/45911849
+        # Make program aware of DPI scaling
+        user32 = windll.user32
+        user32.SetProcessDPIAware()
+        self.lock = threading.Lock()
+        self.window_name = window_name
+        self.last_screen = None
+        try:
+            # find the handle for the window we want to capture
+            self.hwnd = win32gui.FindWindow(None, self.window_name)
+            if not self.hwnd: raise WindowsNotFoundException(self.window_name)
+
+            # get the window size
+            window_rect = win32gui.GetWindowRect(self.hwnd)  # 窗口的四个坐标
+            client_rect = win32gui.GetClientRect(self.hwnd)  # 窗口的实际大小
+            window_w = window_rect[2] - window_rect[0]
+            window_h = window_rect[3] - window_rect[1]
+
+            # account for the window border and titlebar and cut them off
+            border_pixels = math.floor((window_w - client_rect[2]) / 2)
+            titlebar_pixels = window_h - client_rect[3] - border_pixels
+
+            self.w = window_w - (border_pixels * 2)
+            self.h = window_h - titlebar_pixels - border_pixels
+            self.cropped_x = border_pixels
+            self.cropped_y = titlebar_pixels
+
+            # set the cropped coordinates offset so we can translate screenshot
+            # images into actual screen positions
+            self.offset_x = window_rect[0] + self.cropped_x
+            self.offset_y = window_rect[1] + self.cropped_y
+            # print(self.w, self.h, self.offset_x, self.offset_y)
+        except WindowsNotFoundException as e:
+            logger.error(e)
+            sys.exit(1)
+
     def get_screen_scale_factor(self):
         """
         获取屏幕缩放
@@ -47,14 +86,6 @@ class WindowCapture:
         scale_factor = dpi / 96  # 96 DPI is the standard DPI for 100% scaling
 
         return scale_factor * 100
-
-    def __findWindow(self):
-        self.hwnd = win32gui.FindWindow(None, self.window_name)
-        if not self.hwnd:
-            raise WindowsNotFoundException(self.window_name)
-
-        self.__update_rect()
-        self.last_screen = None
 
     def activate_window(self):
         """
@@ -104,22 +135,6 @@ class WindowCapture:
         if client_rect[2] != old_w or client_rect[3] != old_h:
             logger.info(f'Resolution changed to{self.w}*{self.h}')
             self.notice_update_event()
-
-
-    # constructor
-    def __init__(self, window_name='原神'):
-        # DPI不是100%的时候，需要调用下面的方法正确才能获取窗口大小
-        # https://stackoverflow.com/questions/40869982/dpi-scaling-level-affecting-win32gui-getwindowrect-in-python/45911849
-        # Make program aware of DPI scaling
-        user32 = windll.user32
-        user32.SetProcessDPIAware()
-        self.lock = threading.Lock()
-        self.window_name = window_name
-        try:
-            self.__findWindow()
-        except WindowsNotFoundException as e:
-            logger.error(e)
-            sys.exit(1)
 
     def get_screenshot(self, use_alpha=True):
         self.__update_rect()
