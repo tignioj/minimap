@@ -5,7 +5,7 @@ import time
 
 import numpy as np
 from flask import Flask, request, jsonify, send_file, render_template
-from capture.genshin_capture import GenShinCapture
+from capture.capture_factory import capture
 from matchmap.sifttest.sifttest5 import MiniMap
 from matchmap.gia_rotation import RotationGIA
 import cv2
@@ -17,7 +17,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from pynput.keyboard import  Listener
 from mylogger.MyLogger3 import MyLogger
-logger = MyLogger('MiniMapServer')
+logger = MyLogger('minimap server')
 
 
 if cfg.get('debug_enable') == 1:
@@ -31,14 +31,12 @@ class FlaskApp(Flask):
     large_map = minimap.map_2048['img']
     minimap.get_position()
     rotate = RotationGIA(True)
-    GenShinCapture.add_observer(rotate)
-    GenShinCapture.add_observer(minimap)
+    capture.add_observer(rotate)
+    capture.add_observer(minimap)
 
 def cvimg_to_base64(cvimg):
     _, img_encoded = cv2.imencode('.jpg', cvimg)
     return base64.b64encode(img_encoded).decode("utf-8")
-
-
 
 def _on_press(key):
     # print(f'key {key} pressed')
@@ -52,15 +50,15 @@ def _on_release(key):
     # print(f'key {key} released')
     socketio.emit('key_event', {'key': key})
 
-kb_listener = Listener(on_press=_on_press)
-kb_listener.start()
-
 
 app = FlaskApp(__name__)
 CORS(app)
 app.config['SECRET_KEY'] = 'mysecret'
 socketio = SocketIO(app)
 playing_thread_running = False
+
+kb_listener = Listener(on_press=_on_press)
+kb_listener.start()
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -80,6 +78,7 @@ def _thread_playback(jsondict):
             bp.execute()
         except Exception as e:
             logger.error(e)
+            raise e
         finally:
             playing_thread_running = False
 
@@ -198,5 +197,5 @@ if __name__ == '__main__':
     {url}/usermap/create_cache', methods=['POST']
     """)
     # app.run(host=host, port=port, debug=False)
-    socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True, debug=True)
+    socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
     # app.run(port=5000,debug=False)

@@ -4,6 +4,7 @@ from scipy import signal
 from scipy.signal import find_peaks
 from cached_property import cached_property
 
+from capture.capture_factory import capture
 
 def rgb2luma(image):
     """
@@ -63,12 +64,10 @@ def convolve(arr, kernel=3):
     """
     return sum(np.roll(arr, i) * (kernel - abs(i)) // kernel for i in range(-kernel + 1, kernel))
 
-from capture.genshin_capture import GenShinCapture
-
 class RotationGIA:
     def __init__(self, debug_enable=False):
         self.debug_enable = debug_enable
-        self.gc = GenShinCapture
+        self.gc = capture
         # self.MINIMAP_RADIUS = GenShinCapture.mini_map_width //2
 
     #     self.degree = 0
@@ -174,8 +173,8 @@ class RotationGIA:
 
 if __name__ == '__main__':
     yc = RotationGIA(debug_enable=True)
-    from capture.genshin_capture import GenShinCapture
-    gc = GenShinCapture
+    from capture.capture_factory import capture
+    gc = capture
     gc.add_observer(yc)
 
     while True:
