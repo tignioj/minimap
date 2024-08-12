@@ -12,8 +12,12 @@ import json
 from myutils.configutils import cfg, PROJECT_PATH
 from myutils.timerutils import RateLimiter
 from mylogger.MyLogger3 import MyLogger
+import logging
+logger = MyLogger('path_executor', level=logging.DEBUG, save_log=True)
 
-logger = MyLogger('path_executor')
+# 已知问题：
+# TODO 1. 在某个点位概率丢信号导致一直向前走(难以复现)
+# TODO 2. 疯狂f模式在尚未接近植物时已经结束
 
 class MovingStuckException(Exception):
     pass
@@ -87,8 +91,10 @@ class BasePathExecutor(BaseController):
                 json_map['positions'].append(p)
             return json_map
 
-    def __init__(self, json_file_path=None, json_dict=None, debug_enable=False):
+    def __init__(self, json_file_path=None, json_dict=None, debug_enable=None):
         super().__init__(debug_enable=debug_enable)
+        if debug_enable is None:
+            debug_enable = cfg.get('debug_enable', False)
         json_map = None
         if json_dict:
             json_map = self.load_json_obj_from_dict(json_dict)
@@ -263,11 +269,19 @@ class BasePathExecutor(BaseController):
 
         # 小碎步实现方法：先按下w等待一小段时间再松开w，反复循环
         # 小碎步的条件：当和目标点差距8个像素时候，就认为符合最基本条件
-        nearby = point1_near_by_point2(self.current_position, coordinates, 8)
-        if nearby: self.on_nearby(coordinates)
+        nearby = self.next_point.type == self.next_point.TYPE_TARGET and point1_near_by_point2(self.current_position, coordinates, 8)
+        if nearby: self.logger.debug(f'接近下一个点位{self.next_point}, 当前在{coordinates}')
+        # 接近上一个点位
+        nearby_last_point = self.prev_point is not None and self.prev_point.type == self.prev_point.TYPE_TARGET and point1_near_by_point2(self.current_position, (self.prev_point.x, self.prev_point.y), 8)
+        if nearby_last_point: self.logger.debug(f'接近上一个点位{self.prev_point}, 当前在{coordinates}')
+
+        if nearby or nearby_last_point: self.on_nearby(coordinates)
+
         small_step_enable = (nearby and self.allow_small_steps
                              and (self.next_point.type == self.next_point.TYPE_TARGET)
                              and (self.next_point.move_mode != self.next_point.MOVE_MODE_SWIM))
+
+
         if small_step_enable: time.sleep(0.04)
         self.kb_press("w")
         # 小碎步
@@ -285,22 +299,22 @@ class BasePathExecutor(BaseController):
     # 移动(尽量不要阻塞））
     # 异常：原地踏步、超时
     # 类型：途径点、目标点
-    # 行为：跳跃, 飞行，小碎步
-    # 行动：停止飞行（下落攻击）
+    # 移动方式：跳跃, 飞行，小碎步，爬山（未实现）
+    # 动作：停止飞行（下落攻击）
     # 拓展：自定义按键(未实现）
     def move(self, coordinates):
         if self.stop_listen: return
         point_start_time = time.time()
         self.position_history.clear()
-        # 大距离快速接近
+        # 逐步接近目标点位
         while not point1_near_by_point2(self.current_position, coordinates, self.target_nearby_threshold):
             try:
                 if self.stop_listen: return
-                # 途径点跳过
+                # 达到途径点的阈值时，跳出循环，直接进入下一个点位
                 if (point1_near_by_point2(self.current_position, coordinates, self.path_point_nearby_threshold)
                     and self.next_point.type == self.next_point.TYPE_PATH): break
 
-                self.__do_move(coordinates, point_start_time)
+                self.__do_move(coordinates, point_start_time)  # 走一步
                 # 行动:如果距离点位超过20个像素值，则可以采取冲刺+跳跃操作以及飞行操作
                 if not point1_near_by_point2(self.current_position, coordinates, 20):
                     # 游戏特性: 必须先冲刺后再过0.几秒后，跳跃才生效
@@ -316,7 +330,7 @@ class BasePathExecutor(BaseController):
             except MovingTimeOutException as e:
                 self.logger.error(e)
                 self.do_action_if_timeout()
-                return
+                return  # 超时跳过
 
         # 到达目的地时，是否使用下落攻击
         if self.next_point.action == self.next_point.ACTION_STOP_FLYING_ON_MOVE_DONE:
@@ -445,8 +459,8 @@ class BasePathExecutor(BaseController):
             self.next_point = point
             self.move((point.x, point.y))
             self.debug(f"已到达{point}")
-
             self.on_move_after(point)
+            self.prev_point = point
 
 
         self.log("文件{}执行完毕")
@@ -471,23 +485,26 @@ def execute_one(jsonfile):
     return True
 
 def execute_all():
+    all_start_time = time.time()
     points_path = cfg.get('points_path', os.path.join(PROJECT_PATH,'resources', 'pathlist'))
+    err_list = []
     if not os.path.exists(points_path):
         logger.error('路径不存在！')
         return
     filenames = os.listdir(points_path)
-    try:
-        for filename in filenames:
+    for filename in filenames:
+        try:
             execute_one(os.path.join(points_path, filename))
-    except Exception as e:
-        logger.error(f'发生错误: {e}')
-        raise e
-    finally:
-        logger.info("全部执行完成，按下m")
-        import controller.BaseController
-        BaseController().kb_press_and_release('m')
-        # print("30秒后进入睡眠")
-        # time.sleep(30)
+        except Exception as e:
+            logger.error(f'发生错误: {e}')
+            err_list.append(filename)
+            raise e
+    logger.info(f"全部执行完成，总计用时{time.time()-all_start_time}，按下m")
+    logger.info(f'错误列表:{err_list}')
+    import controller.BaseController
+    BaseController().kb_press_and_release('m')
+    # print("30秒后进入睡眠")
+    # time.sleep(30)
 
 
 if __name__ == '__main__':
@@ -500,7 +517,6 @@ if __name__ == '__main__':
     # execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json'))
     # execute_one(getjson_path_byname('风车菊_蒙德_清泉镇_2024-08-08_14_46_25.json'))
     # execute_one(getjson_path_byname('调查_璃月_地中之岩_2024-04-29_06_23_28.json'))
-    # execute_one(getjson_path_byname('月莲_须弥_降魔山1_2024-08-09_11_38_45.json'))
-    execute_one(getjson_path_byname('霓裳花_璃月 (1).json'))
-    # execute_all()
-
+    # execute_one(getjson_path_byname('月莲_须弥_降魔山下_6个.json'))
+    # execute_one(getjson_path_byname('霓裳花_璃月 (1).json'))
+    execute_all()
