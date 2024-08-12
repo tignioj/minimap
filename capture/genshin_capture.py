@@ -23,6 +23,7 @@ class GenShinCaptureObj(ObservableCapture):
 
         # 更新截图区域
         self.__update_crop_size()
+        self.screenshot = self.get_screenshot(use_alpha=True)
 
     def get_paimon_area(self, update_screenshot=True):
         """
@@ -90,9 +91,13 @@ class GenShinCaptureObj(ObservableCapture):
         :return:
         """
         self.rate_limiter_update_screenshot.execute(self.update_screenshot)
-        cropped_image = self.crop_image(self.screenshot, width=self.mini_map_width, height=self.mini_map_height,
-                                        left_offset=self.mini_map_left_offset, top_offset=self.mini_map_top_offset)
+        try:
+            cropped_image = self.crop_image(self.screenshot, width=self.mini_map_width, height=self.mini_map_height,
+                                            left_offset=self.mini_map_left_offset, top_offset=self.mini_map_top_offset)
 
+        # TODO BUG has no attribute self.screenshot
+        except AttributeError as e:
+            print(e)
         if use_circled_mask or use_tag_mask or use_tag_mask_v2:
             cropped_image = cv2.bitwise_and(cropped_image, cropped_image, mask=self.mask)
             self.mask = np.zeros((cropped_image.shape[0], cropped_image.shape[1]), np.uint8)
