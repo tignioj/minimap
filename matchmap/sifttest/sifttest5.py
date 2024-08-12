@@ -263,45 +263,15 @@ class MiniMap:
         self.logger.info(f'缓存区域成功, 缓存的中心点像素坐标{pos}, 相对坐标{self.pix_axis_to_relative_axis(pos)}')
         return True
 
-    # def __has_paimon(self, update_screenshot=True):
-    #     """
-    #     判断小地图左上角区域是否有小派蒙图标,如果没有说明不在大世界界面（可能切地图或者菜单界面了)
-    #     :return:
-    #     """
-    #     # 将图像转换为灰度
-    #     img = gs.get_paimon_area(update_screenshot)
-    #     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    #
-    #     # 检测和计算图像和模板的关键点和描述符
-    #     kp1, des1 = self.sift.detectAndCompute(img, None)
-    #     matches = self.bf_matcher.knnMatch(des1, self.map_paimon['des'], k=2)
-    #
-    #     # 应用比例测试来过滤匹配点
-    #     good_matches = []
-    #     for m, n in matches:
-    #         if m.distance < 0.75 * n.distance:
-    #             good_matches.append(m)
-    #     # 如果找到匹配，返回True
-    #
-    #     # // FIXED BUG: 可能截取到质量差的派蒙图片, 此时会错误的进行全局匹配
-    #     # 设计当出现派蒙由False转为True时，延迟0.5秒再返回True
-    #
-    #     if len(good_matches) >= 7:
-    #         if self.__paimon_appear_delay_timer is None:
-    #             self.__paimon_appear_delay_timer = Timer(self.__paimon_appear_delay)
-    #             self.__paimon_appear_delay_timer.start()
-    #         return self.__paimon_appear_delay_timer.check()
-    #     else:
-    #         self.__paimon_appear_delay_timer = None
-    #     return False
-    #
 
     def __local_match(self, small_image, keypoints_small, descriptors_small):
         """
         局部匹配：
         根据缓存的局部地图，获取匹配结果
-        1. 计算出小地图在局部地图中的坐标位置pos
-        2. 根据得到的坐标，局部地图的坐标缓存以及局部地图的宽高，可以得到最终坐标
+        1. 小地图特征点与给缓存的局部特征点进行匹配
+        2. 没有缓存则先创建缓存
+        3. 原本的缓存中包含了像素信息,匹配成功则直接进行相对坐标转换
+        4. 匹配失败则判断距离上次匹配时间是否超过一定时长，是则进行全局匹配（避免频繁全局匹配）
         :return:
         """
         # TODO BUG: 有时候会出现剧烈抖动, 将本次请求结果与上次请求结果作比较，如果差距过大则丢弃
@@ -323,6 +293,7 @@ class MiniMap:
                 return None
             return None
 
+        # TODO: 优化：在地图边缘可以直接筛选附近的点位作为缓存而不是全局匹配
         # 如果处于地图边缘，则开始创建全局匹配
         # 计算当前位置在局部区域的相对位置
         pix_pos_relative_to_local_map = (pix_pos[0] - self.local_map_pos[0] + self.local_map_size / 2,
@@ -381,7 +352,6 @@ class MiniMap:
         :param absolute_position: 是否返回绝对位置
         :return:
         """
-        # gs.update_screenshot()  # 避免频繁请求截图，设置为手动更新截图的方式
         small_image = gs.get_mini_map()
         keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
 
