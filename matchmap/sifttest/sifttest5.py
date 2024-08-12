@@ -4,7 +4,7 @@ import time
 import cv2
 import numpy as np
 from capture.capture_factory import capture
-from myutils.configutils import get_bigmap_path, get_paimon_icon_path, cfg
+from myutils.configutils import get_bigmap_path, cfg
 from myutils.timerutils import Timer
 from myutils.imgutils import crop_img
 gs = capture
@@ -17,10 +17,10 @@ class MiniMap:
         :param debug_enable:
         :param gc: GenshinCapture instance
         """
+        self.logger = MyLogger(__class__.__name__, logging.DEBUG, save_log=True)
         if debug_enable is None:
             debug_enable = cfg.get('debug_enable', False)
             if debug_enable: self.logger = MyLogger(__class__.__name__,level=logging.DEBUG, save_log=True)
-            else: self.logger = MyLogger(__class__.__name__, logging.INFO,save_log=True)
 
         self.debug_enable = debug_enable
         self.sift = cv2.SIFT.create()
@@ -51,15 +51,6 @@ class MiniMap:
         kp, des = load(bs)  # 特征点加载
         self.map_256 = {'block_size': bs, 'des': des, 'kp': kp }
 
-        paimon_png = cv2.imread(get_paimon_icon_path(), cv2.IMREAD_GRAYSCALE)
-        kp, des = self.sift.detectAndCompute(paimon_png, None)  # 判断是否在大世界
-        self.map_paimon = { 'img': paimon_png, 'des': des, 'kp': kp }
-        self.logger.info(f'地图和特征点加载完成，用时{time.time() - t0}')
-
-        self.__paimon_appear_delay = 0.2  # 派蒙出现后，多少秒才可以进行匹配
-        # 如果要求首次不进行计时器检查，则需要设置一个0的计时器
-        self.__paimon_appear_delay_timer = Timer(0)  # 派蒙延迟计时器
-        self.__paimon_appear_delay_timer.start()
 
         local_map_size = cfg.get('local_map_size', 1024)
         if local_map_size < 512: local_map_size = 512
@@ -169,7 +160,7 @@ class MiniMap:
         获取用户按下m键时候此时的地图位置
         :return:
         """
-        if self.__has_paimon():
+        if capture.has_paimon():
             self.logger.debug('左上角发现派蒙，表示不在打开的地图界面，获取位置失败')
             return None
         screenshot = gs.get_screenshot()
@@ -272,38 +263,38 @@ class MiniMap:
         self.logger.info(f'缓存区域成功, 缓存的中心点像素坐标{pos}, 相对坐标{self.pix_axis_to_relative_axis(pos)}')
         return True
 
-    def __has_paimon(self, update_screenshot=True):
-        """
-        判断小地图左上角区域是否有小派蒙图标,如果没有说明不在大世界界面（可能切地图或者菜单界面了)
-        :return:
-        """
-        # 将图像转换为灰度
-        img = gs.get_paimon_area(update_screenshot)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-        # 检测和计算图像和模板的关键点和描述符
-        kp1, des1 = self.sift.detectAndCompute(img, None)
-        matches = self.bf_matcher.knnMatch(des1, self.map_paimon['des'], k=2)
-
-        # 应用比例测试来过滤匹配点
-        good_matches = []
-        for m, n in matches:
-            if m.distance < 0.75 * n.distance:
-                good_matches.append(m)
-        # 如果找到匹配，返回True
-
-        # // FIXED BUG: 可能截取到质量差的派蒙图片, 此时会错误的进行全局匹配
-        # 设计当出现派蒙由False转为True时，延迟0.5秒再返回True
-
-        if len(good_matches) >= 7:
-            if self.__paimon_appear_delay_timer is None:
-                self.__paimon_appear_delay_timer = Timer(self.__paimon_appear_delay)
-                self.__paimon_appear_delay_timer.start()
-            return self.__paimon_appear_delay_timer.check()
-        else:
-            self.__paimon_appear_delay_timer = None
-        return False
-
+    # def __has_paimon(self, update_screenshot=True):
+    #     """
+    #     判断小地图左上角区域是否有小派蒙图标,如果没有说明不在大世界界面（可能切地图或者菜单界面了)
+    #     :return:
+    #     """
+    #     # 将图像转换为灰度
+    #     img = gs.get_paimon_area(update_screenshot)
+    #     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    #
+    #     # 检测和计算图像和模板的关键点和描述符
+    #     kp1, des1 = self.sift.detectAndCompute(img, None)
+    #     matches = self.bf_matcher.knnMatch(des1, self.map_paimon['des'], k=2)
+    #
+    #     # 应用比例测试来过滤匹配点
+    #     good_matches = []
+    #     for m, n in matches:
+    #         if m.distance < 0.75 * n.distance:
+    #             good_matches.append(m)
+    #     # 如果找到匹配，返回True
+    #
+    #     # // FIXED BUG: 可能截取到质量差的派蒙图片, 此时会错误的进行全局匹配
+    #     # 设计当出现派蒙由False转为True时，延迟0.5秒再返回True
+    #
+    #     if len(good_matches) >= 7:
+    #         if self.__paimon_appear_delay_timer is None:
+    #             self.__paimon_appear_delay_timer = Timer(self.__paimon_appear_delay)
+    #             self.__paimon_appear_delay_timer.start()
+    #         return self.__paimon_appear_delay_timer.check()
+    #     else:
+    #         self.__paimon_appear_delay_timer = None
+    #     return False
+    #
 
     def __local_match(self, small_image, keypoints_small, descriptors_small):
         """
@@ -340,11 +331,12 @@ class MiniMap:
             self.logger.debug(f'{pix_pos}越界了, 局部地图大小为{self.local_map_size}')
             self.create_local_map_cache_thread()
         else:
-            self.logger.debug(f'小地图在局部地图的匹配位置{pix_pos_relative_to_local_map}')
+            pass
+            # self.logger.debug(f'小地图在局部地图的匹配位置{pix_pos_relative_to_local_map}')
 
         pix_pos_relative_to_local_map = (pix_pos[0] - self.local_map_pos[0] + self.local_map_size / 2, pix_pos[1] - self.local_map_pos[1] + self.local_map_size / 2)
         pix_pos_relative_to_global_map = self.pix_axis_to_relative_axis(pix_pos)
-        self.logger.debug(f'局部匹配成功,结果为{pix_pos},转换坐标后为{pix_pos_relative_to_global_map}, 用时{time.time()-t0}')
+        # self.logger.debug(f'局部匹配成功,结果为{pix_pos},转换坐标后为{pix_pos_relative_to_global_map}, 用时{time.time()-t0}')
         if threading.currentThread().name == 'MainThread' and self.debug_enable and self.map_2048['img'] is not None:
             match_result = crop_img(self.map_2048['img'], pix_pos[0], pix_pos[1], capture.mini_map_width * 2).copy()
             match_result = cv2.cvtColor(match_result, cv2.COLOR_GRAY2BGR)
@@ -389,11 +381,11 @@ class MiniMap:
         :param absolute_position: 是否返回绝对位置
         :return:
         """
-        gs.update_screenshot()  # 避免频繁请求截图，设置为手动更新截图的方式
-        small_image = gs.get_mini_map(update_screenshot=False)
+        # gs.update_screenshot()  # 避免频繁请求截图，设置为手动更新截图的方式
+        small_image = gs.get_mini_map()
         keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
 
-        if not self.__has_paimon(update_screenshot=False):
+        if not capture.has_paimon():
             self.logger.debug('未找到派蒙，无法获取位置')
             return None
 
