@@ -2,7 +2,8 @@ import os.path
 
 import cv2
 from capture.genshin_capture import GenShinCaptureObj
-from myutils.configutils import resource_path
+from myutils.configutils import resource_path, get_paimon_icon_path
+from myutils.timerutils import Timer
 
 class RecognizableCapture(GenShinCaptureObj):
     def __init__(self):
@@ -24,6 +25,18 @@ class RecognizableCapture(GenShinCaptureObj):
 
         self.icon_user_status_key_x = self.__icon_user_status_key_x_org.copy()
         self.icon_user_status_key_space = self.__icon_user_status_key_space_org.copy()
+
+
+        self.sift = cv2.SIFT.create()
+        # 匹配器
+        self.bf_matcher = cv2.BFMatcher()
+        paimon_png = cv2.imread(get_paimon_icon_path(), cv2.IMREAD_GRAYSCALE)
+        kp, des = self.sift.detectAndCompute(paimon_png, None)  # 判断是否在大世界
+        self.map_paimon = { 'img': paimon_png, 'des': des, 'kp': kp }
+        self.__paimon_appear_delay = 1  # 派蒙出现后，多少秒才可以进行匹配
+        # 如果要求首次不进行计时器检查，则需要设置一个0的计时器
+        self.__paimon_appear_delay_timer = Timer(0)  # 派蒙延迟计时器
+        self.__paimon_appear_delay_timer.start()
 
         self.__icon_fit_resolution()
 
@@ -61,7 +74,38 @@ class RecognizableCapture(GenShinCaptureObj):
         return has_space and not has_x
 
     def has_paimon(self):
-        pass
+        """
+        判断小地图左上角区域是否有小派蒙图标,如果没有说明不在大世界界面（可能切地图或者菜单界面了)
+        :return:
+        """
+        # 将图像转换为灰度
+        img = self.get_paimon_area()
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # 检测和计算图像和模板的关键点和描述符
+        kp1, des1 = self.sift.detectAndCompute(img, None)
+        matches = self.bf_matcher.knnMatch(des1, self.map_paimon['des'], k=2)
+
+        # 应用比例测试来过滤匹配点
+        good_matches = []
+        for m, n in matches:
+            if m.distance < 0.75 * n.distance:
+                good_matches.append(m)
+        # 如果找到匹配，返回True
+
+        # // FIXED BUG: 可能截取到质量差的派蒙图片, 此时会错误的进行全局匹配
+        # 设计当出现派蒙由False转为True时，延迟0.5秒再返回True
+
+        if len(good_matches) >= 7:
+            if self.__paimon_appear_delay_timer is None:
+                self.__paimon_appear_delay_timer = Timer(self.__paimon_appear_delay)
+                self.__paimon_appear_delay_timer.start()
+            has = self.__paimon_appear_delay_timer.check()
+            return has
+        else:
+            self.__paimon_appear_delay_timer = None
+        return False
+
 
     def notice_update_event(self):
         super().notice_update_event()
@@ -75,7 +119,7 @@ if __name__ == '__main__':
         flying = rc.is_flying()
         swimming = rc.is_swimming()
         climbing = rc.is_climbing()
-        print(f'flying: {flying}, swimming: {swimming}, climbing: {climbing}')
+        print(f'flying: {flying}, swimming: {swimming}, climbing: {climbing}, paimon, {rc.has_paimon()}')
         cv2.imshow('screenshot', sc)
         key = cv2.waitKey(20)
         if key == ord('q'):
