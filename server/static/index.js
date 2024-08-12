@@ -21,6 +21,7 @@ const stopRecordButton = document.getElementById('stopRecordButton');
 const saveRecordButton = document.getElementById('saveRecordButton');
 const loadRecordButton = document.getElementById('loadRecordButton')
 const playBackButton = document.getElementById('playBackButton');
+const pointRadius = 4;
 const serverURL = 'http://127.0.0.1:5000'
 
 let selectedPointIndex = null;
@@ -174,7 +175,8 @@ function saveDictAsJsonFile(dict, fileName) {
 }
 saveRecordButton.addEventListener('click', () => {
     obj = getPathObject()
-    saveDictAsJsonFile(obj, `${obj.name}_${obj.country}.json`)
+    const count = obj.positions.filter(item => item.type === "target").length;
+    saveDictAsJsonFile(obj, `${obj.name}_${obj.country}_${count}个.json`)
 })
 loadRecordButton.addEventListener('click', () => {
 })
@@ -354,7 +356,8 @@ deleteButton.addEventListener('click', () => {
         points.splice(selectedPointIndex, 1);
         selectedPointIndex = null;
         hideEditPanel();
-        drawPoints();
+        drawMap(pos.x, pos.y)
+        // drawPoints();
     }
 });
 
@@ -467,7 +470,7 @@ function drawPoint(x, y, color) {
     const canvasY = y * scale + offsetY;
 
     ctx.beginPath();
-    ctx.arc(canvasX, canvasY, 5, 0, 2 * Math.PI);
+    ctx.arc(canvasX, canvasY, pointRadius, 0, 2 * Math.PI);
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.fillStyle = color;
@@ -480,7 +483,7 @@ function drawUserPoint(x,y) {
     const canvasY = y * scale + offsetY;
 
     ctx.beginPath();
-    ctx.arc(canvasX, canvasY, 5, 0, 2 * Math.PI);
+    ctx.arc(canvasX, canvasY, pointRadius, 0, 2 * Math.PI);
     ctx.strokeStyle = 'orange';
     ctx.lineWidth = 2;
     ctx.stroke(); // 绘制圆圈
@@ -526,7 +529,7 @@ function getWorldCoords(canvasX, canvasY) {
     };
 }
 
-function isPointWithin(px, py, x, y, radius = 5) {
+function isPointWithin(px, py, x, y, radius = pointRadius) {
     return Math.sqrt((px - x) ** 2 + (py - y) ** 2) < radius;
 }
 
