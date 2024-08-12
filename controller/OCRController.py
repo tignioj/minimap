@@ -1,5 +1,5 @@
 import time
-from capture.genshin_capture import GenShinCapture
+from capture.capture_factory import capture
 from controller.BaseController import BaseController
 from server.ServerAPI import get_ocr_result
 # ocr_obj = PaddleOCR(use_gpu=True)
@@ -11,7 +11,7 @@ from server.ServerAPI import get_ocr_result
 class OCRController(BaseController):
     def __init__(self, debug_enable=False):
         self.debug_enable = debug_enable
-        self.gc = GenShinCapture
+        self.gc = capture
         super().__init__(debug_enable, self.gc)
         self.ocr_result = None
 

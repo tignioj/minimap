@@ -24,8 +24,8 @@ def __log(*args):
 def __err(*args):
     logger.error(args)
 
-from capture.genshin_capture import GenShinCapture
-gs = GenShinCapture
+from capture.capture_factory import capture
+gs = capture
 
 def get_ocr_result():
     response = requests.get(f"{ocr_url}/ocr")
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     gc = GenShinCapture
     # create_cached_local_map(use_middle_map=False)
     # create_cached_local_map((-7211.3272, -10996.9493))
-    create_cached_local_map((0,0))
+    create_cached_local_map((1114,-3508.5))
     # while True:
     #     time.sleep(0.05)
     #     start = time.time()

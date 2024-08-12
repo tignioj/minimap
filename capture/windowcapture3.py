@@ -44,7 +44,6 @@ class WindowCapture:
         user32.SetProcessDPIAware()
         self.lock = threading.Lock()
         self.window_name = window_name
-        self.last_screen = None
         try:
             # find the handle for the window we want to capture
             self.hwnd = win32gui.FindWindow(None, self.window_name)
