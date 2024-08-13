@@ -77,7 +77,7 @@ def get_region_map(x, y, width):
         # 处理图片
         img_bytes = BytesIO(resp.content)
         img_np = np.frombuffer(img_bytes.getvalue(), dtype=np.uint8)
-        img = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
+        img = cv2.imdecode(img_np, cv2.IMREAD_GRAYSCALE)
         # __cv_show('rm', img)
         return img
     else:
