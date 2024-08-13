@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canvas Example</title>
+    <title>点位编辑器</title>
+<!--    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">-->
+    <link rel="stylesheet" href="{{url_for('static', filename='all.min.css')}}" />
     <style>
         canvas {
             border: 1px solid black;
@@ -34,13 +36,32 @@
             cursor: pointer;
             z-index: 1; /* Ensure file input is on top of other elements */
         }
-        .error-msg {
-            color: red
+
+        .position { display: flex; align-items: center; }
+        .icon { margin-right: 10px; }
+        .type-path { color: blue; }
+        .type-target { color: green; }
+        .first-point { color: red; }
+        .radio-btn { margin-right: 10px; }
+
+        #head {
+            display: flex;
+            align-items: flex-start;
+        }
+        #myCanvas {
+
         }
     </style>
 </head>
 <body>
-<canvas id="myCanvas" width="500" height="500"></canvas>
+<div id="head">
+    <canvas id="myCanvas" width="500" height="500"></canvas>
+    <div class="container">
+        <h1 id="name"></h1>
+        <p id="country"></p>
+        <ol id="positions"></ol>
+    </div>
+</div>
 <div id="editPanel">
     <label for="x">X: </label><input type="number" id="x" /><br />
     <label for="y">Y: </label><input type="number" id="y" /><br />

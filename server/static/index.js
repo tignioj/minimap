@@ -81,6 +81,7 @@ function drawMap(x,y) {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         drawPoints()
         drawUserPoint(x,y)
+        renderJSONObject()
     };
 }
 
@@ -132,6 +133,95 @@ function setPlayingRecord(playing) {
     }
 }
 
+        // Example data
+        // const data = {
+        //     "positions": [
+        //         {"x": -4273.244289062501, "y": -950.6892968749999, "type": "path", "move_mode": "normal", "action": ""},
+        //         {"x": -4323.892726562501, "y": -806.2693749999999, "type": "path", "move_mode": "fly", "action": ""},
+        //         {"x": -4325.676906250001, "y": -745.8924218749999, "type": "path", "move_mode": "normal", "action": ""},
+        //         {"x": -4500.082179687501, "y": -661.0223046874999, "type": "path", "move_mode": "fly", "action": "stop_flying"},
+        //         {"x": -4497.800929687501, "y": -669.5779687499999, "type": "target", "move_mode": "normal", "action": ""},
+        //         {"x": -4451.431789062501, "y": -713.2654687499999, "type": "target", "move_mode": "swim", "action": ""},
+        //         {"x": -4388.804835937501, "y": -663.8982812499999, "type": "target", "move_mode": "swim", "action": ""},
+        //         {"x": -4392.807765625001, "y": -634.2752343749999, "type": "target", "move_mode": "swim", "action": ""},
+        //         {"x": -4318.404445312501, "y": -598.2078515624999, "type": "path", "move_mode": "normal", "action": ""},
+        //         {"x": -4274.785304687501, "y": -577.8836328124999, "type": "path", "move_mode": "normal", "action": ""},
+        //         {"x": -4216.687648437501, "y": -633.5262109374999, "type": "path", "move_mode": "fly", "action": "stop_flying"},
+        //         {"x": -4210.639796875001, "y": -642.4422265624999, "type": "target", "move_mode": "normal", "action": ""},
+        //         {"x": -4196.455226562501, "y": -610.8621484374999, "type": "target", "move_mode": "normal", "action": ""},
+        //         {"x": -4123.868312500001, "y": -644.6580468749999, "type": "target", "move_mode": "normal", "action": ""}
+        //     ]
+        // };
+        // points = data.positions
+
+        const iconMap = {
+            "path": "<i class='fas fa-map-marker-alt'></i>",
+            "target": "<i class='fas fa-bullseye'></i>",
+            "normal": "<i class='fas fa-walking'></i>",
+            undefined: "<i class='fas fa-walking'></i>",
+            "fly": "<i class='fas fa-plane'></i>",
+            "swim": "<i class='fas fa-water'></i>",
+            "jump": '<i class="fa-solid fa-arrow-trend-up"></i>',
+            "stop_flying": '<i class="fa-solid fa-plane-arrival"></i>'
+        };
+function renderJSONObject() {
+    const data = getPathObject()
+    // document.getElementById('name').textContent = data.name;
+    // document.getElementById('country').textContent = `Country: ${data.country}`;
+    const positionsList = document.getElementById('positions');
+    positionsList.innerHTML = null
+    data.positions.forEach((position, index) => {
+        const li = document.createElement('li');
+        li.className = 'position';
+
+        // Apply different classes based on position properties
+        if (index === 0) li.classList.add('first-point');
+        if (position.type === 'path') li.classList.add('type-path');
+        if (position.type === 'target') li.classList.add('type-target');
+
+        // Create radio button
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'position';
+        radio.value = String(index);
+        radio.className = 'radio-btn';
+
+        radio.addEventListener('click', event=> {
+            selectedPointIndex = Number(event.target.value);
+            p = points[selectedPointIndex];
+            updateCanvasCenter(p);
+            showEditPanel(event.clientX, event.clientY);
+        })
+        if (selectedPointIndex === index) {
+            radio.checked = true
+        }
+
+        // Create a span for the icon
+        const iconSpan = document.createElement('span');
+        iconSpan.className = 'icon';
+        iconSpan.innerHTML = iconMap[position.type];
+
+        // Create a span for the position details
+        const detailsSpan = document.createElement('span');
+        // detailsSpan.innerHTML = `
+        //     X: ${position.x}, Y: ${position.y}, ${iconMap[position.move_mode]} ${position.action ? iconMap[position.action] : ''}
+        // `;
+        px = position.x.toFixed(2)
+        py = position.y.toFixed(2)
+        detailsSpan.innerHTML = `
+             ${iconMap[position.move_mode]} ${position.action ? iconMap[position.action] : ''} (${px},${py})
+        `;
+        // Append elements to the list item
+        li.appendChild(radio);
+        li.appendChild(iconSpan);
+        li.appendChild(detailsSpan);
+
+        // Append list item to the list
+        positionsList.appendChild(li);
+    });
+
+}
+
 playBackButton.addEventListener('click', () => {
     if(isPlayingRecord) { return; }
 
@@ -144,7 +234,7 @@ playBackButton.addEventListener('click', () => {
 
     setPlayingRecord(true)
     const url = `${serverURL}/playback`; // 替换为实际的 API 端点
-    data = getPathObject()
+    const data = getPathObject()
     fetch(url, {
         method: 'POST', // 请求方法
         headers: {
@@ -224,6 +314,7 @@ function handleFileSelect(event) {
             pos = points[0]
             countrySelect.value = obj['country']
             updateCanvasCenter(pos)
+            renderJSONObject()
             info('加载成功')
         } catch (error) {
             errorMsg('json解析错误:', error);
@@ -249,7 +340,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
     socket.on('key_event', function(data) {
         // 处理从服务器接收到的键盘事件数据
-        console.log(data)
         if (data.key === 'esc') {
             if (isPlayingRecord) {
                 info('执行中断')
@@ -287,7 +377,6 @@ document.addEventListener('keydown', (event) => {
     // console.log(event)
 });
 document.addEventListener('keyup', (event) => {
-    console.log(event)
     if (!event.ctrlKey) { isCtrlPressed = false; }
     if (event.code) {isAltPressed = false;}
 });
@@ -330,7 +419,8 @@ canvas.addEventListener('mousemove', (event) => {
             isHovered = true;
             selectedPointIndex = index;
             if(!isCtrlPressed) {
-                showEditPanel(point.x, point.y, point.type, point.move_mode, point.action);
+                // showEditPanel(point.x, point.y, point.type, point.move_mode, point.action);
+                showEditPanel(event.clientX, event.clientY);
             }
             return;
         }
@@ -373,7 +463,8 @@ canvas.addEventListener('click', (event) => {
             const { x: canvasX, y: canvasY } = getCanvasCoords(point.x, point.y);
             if (isPointWithin(mouseX, mouseY, canvasX, canvasY)) {
                 selectedPointIndex = index;
-                showEditPanel(point.x, point.y, point.type, point.move_mode, point.action);
+                // showEditPanel(point.x, point.y, point.type, point.move_mode, point.action);
+                showEditPanel(event.clientX, event.clientY);
                 return;
             }
         });
@@ -389,6 +480,7 @@ saveButton.addEventListener('click', () => {
         points[selectedPointIndex].move_mode = getSelectedValue('moveMode');
         hideEditPanel();
         drawPoints();
+        renderJSONObject()
     }
 });
 
@@ -417,6 +509,7 @@ newButton.addEventListener('click', (event) => {
         points.splice(selectedPointIndex+1, 0, point);
         hideEditPanel();
         drawPoints();
+        renderJSONObject();
     }
 })
 
@@ -495,8 +588,8 @@ function drawPoints() {
     }
 
     // Draw points
-    points.forEach(point => {
-        if (point.type === 'start') {
+    points.forEach((point,i) => {
+        if (i === 0) {
             color = 'red'
         } else if (point.type === 'path') {
             color = 'blue'
@@ -575,15 +668,21 @@ function isPointWithin(px, py, x, y, radius = pointRadius) {
     return Math.sqrt((px - x) ** 2 + (py - y) ** 2) < radius;
 }
 
-function showEditPanel(x, y, type, moveMode, action) {
-    xInput.value = x;
-    yInput.value = y;
-    selectRadio('type',type)
+// function showEditPanel(x, y, type, moveMode, action) {
+function showEditPanel2(event) {
+    console.log(event)
+}
+function showEditPanel(clientX, clientY) {
+    let point = points[selectedPointIndex]
+    selectRadio('position', selectedPointIndex)
+    xInput.value = point.x;
+    yInput.value = point.y;
+    selectRadio('type',point.type)
     // moveModeInput.value = moveMode == null ? '': moveMode;
-    selectRadio("moveMode",moveMode)
-    selectRadio('action', action)
-    editPanel.style.left = `${event.clientX}px`;
-    editPanel.style.top = `${event.clientY}px`;
+    selectRadio("moveMode",point.move_mode)
+    selectRadio('action', point.action)
+    editPanel.style.left = `${clientX}px`;
+    editPanel.style.top = `${clientY}px`;
     editPanel.style.display = 'block';
     // editPanel.classList.remove('hidden');
 }
