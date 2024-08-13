@@ -37,6 +37,7 @@ def get_points_img(points: List[Point], width=2048, user_position=None, scale=No
     if region_img is None:
         print("无法获取局部地图")
         return
+    region_img = cv2.cvtColor(region_img, cv2.COLOR_GRAY2BGR)
     last_point = point_start
     # print(dx,dy)
     for index, point in enumerate(points):
@@ -135,7 +136,7 @@ if __name__ == '__main__':
     # jsonfile = getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json')
     # jsonfile = getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json')
     json_map = BasePathExecutor.load_json(jsonfile)
-    show_points(json_map['positions'],  1024, scale=0.4)
+    show_points(json_map['positions'],  1024, scale=1)
     # show_points(json_map.get('positions'), json_map['name'],width=1200,scale=3)
     # while True:
         # time.sleep(0.1)
