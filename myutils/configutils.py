@@ -1,10 +1,18 @@
-import yaml, os, platform
+import yaml, os
 
-# _cwd = os.path.dirname(__file__)
-_cwd = os.path.dirname(os.path.abspath(__file__))
-PROJECT_PATH = os.path.join(_cwd, '../')
+import sys
+config_name = 'config.dev.yaml'
+application_path = '.'
+if getattr(sys, 'frozen', False):
+    application_path = os.path.dirname(sys.executable)
+    config_name = 'config.yaml'
+elif __file__:
+    application_path = os.path.dirname(os.path.dirname(__file__))
+
+PROJECT_PATH = application_path
+
 def _load_config():
-    config_path = os.path.join(PROJECT_PATH, "config.yaml")
+    config_path = os.path.join(application_path, config_name)
     with open(config_path, "r", encoding="utf8") as stream:
         try:
             return yaml.safe_load(stream)
@@ -12,7 +20,11 @@ def _load_config():
             print(exc)
 
 cfg = _load_config()
-resource_path = cfg['resource_path']
+if cfg.get('resources_path') is not None:
+    resource_path = cfg['resource_path']
+else:
+    resource_path = os.path.join(PROJECT_PATH, 'resources')
+template_path = os.path.join(resource_path, 'templates')
 
 def get_bigmap_path(size=2048):
     return os.path.join(resource_path, 'map', f'combined_image_{size}.png')
@@ -30,6 +42,8 @@ if __name__ == '__main__':
     path = get_bigmap_path()
     print(path)
     kp, des = get_keypoints_des_path()
-    print(des,kp)
+    print(kp, des)
     p = get_paimon_icon_path()
     print(p)
+    port = cfg.get('minimap').get('port')
+    print(port)

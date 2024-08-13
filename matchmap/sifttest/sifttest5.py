@@ -219,6 +219,8 @@ class MiniMap:
                 self.logger.debug(f'消除差异后，得到的相对坐标为{self.get_position()}')
         else:
             self.logger.error('全局匹配失败!无需消除局部匹配差异')
+            self.local_match_global_match_diff_x = 0
+            self.local_match_global_match_diff_y = 0
 
     def filterKeypoints(self, x, y, width, height, keypoints=None, descriptors=None):
         x_center, y_center = x, y
@@ -280,7 +282,7 @@ class MiniMap:
             self.logger.debug('当前尚未缓存局部地图的特征点，请稍后再进行局部匹配')
             return None
 
-        # 虽然是局部匹配，但是坐标是全局匹配生成的，因此返回的坐标是全局坐标
+        # 虽然是局部匹配，但是坐标是算法在大地图匹配生成的，因此返回的坐标是全局坐标
         pix_pos = self.__match_position(small_image, keypoints_small, descriptors_small, self.local_map_keypoints,
                                     self.local_map_descriptors, self.bf_matcher)
         if pix_pos is None:

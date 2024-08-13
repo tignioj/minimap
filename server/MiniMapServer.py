@@ -1,8 +1,8 @@
 import base64
 import json
-import threading
+import os.path
+from threading import Thread, Lock
 import time
-
 import numpy as np
 from flask import Flask, request, jsonify, send_file, render_template
 from capture.capture_factory import capture
@@ -12,13 +12,15 @@ import cv2
 from myutils.configutils import cfg
 from myutils.imgutils import crop_img
 import logging
+
 logging.getLogger('werkzeug').setLevel(logging.WARNING)
 from flask_cors import CORS
 from flask_socketio import SocketIO
-from pynput.keyboard import  Listener
+from pynput.keyboard import Listener
 from mylogger.MyLogger3 import MyLogger
-logger = MyLogger('minimap server')
+from engineio.async_drivers import threading  # pyinstaller打包flask的时候要导入
 
+logger = MyLogger('minimap server')
 
 if cfg.get('debug_enable') == 1:
     debug_enable = True
@@ -34,9 +36,11 @@ class FlaskApp(Flask):
     capture.add_observer(rotate)
     capture.add_observer(minimap)
 
+
 def cvimg_to_base64(cvimg):
     _, img_encoded = cv2.imencode('.jpg', cvimg)
     return base64.b64encode(img_encoded).decode("utf-8")
+
 
 def _on_press(key):
     # print(f'key {key} pressed')
@@ -46,6 +50,7 @@ def _on_press(key):
         c = key.name
     socketio.emit('key_event', {'key': c})
 
+
 def _on_release(key):
     # print(f'key {key} released')
     socketio.emit('key_event', {'key': key})
@@ -54,44 +59,52 @@ def _on_release(key):
 app = FlaskApp(__name__)
 CORS(app)
 app.config['SECRET_KEY'] = 'mysecret'
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode='threading')
 playing_thread_running = False
 
 kb_listener = Listener(on_press=_on_press)
 kb_listener.start()
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-lock = threading.Lock()
+
+lock = Lock()
+
+
 def _thread_playback(jsondict):
     global playing_thread_running
     with lock:
         playing_thread_running = True
+        playback_ok = False
         try:
             json_object = json.dumps(jsondict, indent=4, ensure_ascii=False)
-            with open('../resources/pathlist/月莲/月莲_test.json', mode="w",
-                      encoding="utf-8") as outfile:
+            from myutils.configutils import resource_path
+            with open(os.path.join(resource_path, 'temp.json'), mode="w", encoding="utf-8") as outfile:
                 outfile.write(json_object)
             from myexecutor.BasePathExecutor2 import BasePathExecutor
             bp = BasePathExecutor(json_dict=jsondict)
             bp.execute()
+            playback_ok = True
         except Exception as e:
             logger.error(e)
-            raise e
+            playback_ok = False
         finally:
             playing_thread_running = False
+            socketio.emit('playback_event', {'status': playback_ok})
+
 
 @app.route('/playback', methods=['POST'])
 def playback():
     global playing_thread_running
-    if playing_thread_running: return jsonify({'result': False, 'msg': 'is already playing'})
+    if playing_thread_running: return jsonify({'result': False, 'msg': '已经有脚本正在运行中，请退出该脚本后再重试!'})
 
     jsondict = request.json
-    if jsondict is None: return jsonify({'result': False, 'msg': 'no jsonstr'})
-    threading.Thread(target=_thread_playback, args=(jsondict,)).start()
-    return jsonify({'result': True, 'msg': 'playback started'})
-
+    if jsondict is None: return jsonify({'result': False, 'msg': '空json对象，无法回放'})
+    Thread(target=_thread_playback, args=(jsondict,)).start()
+    return jsonify({'result': True, 'msg': '已运行回放脚本，如需停止按下ESC'})
 
 
 @app.route('/usermap/get_position', methods=['GET'])
@@ -136,17 +149,21 @@ def get_rotation():
 
 from io import BytesIO
 
+
 @app.route('/minimap/get_region_map', methods=['GET'])
 def get_region_map():
     x = request.args.get('x')
     y = request.args.get('y')
-    radius = request.args.get('width')
-    if x is not None and y is not None and radius is not None:
-        radius = int(float(radius))
+    width = request.args.get('width')
+    scale = request.args.get('scale')
+    if x is not None and y is not None and width is not None:
+        width = int(float(width))
         x = int(float(x))
         y = int(float(y))
+        if scale is None: scale = 1
+        scale = float(scale)
 
-        pix_pos = app.minimap.relative_axis_to_pix_axis((x,y))
+        pix_pos = app.minimap.relative_axis_to_pix_axis((x, y))
 
         if app.large_map is None:
             from myutils.configutils import get_bigmap_path
@@ -154,12 +171,14 @@ def get_region_map():
             if app.large_map is None:
                 raise Exception("无法加载大地图")
 
-        tem_local_map = crop_img(app.large_map, pix_pos[0], pix_pos[1], radius)
+        # tem_local_map = crop_img(app.large_map, pix_pos[0], pix_pos[1], crop_size=width, scale=scale)
+        tem_local_map = crop_img(app.large_map, pix_pos[0], pix_pos[1], crop_size=width, scale=scale)
         if tem_local_map is None:
             raise Exception("无法裁剪大地图")
 
         _, img_encoded = cv2.imencode('.jpg', tem_local_map)
         return send_file(BytesIO(img_encoded), mimetype='image/jpeg')
+
 
 @app.route('/minimap/get_local_map', methods=['GET'])
 def get_local_map():
@@ -182,12 +201,14 @@ def get_local_map():
     return jsonify(data)
 
 
+import webbrowser as w
 
 if __name__ == '__main__':
     host = cfg['minimap']['host']
     port = cfg['minimap']['port']
     schema = 'http'
     url = f'{schema}://{host}:{port}'
+    w.open(f'{url}')
     print(f"""
     {url}/minimap/get_position', methods=['GET']
     {url}/minimap/get_rotation', methods=['GET']
@@ -195,7 +216,8 @@ if __name__ == '__main__':
     {url}/minimap/get_local_map', methods=['GET']
     {url}/usermap/get_position', methods=['GET']
     {url}/usermap/create_cache', methods=['POST']
+    {url}/playback', methods=['POST']
     """)
     # app.run(host=host, port=port, debug=False)
-    socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
+    socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True, debug=False)
     # app.run(port=5000,debug=False)

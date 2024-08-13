@@ -116,10 +116,11 @@ def get_local_map():
 
 if __name__ == '__main__':
     # 发送POST请求
-    gc = GenShinCapture
+    gc = capture
     # create_cached_local_map(use_middle_map=False)
     # create_cached_local_map((-7211.3272, -10996.9493))
-    create_cached_local_map((1114,-3508.5))
+    # create_cached_local_map((1114,-3508.5))
+    create_cached_local_map((-3786, 1154))
     # while True:
     #     time.sleep(0.05)
     #     start = time.time()
