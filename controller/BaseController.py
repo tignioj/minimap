@@ -18,6 +18,7 @@ import win32api, win32con
 from matchmap.minimap_interface import MinimapInterface
 # from capture.genshin_capture import GenShinCapture
 from capture.capture_factory import capture
+from myutils.configutils import cfg
 logger = MyLogger('BaseController')
 
 def wait_for_window(handler):
@@ -87,13 +88,16 @@ class BaseController:
     """
     提供操作人物的方法
     """
-    def __init__(self, debug_enable=False, gc=None):
+    def __init__(self, debug_enable=None, gc=None):
         self.Key = Key
         self.tracker = MinimapInterface
-        self.logger = MyLogger(self.__class__.__name__, logging.DEBUG)
 
-        if debug_enable: self.logger.setLevel(logging.DEBUG)
-        else: self.logger.setLevel(logging.INFO)
+        if debug_enable is None:
+            debug_enable = cfg.get('debug_enable', False)
+            if debug_enable: self.logger = MyLogger(self.__class__.__name__, logging.DEBUG)
+            else: self.logger = MyLogger(self.__class__.__name__, logging.INFO)
+        else:
+            self.logger = MyLogger(self.__class__.__name__, logging.DEBUG)
         if gc is None: self.gc = capture # genshin capture
 
         self.Button = Button
@@ -205,9 +209,9 @@ class BaseController:
         """
         if degree is None: return
         start = time.time()
-        while True:
+        while capture.has_paimon():
             wait_for_window(self)
-            if time.time() - start > 2: break  # 避免超过2秒
+            if time.time() - start > 5: break  # 避免超过5秒
             current_rotation = self.tracker.get_rotation()
             # 假设要求转向到45，获取的是60，则 degree - current_rotation = -15
             # 假设要求转向到45，获取的是10则 degree - current_rotation = 30
@@ -237,20 +241,26 @@ class BaseController:
 
             # print(f"current: {current_rotation}, target{degree},diff{diff}, 转向:{direction}, 转动距离:{s}")
             s = s * 2
-            if s > 200: s = 200
+
+            max_rate = cfg.get('change_rotation_max_speed', 200)
+            if max_rate > 800: max_rate = 800
+            elif max_rate < 200: max_rate = 200
+
+            if s > max_rate: s = max_rate
+            print(s)
             win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
 
 
-def task():
-    while True:
-        time.sleep(1)
-        bc.kb_press_and_release(bc.Key.space)
 
 if __name__ == '__main__':
-    bc = BaseController(debug_enable=True)
-    t = threading.Thread(target=task)
-    t.start()
-    t.join()
+    bc = BaseController()
+    for i in range(1,5):
+        if i%2 == 0:
+            bc.to_degree(-100)
+        else:
+            bc.to_degree(100)
+        time.sleep(2)
+
     # Logger.log("good", instance=BaseController)
     # bc.drag(GenShinCapture.get_genshin_screen_center(),1000, 200, 500)
     # bc.ms.position = (3858.0, 2322.0)

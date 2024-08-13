@@ -5,7 +5,7 @@ debug_enable: 1
 resource_path: 'G:\PyCharmProgram\minimap\minimap\resources'
 
 # 点位资源路径
-points_path: 'G:\PyCharmProgram\minimap\minimap\resources\pathlist\调查'
+points_path: 'G:\PyCharmProgram\minimap\minimap\resources\pathlist\'
 
 ########################## 地图配置 #############################
 # 中心点设置璃月天衡山右边那个十字圆环
@@ -33,7 +33,7 @@ stuck_movement_threshold: 20
 # 对于目标点精确到多少个像素认为接近, 允许范围(1~10) 目前没有那么高静定，建议 > 1,否则可能原地打转
 target_nearby_threshold: 2
 # 对于途径点精确到多少个像素认为接近, 允许范围(2~50)
-path_point_nearby_threshold: 8  # 对于途径点精确度奥多少个像素认为接近
+path_point_nearby_threshold: 5  # 对于途径点精确度奥多少个像素认为接近
 
 # 是否允许小碎步接近目标：注意此选项对Point.type=='path'的途径点以及游泳模式下无效
 allow_small_steps: 1
@@ -46,8 +46,11 @@ enable_loop_jump: 0
 # 是否允许途径点冲刺
 enable_dash: 1
 
+# 转向速度,允许范围200~800, 值越大转向越快
+change_rotation_max_speed: 800
+
 # 多少秒更新一次位置(允许值0.01~0.1)
-update_user_status_interval: 0.2
+update_user_status_interval: 0.1
 
 ############################ 传送配置 ##############################
 
