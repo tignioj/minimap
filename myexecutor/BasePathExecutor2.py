@@ -16,8 +16,8 @@ import logging
 logger = MyLogger('path_executor', level=logging.DEBUG, save_log=True)
 
 # 已知问题：
-# TODO 1. 在某个点位概率丢信号导致一直向前走(难以复现)
-# TODO 2. 疯狂f模式在尚未接近植物时已经结束
+# TODO 1. 在某个点位概率丢信号导致一直向前走 (似乎是游泳模式不停顿导致的?)
+# TODO 2: 途径点如果有npc，可能会导致进入对话
 
 class MovingStuckException(Exception):
     pass
@@ -30,8 +30,9 @@ class Point:
     TYPE_TARGET = 'target'
 
     MOVE_MODE_NORMAL = 'normal'
-    MOVE_MODE_FLY = 'fly'  # fly的实现目前是疯狂按下空格，和jump相同( TODO 后续希望加入图像识别用户是否处于飞行状态用于启用飞行）
-    MOVE_MODE_JUMP = 'jump'
+    MOVE_MODE_FLY = 'fly'  # fly的判断方式:下落攻击图标下方的白底黑字的space是否存在
+    MOVE_MODE_JUMP = 'jump' # 疯狂按空格
+    # swim模式，可能会导致冲过头,尤其是浅水区人不在游泳而点位设置成了游泳的时候
     MOVE_MODE_SWIM = 'swim'  # swim 模式下，会禁止小碎步，因为小碎步的实现是疯狂按下w和停止w，这会加速消耗体力
 
     ACTION_STOP_FLYING_ON_MOVE_DONE = 'stop_flying'  # 接近目标的时候是否下落攻击以停止飞行
@@ -277,9 +278,11 @@ class BasePathExecutor(BaseController):
 
         if nearby or nearby_last_point: self.on_nearby(coordinates)
 
+        # 不是游泳状态但是设置了游泳模式，同样允许小碎步
+        swimming = self.gc.is_swimming() and self.next_point.MOVE_MODE_SWIM
         small_step_enable = (nearby and self.allow_small_steps
                              and (self.next_point.type == self.next_point.TYPE_TARGET)
-                             and (self.next_point.move_mode != self.next_point.MOVE_MODE_SWIM))
+                             and not swimming)
 
 
         if small_step_enable: time.sleep(0.04)
@@ -323,7 +326,6 @@ class BasePathExecutor(BaseController):
                     if self.enable_loop_jump or self.next_point.move_mode == self.next_point.MOVE_MODE_JUMP:
                         if self.enable_dash: time.sleep(0.005)  # 按键的操作间隔过短，后面的按键会失效！
                         self.rate_limiter_press_jump.execute(self.kb_press_and_release, self.Key.space)
-
             except MovingStuckException as e:
                 self.logger.error(e)
                 self.do_action_if_moving_stuck()
@@ -343,7 +345,7 @@ class BasePathExecutor(BaseController):
 
     def on_move_after(self, point):
         self.log(f'到达点位{point}了')
-        if self.enable_crazy_f:
+        if self.enable_crazy_f and point.type == point.TYPE_TARGET:
             self.debug('疯狂按下f')
             self.crazy_f()
 
