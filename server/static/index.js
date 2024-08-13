@@ -31,6 +31,7 @@ let dragOffsetY = 0;
 let isCtrlPressed = false;
 let isAltPressed = false;
 let isStartRecord = false;
+let isPlayingRecord = false;
 
 // 加载数据
 pos = { x: 0, y: 0, type: 'start' }
@@ -121,14 +122,27 @@ function getPathObject() {
         positions: points
     };
 }
+function setPlayingRecord(playing) {
+    if (playing) {
+        isPlayingRecord = true
+        playBackButton.disabled =  true
+    } else {
+        isPlayingRecord = false
+        playBackButton.disabled = false
+    }
+}
 
 playBackButton.addEventListener('click', () => {
+    if(isPlayingRecord) { return; }
+
     if (points.length < 1)  {
-        info('空路径，无法回放！')
+        errorMsg('空路径，无法回放！')
         return
     }
     info('回放中, 已停止记录，按下ESC停止回放')
-    isStartRecord = false
+    isStartRecord = false  // 停止记录
+
+    setPlayingRecord(true)
     const url = `${serverURL}/playback`; // 替换为实际的 API 端点
     data = getPathObject()
     fetch(url, {
@@ -140,15 +154,25 @@ playBackButton.addEventListener('click', () => {
     })
     .then(response => {
         if (!response.ok) {
+            setPlayingRecord(false)
             throw new Error('Network response was not ok ' + response.statusText);
         }
         return response.json(); // 解析响应为 JSON
     })
     .then(data => {
         console.log('Success:', data); // 处理成功的响应
+        if (data.result === true) {
+            info(data.msg)
+            setPlayingRecord(true)
+        } else {
+            errorMsg(data.msg)
+            setPlayingRecord(false)
+        }
     })
     .catch(error => {
         console.error('Error:', error); // 处理错误
+        errorMsg(error)
+        setPlayingRecord(false)
     });
 
 })
@@ -213,27 +237,44 @@ document.getElementById('fileInput').addEventListener('change', handleFileSelect
 
 document.addEventListener("DOMContentLoaded", function() {
     const socket = io();
-    socket.on('key_event', function(data) {
-        // 处理从服务器接收到的键盘事件数据
-        // console.log('Key event:', data.key);
-        if (data.key === 'insert') {
-            insertPosition()
-        } else if (data.key === 'backspace')
-            if (isStartRecord) {
-                points.pop()
-            }
-        else if (data.key === 'delete') {
-            points = []
-        }
-    });
-
     socket.on('connect', function() {
+        drawMap(0,0)
         console.log('WebSocket connection established');
     });
 
     socket.on('disconnect', function() {
+        errorMsg('已断开服务器')
         console.log('WebSocket connection closed');
     });
+
+    socket.on('key_event', function(data) {
+        // 处理从服务器接收到的键盘事件数据
+        console.log(data)
+        if (data.key === 'esc') {
+            if (isPlayingRecord) {
+                info('执行中断')
+                setPlayingRecord(false)
+            }
+        } else if (data.key === 'insert') {
+            insertPosition()
+        } else if (data.key === 'backspace')
+            if (isStartRecord) {
+                info('你按下了backspace,删除上一个点位')
+                points.pop()
+            }
+        else if (data.key === 'delete') {
+            // points = []
+        }
+    });
+    socket.on('playback_event', function (data) {
+        if(data.result) {
+            info('执行结束')
+            setPlayingRecord(false)
+        }else {
+            info('执行过程出现异常')
+            setPlayingRecord(false)
+        }
+    })
 });
 
 //################################## 快捷键
@@ -396,6 +437,7 @@ function insertPosition() {
         return
     }
     node = getUserCustomNode()
+    info(`插入点位(${node.x},${node.y})`)
     points.push(node)
 }
 insertNodeButton.addEventListener('click', insertPosition)

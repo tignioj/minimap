@@ -93,7 +93,7 @@ def _thread_playback(jsondict):
             playback_ok = False
         finally:
             playing_thread_running = False
-            socketio.emit('playback_event', {'status': playback_ok})
+            socketio.emit('playback_event', {'result': playback_ok})
 
 
 @app.route('/playback', methods=['POST'])
