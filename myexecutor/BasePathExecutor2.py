@@ -212,7 +212,7 @@ class BasePathExecutor(BaseController):
 
     def on_nearby(self, coordinates):
         """
-        当接近点位时，此方法会不断执行知道到达点位
+        当接近点位时，此方法会不断执行直到到达点位
         :param next_point:
         :return:
         """
@@ -266,7 +266,7 @@ class BasePathExecutor(BaseController):
         # 转向: 注意，update_state()线程永远保证self.positions在首次赋值之后不再是空值,但是计算角度的函数可能会返回空值，因此还是要判断
         rot = self.get_next_point_rotation(coordinates)
         if rot: self.to_degree(self.get_next_point_rotation(coordinates))
-        # 前进: 注意要先转向后再前进，否则可能出错
+        # 前进: 注意要先转向后再前进，否则可能会出错
 
         # 小碎步实现方法：先按下w等待一小段时间再松开w，反复循环
         # 小碎步的条件：当和目标点差距8个像素时候，就认为符合最基本条件
@@ -284,7 +284,7 @@ class BasePathExecutor(BaseController):
                              and (self.next_point.type == self.next_point.TYPE_TARGET)
                              and not swimming)
 
-
+        # TODO 换成非阻塞方式
         if small_step_enable: time.sleep(0.04)
         self.kb_press("w")
         # 小碎步
@@ -426,7 +426,7 @@ class BasePathExecutor(BaseController):
             return
         # 传送的时候可以顺便缓存局部地图，因此把传送放在第一行
         self.map_controller.transform((self.points[0].x, self.points[0].y), self.country, create_local_map_cache=True)
-        # 开始更新位置
+        # 更新位置
         thread_update_state = threading.Thread(target=self._thread_update_state)
         thread_update_state.start()
         # 路径展示
@@ -440,7 +440,7 @@ class BasePathExecutor(BaseController):
         thread_exception.start()
 
 
-        for point in self.points[1:]:
+        for point in self.points[1:]:   # 跳过传送点
             if self.stop_listen: return
 
             # 阻塞等待位置刷新
@@ -478,7 +478,6 @@ class BasePathExecutor(BaseController):
 
         return True
 
-
 def execute_one(jsonfile):
     logger.info(f"开始执行{jsonfile}")
     debug_enable = cfg.get('debug_enable', True)
@@ -487,6 +486,23 @@ def execute_one(jsonfile):
     return True
 
 def execute_all():
+    """
+    执行全部脚本,则需要一个监听器监听是否停止运行
+    :return:
+    """
+    from pynput.keyboard import Listener, Key
+    def _on_press(key):
+        try: c = key.char
+        except AttributeError:
+            # print('special key {0} pressed'.format(key))
+            if key == Key.esc:
+                logger.info('你按下了esc退出程序, 停止运行所有脚本')
+                exit(0)
+
+    kb_listener = Listener(on_press=_on_press)
+    kb_listener.setDaemon(True)
+    kb_listener.start()
+
     all_start_time = time.time()
     points_path = cfg.get('points_path', os.path.join(PROJECT_PATH,'resources', 'pathlist'))
     err_list = []
@@ -520,5 +536,6 @@ if __name__ == '__main__':
     # execute_one(getjson_path_byname('风车菊_蒙德_清泉镇_2024-08-08_14_46_25.json'))
     # execute_one(getjson_path_byname('调查_璃月_地中之岩_2024-04-29_06_23_28.json'))
     # execute_one(getjson_path_byname('月莲_须弥_降魔山下_6个.json'))
+    # execute_one(getjson_path_byname('霓裳花_璃月_8个.json'))
     # execute_one(getjson_path_byname('霓裳花_璃月 (1).json'))
     execute_all()

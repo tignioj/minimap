@@ -93,7 +93,7 @@ class MyLogger(logging.Logger):
 
 
 if __name__ == '__main__':
-    mylogger = MyLogger('mylogger', save_log=True)
+    mylogger = MyLogger('mylogger', level=logging.DEBUG,save_log=False)
     n = 20
     while n > 0:
         n -= 1
