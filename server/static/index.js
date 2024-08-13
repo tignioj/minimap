@@ -266,6 +266,19 @@ playBackButton.addEventListener('click', () => {
     });
 
 })
+
+function formatDateTime() {
+    let now = new Date();
+
+    let year = now.getFullYear();
+    let month = (now.getMonth() + 1).toString().padStart(2, '0');
+    let day = now.getDate().toString().padStart(2, '0');
+    let hours = now.getHours().toString().padStart(2, '0');
+    let minutes = now.getMinutes().toString().padStart(2, '0');
+    let seconds = now.getSeconds().toString().padStart(2, '0');
+
+    return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+}
 function saveDictAsJsonFile(dict, fileName) {
     // 将对象转换为 JSON 字符串
     const jsonString = JSON.stringify(dict, null, 2); // 格式化 JSON 字符串
@@ -290,7 +303,7 @@ function saveDictAsJsonFile(dict, fileName) {
 saveRecordButton.addEventListener('click', () => {
     obj = getPathObject()
     const count = obj.positions.filter(item => item.type === "target").length;
-    saveDictAsJsonFile(obj, `${obj.name}_${obj.country}_${count}个.json`)
+    saveDictAsJsonFile(obj, `${obj.name}_${obj.country}_${count}个_${formatDateTime()}.json`)
 })
 loadRecordButton.addEventListener('click', () => {
 })
