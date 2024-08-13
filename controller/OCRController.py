@@ -1,7 +1,7 @@
 import time
 from capture.capture_factory import capture
 from controller.BaseController import BaseController
-from server.ServerAPI import get_ocr_result
+from matchmap.minimap_interface import MinimapInterface
 # ocr_obj = PaddleOCR(use_gpu=True)
 # gc = GenShinCapture()
 # def get_ocr_result():
@@ -29,7 +29,7 @@ class OCRController(BaseController):
         :return:
         """
         if time.time() - self.update_timer > self.UPDATE_TIME_SLEEP_TIME:
-            self.ocr_result = get_ocr_result()
+            self.ocr_result = MinimapInterface.get_ocr_result()
             self.update_timer = time.time()
 
     def click(self, x, y):
