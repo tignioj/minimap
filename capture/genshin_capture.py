@@ -30,12 +30,18 @@ class GenShinCaptureObj(ObservableCapture):
         获取小地图派梦区域头像
         :return:
         """
-        self.rate_limiter_update_screenshot.execute(self.update_screenshot)
+        self.update_screenshot_if_none()
         return self.paimon_area
 
 
     def crop_image(self, image, width, height, left_offset, top_offset):
         return image[top_offset:top_offset + height, left_offset:left_offset + width]
+
+    def update_screenshot_if_none(self):
+        if self.screenshot is None:
+            self.screenshot = self.get_screenshot(use_alpha=True)
+        else:
+            self.rate_limiter_update_screenshot.execute(self.update_screenshot)
 
     def update_screenshot(self):
         self.screenshot = self.get_screenshot(use_alpha=True)
@@ -45,10 +51,10 @@ class GenShinCaptureObj(ObservableCapture):
                                     self.user_status_area_offset[2]:self.user_status_area_offset[3]]
 
     def get_user_status_area(self):
-        self.rate_limiter_update_screenshot.execute(self.update_screenshot)
+        self.update_screenshot_if_none()
         return self.user_status_area
     def get_user_status_key_area(self):
-        self.rate_limiter_update_screenshot.execute(self.update_screenshot)
+        self.update_screenshot_if_none()
         return self.user_status_key_area
 
     def notice_update_event(self):
@@ -90,14 +96,9 @@ class GenShinCaptureObj(ObservableCapture):
         :param use_tag_mask:
         :return:
         """
-        self.rate_limiter_update_screenshot.execute(self.update_screenshot)
-        try:
-            cropped_image = self.crop_image(self.screenshot, width=self.mini_map_width, height=self.mini_map_height,
+        self.update_screenshot_if_none()
+        cropped_image = self.crop_image(self.screenshot, width=self.mini_map_width, height=self.mini_map_height,
                                             left_offset=self.mini_map_left_offset, top_offset=self.mini_map_top_offset)
-
-        # TODO BUG has no attribute self.screenshot
-        except AttributeError as e:
-            print(e)
         if use_circled_mask or use_tag_mask or use_tag_mask_v2:
             cropped_image = cv2.bitwise_and(cropped_image, cropped_image, mask=self.mask)
             self.mask = np.zeros((cropped_image.shape[0], cropped_image.shape[1]), np.uint8)
