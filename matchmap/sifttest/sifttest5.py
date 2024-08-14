@@ -78,7 +78,7 @@ class MiniMap:
         # 确定中心点
         self.PIX_CENTER_AX = cfg.get('center_x', 15593.298)  # 璃月天衡山右边那个十字圆环
         self.PIX_CENTER_AY = cfg.get('center_y',13528.16)
-        self.update(capture.width, capture.height)
+        self.update(capture.w, capture.h)
 
         # self.result_pos = None  # 最终坐标(像素)
 
@@ -382,8 +382,9 @@ class MiniMap:
 
     def __cvshow(self, name, img):
         if self.debug_enable:
+            name = f'{name}-{threading.currentThread().name}'
             cv2.imshow(name, img)
-            cv2.waitKey(10)
+            cv2.waitKey(2)
 
 
     def update(self, width, height):

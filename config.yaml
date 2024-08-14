@@ -1,5 +1,5 @@
 # 1表示开启调试，会加载大地图用于展示，速度稍慢
-debug_enable: 0
+debug_enable: 1
 
 # 地图资源路径
 resource_path: 'G:\PyCharmProgram\minimap\minimap\resources'
@@ -49,10 +49,21 @@ enable_dash: 1
 # 转向速度,允许范围200~800, 值越大转向越快
 change_rotation_max_speed: 200
 
-# 多少秒更新一次位置(允许值0.01~0.1)
+# 多少秒更新一次位置(允许值0.01~0.2)
 update_user_status_interval: 0.1
 
-# 无服务器模式, 开启后,执行BasePathExecutors无需开启OCRServer和MinimapServer服务器
+#在跑路的过程中,角色'当前位置'和走过的'历史点位中最近存放的一个点位'差距超过多少的时候认为产生了位置突变
+# 位置突变用于判定角色死亡后被传送到了较远的锚点情况.
+# 允许范围(50-200)
+position_mutation_threshold: 50
+
+# 一段路径中允许位置突变次数: 超过传送次数则停止执行,允许范围(0~10)
+position_mutation_max_time: 2
+
+# 路径突变后,会执行搜索最近点位策略,最近点要求低于多少距离, 范围(80, 500)
+search_closet_point_max_distance: 200
+
+# 无服务器模式, 开启后,执行BasePathExecutors无需开启OCRServer和MinimapServer服务器, 但是启动速度会很慢
 enable_serve_less_mode: 0
 ############################ 传送配置 ##############################
 

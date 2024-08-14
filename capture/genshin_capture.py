@@ -25,7 +25,7 @@ class GenShinCaptureObj(ObservableCapture):
         self.__update_crop_size()
         self.screenshot = self.get_screenshot(use_alpha=True)
 
-    def get_paimon_area(self, update_screenshot=True):
+    def get_paimon_area(self):
         """
         获取小地图派梦区域头像
         :return:

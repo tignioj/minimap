@@ -247,7 +247,6 @@ class BaseController:
             elif max_rate < 200: max_rate = 200
 
             if s > max_rate: s = max_rate
-            print(s)
             win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
 
 

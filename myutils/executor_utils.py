@@ -2,13 +2,47 @@ from mylogger.MyLogger3 import MyLogger
 import os
 from myutils.configutils import cfg
 from typing import List
+# from myexecutor.BasePathExecutor2 import Point
 import numpy as np
+
 logger = MyLogger('track_utils')
 import json
 
 
 def log(*args):
     logger.debug(args)
+
+
+def euclidean_distance(coordinates1, coordinates2):
+    return np.linalg.norm(np.array(coordinates1) - np.array(coordinates2))
+
+
+def find_closest_point_index(coordinates, points, distance_threshold=None):
+    """
+    寻找距离指定坐标最近的点的下标, 要求最近的点在指定阈值内,如果不指定阈值则直接返回最近的
+    :param coordinates:
+    :param points:
+    :param distance_threshold:
+    :return:
+    """
+    closest_point_index = None
+    min_distance = float('inf')
+    for index, point in enumerate(points):
+        distance = euclidean_distance(coordinates, (point.x, point.y))
+        if distance < min_distance:
+            min_distance = distance
+            closest_point_index = index
+
+    if distance_threshold is not None:  # 如果指定了阈值,则判断最终结果是否小于阈值
+        # 小于则返回最近的点下标,否则返回空
+        if min_distance < distance_threshold:
+            return closest_point_index
+        else:
+            return None
+    else:
+        return closest_point_index  # 没有指定阈值,直接返回最近的点下标
+
+
 
 def point1_near_by_point2(point1, point2, threshold):
     """
@@ -22,13 +56,7 @@ def point1_near_by_point2(point1, point2, threshold):
         return False
 
     # 计算两点之间的欧氏距离
-    distance = np.linalg.norm(np.array(point1) - np.array(point2))
-    # self.log("欧式距离", distance)
-    # 检查距离是否小于阈值
-    if distance < threshold:
-        return True
-    else:
-        return False
+    return euclidean_distance(point1, point2) < threshold
 
 
 def calculate_angle(x0, y0, x1, y1):
@@ -73,5 +101,3 @@ def calculate_angle(x0, y0, x1, y1):
         return deg
     else:
         return None
-
-
