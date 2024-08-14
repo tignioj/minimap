@@ -1,6 +1,7 @@
 import random
 import threading
 import time
+import asyncio
 import cv2
 import sys
 from controller.BaseController import BaseController
@@ -20,7 +21,9 @@ logger = MyLogger('path_executor', level=logging.DEBUG, save_log=True)
 
 # 已知问题：
 # TODO 1. 游泳点位概率出现原地转圈
-# TODO 2: 目标点附近如果有npc，可能会导致进入对话
+# TODO 2. 关掉小碎步会增加原地转圈概率
+# 距离点位越进, 角度变化幅度越大
+# TODO 3: 目标点附近如果有npc，可能会导致进入对话
 
 class MovingStuckException(Exception):
     pass
@@ -163,7 +166,7 @@ class BasePathExecutor(BaseController):
         # 原理: 人物死亡会被传送, 要么原地复活,要么被传送到附近的锚点, 原地复活不会触发此异常(因为位置变化不大)
         # (不能和next_point比较,因为有些路径本身打点可能打的比较远)
         # 不能设置太小, 以防止人物正常的移动产生较大位移时, 误判为位置突变
-        self.position_mutation_threshold = cfg.get('position_mutation_threshold')
+        self.position_mutation_threshold = cfg.get('position_mutation_threshold', 100)
         if self.position_mutation_threshold < 50:
             self.position_mutation_threshold = 50
         elif self.position_mutation_threshold > 200:
@@ -222,10 +225,12 @@ class BasePathExecutor(BaseController):
 
         self.rate_limiter_press_e = RateLimiter(1)
         self.rate_limiter_press_z = RateLimiter(1)
-        self.rate_limiter_press_jump = RateLimiter(1)
         self.rate_limiter_press_dash = RateLimiter(1)
+        self.rate_limiter_press_jump = RateLimiter(1)  # 避免跳跃和冲刺同时按下导致无效
+
 
         self.rate_limiter_fly = RateLimiter(0.1)
+        self.rate_limiter_small_step_release_w = RateLimiter(0.08)
 
     def _thread_object_detection(self):
         pass
@@ -331,19 +336,27 @@ class BasePathExecutor(BaseController):
                              and (self.next_point.type == self.next_point.TYPE_TARGET)
                              and not swimming)
 
-        # TODO 换成非阻塞方式
-        if small_step_enable: time.sleep(0.04)
         self.kb_press("w")
-        # 小碎步
-        if small_step_enable:
-            self.logger.info('小碎步松开w')
-            time.sleep(0.04)
-            self.kb_release('w')
+        # 按照一定的频率松开w实现小碎步
+        if small_step_enable: self.rate_limiter_small_step_release_w.execute(self.kb_press_and_release, 'w')
 
-        # 飞行
-        if self.next_point.move_mode == self.next_point.MOVE_MODE_FLY:
-            if not self.gc.is_flying():
-                self.rate_limiter_fly.execute(self.kb_press_and_release, self.Key.space)
+
+
+    def is_nearby_path_point(self):
+        """
+        是否接近途径点
+        :return:
+        """
+        if self.next_point.type == Point.TYPE_PATH:
+            return point1_near_by_point2(self.current_position, (self.next_point.x,self.next_point.y), self.path_point_nearby_threshold)
+
+    def is_nearby_target_point(self):
+        """
+        是否接近目标点
+        :return:
+        """
+        if self.next_point.type == Point.TYPE_TARGET:
+            return point1_near_by_point2(self.current_position, (self.next_point.x,self.next_point.y), self.target_nearby_threshold)
 
     # 移动(尽量不要阻塞））
     # 异常：原地踏步,超时, 位置突变(死亡后被传送)
@@ -356,33 +369,35 @@ class BasePathExecutor(BaseController):
         point_start_time = time.time()
         self.position_history.clear()
         # 逐步接近目标点位
-        while not point1_near_by_point2(self.current_position, coordinates, self.target_nearby_threshold):
+        # 达到途径点的阈值时，跳出循环，直接进入下一个点位
+        # 退出的条件满足其一即可
+        # 1. 到达途径点
+        # 2. 到达目标点
+        while not self.is_nearby_path_point() and not self.is_nearby_target_point():
+            if self.stop_listen: return
             try:
-                if self.stop_listen: return
-                # 达到途径点的阈值时，跳出循环，直接进入下一个点位
-                if (point1_near_by_point2(self.current_position, coordinates, self.path_point_nearby_threshold)
-                        and self.next_point.type == self.next_point.TYPE_PATH): break
-
                 # 当前点位和历史点位差距过大, 可能死亡导致被传送
                 # 游戏特性: 死亡后可能传送到附近,也可能传送到最近一次传送的锚点(非距离最近锚点)
                 if len(self.position_history) > 1:
                     last_time_save_pos = self.position_history[-1]
-                    if not point1_near_by_point2(self.current_position, last_time_save_pos,
-                                                 self.position_mutation_threshold):
+                    if not point1_near_by_point2(self.current_position, last_time_save_pos, self.position_mutation_threshold):
                         msg = '当前记录与历史点位记录差距过大!可能由于死亡被传送!'
                         self.debug(msg)
                         raise MovingPositionMutationException(msg)
 
                 self.__do_move(coordinates, point_start_time)  # 走一步
 
-                # 行动:如果距离点位超过20个像素值，则可以采取冲刺+跳跃操作以及飞行操作
-                if not point1_near_by_point2(self.current_position, coordinates, 20):
-                    # 游戏特性: 必须先冲刺后再过0.几秒后，跳跃才生效
+                # 如果距离点位超过n个像素值，则可以采取冲刺+跳跃行动
+                if self.next_point.move_mode == Point.MOVE_MODE_FLY:
+                    if not self.gc.is_flying(): self.rate_limiter_fly.execute(self.kb_press_and_release, self.Key.space)
+
+                # 以下的行为可能会导致冲过头,因此设定一个阈值,超过该距离才允许执行
+                elif not point1_near_by_point2(self.current_position, coordinates, 15):
+                    # 冲刺
                     if self.enable_dash: self.rate_limiter_press_dash.execute(self.mouse_right_click)
-                    # 这里不加elif而是直接if的原因是，冲刺的同时可以进行跳跃。
-                    if self.enable_loop_jump or self.next_point.move_mode == self.next_point.MOVE_MODE_JUMP:
-                        if self.enable_dash: time.sleep(0.005)  # 按键的操作间隔过短，后面的按键会失效！
-                        self.rate_limiter_press_jump.execute(self.kb_press_and_release, self.Key.space)
+                    # 跳跃
+                    if self.enable_loop_jump or self.next_point.move_mode == Point.MOVE_MODE_JUMP: self.rate_limiter_press_jump.execute(self.kb_press_and_release, self.Key.space)
+
 
             except MovingStuckException as e:
                 self.logger.error(e)
@@ -613,7 +628,7 @@ if __name__ == '__main__':
     import os
     from myutils.jsonutils import getjson_path_byname
 
-    # execute_one(getjson_path_byname('风车菊_蒙德_清泉镇_2024-08-08_14_46_25.json'))
+    # execute_one(getjson_path_byname('风车菊_蒙德_8个_20240814_101536.json'))
     # execute_one(getjson_path_byname('jiuguan_蒙德_wfsd_20240808.json'))
     # execute_one(getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json'))
     # execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json'))
@@ -621,5 +636,5 @@ if __name__ == '__main__':
     # execute_one(getjson_path_byname('调查_璃月_地中之岩_2024-04-29_06_23_28.json'))
     # execute_one(getjson_path_byname('月莲_须弥_降魔山下_6个.json'))
     # execute_one(getjson_path_byname('霓裳花_璃月_8个.json'))
-    # execute_one(getjson_path_byname('月莲_茸蕈窟_须弥_4个.json'))
-    execute_all()
+    execute_one(getjson_path_byname('月莲_茸蕈窟_须弥_4个.json'))
+    # execute_all()
