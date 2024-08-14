@@ -22,7 +22,6 @@ const saveRecordButton = document.getElementById('saveRecordButton');
 const loadRecordButton = document.getElementById('loadRecordButton')
 const playBackButton = document.getElementById('playBackButton');
 const pointRadius = 4;
-const serverURL = 'http://127.0.0.1:5000'
 
 let selectedPointIndex = null;
 let draggingPointIndex = null;
@@ -88,7 +87,7 @@ function drawMap(x,y) {
 // 请求服务器获取新位置
 function fetchNewPosition() {
     if(!isStartRecord) return
-    fetch(`${serverURL}/minimap/get_position`) // 替换为实际的服务器地址
+    fetch(positionURL) // 替换为实际的服务器地址
         .then(response => response.json())
         .then(data => {
             const newPosition = {
@@ -99,16 +98,19 @@ function fetchNewPosition() {
             userXInput.value = newPosition.x
             userYInput.value = newPosition.y
         })
-        .catch(error => console.error('Error fetching position:', error));
+        .catch(error => {
+            console.error('Error fetching position:', error)
+            errorMsg("获取位置失败!")
+        });
 }
 
 setInterval(fetchNewPosition, 100); // 每5秒请求一次
 startRecordButton.addEventListener('click', ()=> {
-    info("正在记录中,请不要刷新网页，否则数据丢失")
+    info("正在追踪中,请不要刷新网页，否则数据丢失")
     isStartRecord = true
 })
 stopRecordButton.addEventListener('click', ()=> {
-    info("已停止记录")
+    info("已停止追踪")
     isStartRecord = false
 })
 function isUndefinedNullOrEmpty(value) {
@@ -153,17 +155,24 @@ function setPlayingRecord(playing) {
         //     ]
         // };
         // points = data.positions
+        // https://fontawesome.com/search
+const iconMap = {
+    "path": "<i class='fas fa-map-marker-alt'></i>",
+    "target": "<i class='fas fa-bullseye'></i>",
+    "normal": "<i class='fas fa-walking'></i>",
+    "fly": "<i class='fas fa-plane'></i>",
+    "swim": "<i class='fas fa-water'></i>",
+    "jump": '<i class="fa-solid fa-arrow-trend-up"></i>',
+    "stop_flying": '<i class="fa-solid fa-plane-arrival"></i>'
+};
+function getIconHtml(name) {
+    icon = iconMap[name]
+    if (isUndefinedNullOrEmpty(icon)) {
+        return '<i class="fa-solid fa-circle-question"></i>'
+    }
+    return icon
 
-        const iconMap = {
-            "path": "<i class='fas fa-map-marker-alt'></i>",
-            "target": "<i class='fas fa-bullseye'></i>",
-            "normal": "<i class='fas fa-walking'></i>",
-            undefined: "<i class='fas fa-walking'></i>",
-            "fly": "<i class='fas fa-plane'></i>",
-            "swim": "<i class='fas fa-water'></i>",
-            "jump": '<i class="fa-solid fa-arrow-trend-up"></i>',
-            "stop_flying": '<i class="fa-solid fa-plane-arrival"></i>'
-        };
+}
 function renderJSONObject() {
     const data = getPathObject()
     // document.getElementById('name').textContent = data.name;
@@ -199,7 +208,7 @@ function renderJSONObject() {
         // Create a span for the icon
         const iconSpan = document.createElement('span');
         iconSpan.className = 'icon';
-        iconSpan.innerHTML = iconMap[position.type];
+        iconSpan.innerHTML = getIconHtml(position.type)
 
         // Create a span for the position details
         const detailsSpan = document.createElement('span');
@@ -209,7 +218,7 @@ function renderJSONObject() {
         px = position.x.toFixed(2)
         py = position.y.toFixed(2)
         detailsSpan.innerHTML = `
-             ${iconMap[position.move_mode]} ${position.action ? iconMap[position.action] : ''} (${px},${py})
+             ${getIconHtml(position.move_mode)} ${position.action ? iconMap[position.action] : ''} (${px},${py})
         `;
         // Append elements to the list item
         li.appendChild(radio);
@@ -219,7 +228,6 @@ function renderJSONObject() {
         // Append list item to the list
         positionsList.appendChild(li);
     });
-
 }
 
 playBackButton.addEventListener('click', () => {
@@ -229,13 +237,12 @@ playBackButton.addEventListener('click', () => {
         errorMsg('空路径，无法回放！')
         return
     }
-    info('回放中, 已停止记录，按下ESC停止回放')
+    info('回放中, 已停止追踪，按下ESC停止回放')
     isStartRecord = false  // 停止记录
 
     setPlayingRecord(true)
-    const url = `${serverURL}/playback`; // 替换为实际的 API 端点
     const data = getPathObject()
-    fetch(url, {
+    fetch(playBackURL, {
         method: 'POST', // 请求方法
         headers: {
             'Content-Type': 'application/json' // 指定发送的数据格式为 JSON
@@ -340,7 +347,7 @@ document.getElementById('fileInput').addEventListener('change', handleFileSelect
 
 
 document.addEventListener("DOMContentLoaded", function() {
-    const socket = io();
+    const socket = io(socketURL);
     socket.on('connect', function() {
         drawMap(0,0)
         console.log('WebSocket connection established');
@@ -539,7 +546,7 @@ function getUserCustomNode() {
 
 function insertPosition() {
     if (!isStartRecord) {
-        errorMsg('请先开始记录再插入用户点位')
+        errorMsg('请先开始追踪再插入用户点位')
         return
     }
     node = getUserCustomNode()

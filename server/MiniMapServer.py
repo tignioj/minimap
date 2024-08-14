@@ -1,4 +1,3 @@
-import base64
 import json
 import os.path
 from threading import Thread, Lock
@@ -19,6 +18,9 @@ from flask_socketio import SocketIO
 from pynput.keyboard import Listener
 from mylogger.MyLogger3 import MyLogger
 from engineio.async_drivers import threading  # pyinstaller打包flask的时候要导入
+
+host = cfg['minimap']['host']
+port = cfg['minimap']['port']
 
 logger = MyLogger('minimap server')
 
@@ -56,10 +58,13 @@ def _on_release(key):
     socketio.emit('key_event', {'key': key})
 
 
+allow_urls = [f'http://{host}:{port}', 'http://localhost:63343']
 app = FlaskApp(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": allow_urls}})
 app.config['SECRET_KEY'] = 'mysecret'
-socketio = SocketIO(app, async_mode='threading')
+
+socketio = SocketIO(app, async_mode='threading', cors_allowed_origins=allow_urls)
+# socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="http://localhost:63343")
 playing_thread_running = False
 
 kb_listener = Listener(on_press=_on_press)
@@ -204,8 +209,6 @@ def get_local_map():
 import webbrowser as w
 
 if __name__ == '__main__':
-    host = cfg['minimap']['host']
-    port = cfg['minimap']['port']
     schema = 'http'
     url = f'{schema}://{host}:{port}'
     w.open(f'{url}')
@@ -219,5 +222,5 @@ if __name__ == '__main__':
     {url}/playback', methods=['POST']
     """)
     # app.run(host=host, port=port, debug=False)
-    socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True, debug=False)
+    socketio.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
     # app.run(port=5000,debug=False)

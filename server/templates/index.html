@@ -102,8 +102,8 @@
 
 <div>
     <span id="msg">请点击开始记录获取用户位置</span> <br/>
-    <button id="startRecordButton">开始记录</button>
-    <button id="stopRecordButton">停止记录</button>
+    <button id="startRecordButton">开始追踪</button>
+    <button id="stopRecordButton">停止追踪</button>
     <button id="saveRecordButton">保存记录</button>
 
     <div class="file-input-wrapper">
@@ -189,7 +189,10 @@
     <li>跳跃: 不断跳跃</li>
     <li>游泳: 当目标点在水中时，选择游泳模式会禁用小碎步（小碎步在水中更消耗体力）</li>
 </div>
-<script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>
+<!--<script src="https://cdn.socket.io/4.3.2/socket.io.min.js"></script>-->
+<!--不用模板的下面这个改成src="./index.js"-->
+<script src="{{url_for('static', filename='socket.io_4.3.2.js')}}"></script>
+<script src="{{url_for('static', filename='api.js')}}"></script>
 <script src="{{url_for('static', filename='index.js')}}"></script>
 </body>
 </html>
