@@ -47,7 +47,7 @@ class GenShinCaptureObj(ObservableCapture):
         self.screenshot = self.get_screenshot(use_alpha=True)
         self.paimon_area = self.screenshot[0:100, 10:120]
         self.user_status_area = self.screenshot[self.user_status_area_offset[0]:self.user_status_area_offset[1], self.user_status_area_offset[2]:self.user_status_area_offset[3]]
-        self.user_status_key_area = self.screenshot[self.user_status_area_offset[0]+50:self.user_status_area_offset[1],
+        self.user_status_key_area = self.screenshot[self.user_status_area_offset[0]+45:self.user_status_area_offset[1]+5,
                                     self.user_status_area_offset[2]:self.user_status_area_offset[3]]
 
     def get_user_status_area(self):
@@ -175,9 +175,10 @@ if __name__ == '__main__':
     while True:
         # b, g, r, alpha = cv2.split(map)
         t = time.time()
-        # gc.update_screenshot()
-        ua = gc.get_user_status_key_area()
-        cv2.imshow('ua', ua)
+        cv2.imshow('minimap', gc.get_mini_map())
+        cv2.imshow('user key', gc.get_user_status_key_area())
+        cv2.imshow('screen', gc.get_screenshot())
+        cv2.imshow('paimon', gc.get_paimon_area())
         key = cv2.waitKey(2)
         if key == ord('q'):
             cv2.destroyAllWindows()

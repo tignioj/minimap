@@ -1,4 +1,5 @@
 import os.path
+import time
 
 import cv2
 from capture.genshin_capture import GenShinCaptureObj
@@ -53,25 +54,32 @@ class RecognizableCapture(GenShinCaptureObj):
     def __icon_fit_resolution(self):
         if self.w == 1920: self.__resize_icon_to_fit_scale(1)
         elif self.w == 2560: self.__resize_icon_to_fit_scale(1.25)
-        elif self.w == 1600: self.__resize_icon_to_fit_scale(0.75)
-        elif self.w == 720: self.__resize_icon_to_fit_scale(0.5)
+        elif self.w == 1600: self.__resize_icon_to_fit_scale(0.8)
+        elif self.w == 1280: self.__resize_icon_to_fit_scale(0.71)
 
     def __resize_icon_to_fit_scale(self, scale):
         self.icon_user_status_up = cv2.resize(self.__icon_user_status_up_org, None, fx=scale, fy=scale)
         self.icon_user_status_down = cv2.resize(self.__icon_user_status_down_org, None, fx=scale, fy=scale)
         self.icon_user_status_swim = cv2.resize(self.__icon_user_status_swim_org, None, fx=scale, fy=scale)
 
+        # TODO: 似乎无效果
         self.icon_user_status_key_x = cv2.resize(self.__icon_user_status_key_x_org, None, fx=scale, fy=scale)
         self.icon_user_status_key_space = cv2.resize(self.__icon_user_status_key_space_org, None, fx=scale, fy=scale)
 
     def is_swimming(self):
         return self.__has_icon(self.get_user_status_area(),self.icon_user_status_swim)
     def is_climbing(self):
-        return self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
+        has_space = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_space)
+        has_x = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
+        return has_space and has_x
     def is_flying(self):
         has_space = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_space)
         has_x = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
+        cv2.imshow('icon_space', self.icon_user_status_key_space)
         return has_space and not has_x
+        # has_up = self.__has_icon(self.get_user_status_area(), self.icon_user_status_swim)
+        # has_down = self.__has_icon(self.get_user_status_area(), self.icon_user_status_down)
+        # return has_up and not has_down
 
     def has_paimon(self):
         """
@@ -80,7 +88,10 @@ class RecognizableCapture(GenShinCaptureObj):
         """
         # 将图像转换为灰度
         img = self.get_paimon_area()
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        try:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        except Exception as e:
+            raise e
 
         # 检测和计算图像和模板的关键点和描述符
         kp1, des1 = self.sift.detectAndCompute(img, None)
@@ -111,17 +122,37 @@ class RecognizableCapture(GenShinCaptureObj):
         super().notice_update_event()
         self.__icon_fit_resolution()
 
+    def check_icon(self):
+        t = time.time()
+        down = self.__has_icon(self.get_user_status_area(), self.icon_user_status_down)
+        up = self.__has_icon(self.get_user_status_area(), self.icon_user_status_up)
+        swim = self.__has_icon(self.get_user_status_area(), self.icon_user_status_swim)
+        space = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_space)
+        x = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
+        print(f'down: {down}, up: {up}, swim: {swim}, space: {space}, x: {x}, cost: {time.time() -t }')
+
+        cv2.imshow('st',self.get_user_status_area())
+        cv2.imshow('stk',self.get_user_status_key_area())
+        cv2.imshow('up',self.icon_user_status_up)
+        cv2.imshow('down',self.icon_user_status_down)
+        cv2.imshow('swim',self.icon_user_status_swim)
+        cv2.imshow('space',self.icon_user_status_key_space)
+        cv2.imshow('x',self.icon_user_status_key_x)
 
 if __name__ == '__main__':
     rc = RecognizableCapture()
     while True:
-        sc = rc.get_user_status_key_area()
+        sc = rc.get_paimon_area()
         flying = rc.is_flying()
-        swimming = rc.is_swimming()
         climbing = rc.is_climbing()
-        print(f'flying: {flying}, swimming: {swimming}, climbing: {climbing}, paimon, {rc.has_paimon()}')
-        cv2.imshow('screenshot', sc)
-        key = cv2.waitKey(20)
+        swimming = rc.is_swimming()
+        start_time = time.time()
+        hasp = rc.has_paimon()
+        cost = time.time() - start_time
+        # rc.check_icon()
+        print(f'flying: {flying}, swimming: {swimming}, climbing: {climbing}, paimon, {hasp}, cost: {cost}')
+        # cv2.imshow('screenshot', sc)
+        key = cv2.waitKey(2)
         if key == ord('q'):
             break
     cv2.destroyAllWindows()
