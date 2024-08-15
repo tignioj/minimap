@@ -62,7 +62,6 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_user_status_down = cv2.resize(self.__icon_user_status_down_org, None, fx=scale, fy=scale)
         self.icon_user_status_swim = cv2.resize(self.__icon_user_status_swim_org, None, fx=scale, fy=scale)
 
-        # TODO: 似乎无效果
         self.icon_user_status_key_x = cv2.resize(self.__icon_user_status_key_x_org, None, fx=scale, fy=scale)
         self.icon_user_status_key_space = cv2.resize(self.__icon_user_status_key_space_org, None, fx=scale, fy=scale)
 
@@ -75,7 +74,6 @@ class RecognizableCapture(GenShinCaptureObj):
     def is_flying(self):
         has_space = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_space)
         has_x = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
-        cv2.imshow('icon_space', self.icon_user_status_key_space)
         return has_space and not has_x
         # has_up = self.__has_icon(self.get_user_status_area(), self.icon_user_status_swim)
         # has_down = self.__has_icon(self.get_user_status_area(), self.icon_user_status_down)
