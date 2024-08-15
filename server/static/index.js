@@ -97,6 +97,7 @@ function fetchNewPosition() {
             updateCanvasCenter(newPosition);
             userXInput.value = newPosition.x
             userYInput.value = newPosition.y
+            console.info('成功获取位置')
         })
         .catch(error => {
             console.error('Error fetching position:', error)
@@ -106,7 +107,7 @@ function fetchNewPosition() {
 
 setInterval(fetchNewPosition, 100); // 每5秒请求一次
 startRecordButton.addEventListener('click', ()=> {
-    info("正在追踪中,请不要刷新网页，否则数据丢失")
+    info("正在追踪中, 按下insert插入预设点位。不要刷新网页，否则数据丢失")
     isStartRecord = true
 })
 stopRecordButton.addEventListener('click', ()=> {

@@ -16,6 +16,7 @@
             background: white;
             border: 1px solid black;
             padding: 10px;
+            z-index: 10;
         }
 
         .file-input-wrapper {
@@ -34,7 +35,7 @@
             height: 100%;
             opacity: 0;
             cursor: pointer;
-            z-index: 1; /* Ensure file input is on top of other elements */
+            /*z-index: 1; !* Ensure file input is on top of other elements *!*/
         }
 
         .position { display: flex; align-items: center; }
@@ -67,23 +68,23 @@
     <label for="y">Y: </label><input type="number" id="y" /><br />
 
     <input type="radio" id="typePath" name="type" value="path" checked />
-    <label for="typePath">路径</label>
+    <label for="typePath">路径</label>  <i class='fas fa-map-marker-alt'></i>
     <input type="radio" id="typeTarget" name="type" value="target" checked />
-    <label for="typeTarget">目标</label>
+    <label for="typeTarget">目标</label> <i class='fas fa-bullseye'></i>
 
     <fieldset>
         <legend>行走方式</legend>
             <input type="radio" id="normal" name="moveMode" value="normal" checked />
-            <label for="normal">普通</label>
+            <label for="normal">普通</label> <i class='fas fa-walking'></i>
 
             <input type="radio" id="fly" name="moveMode" value="fly" />
-            <label for="fly">飞行</label>
+            <label for="fly">飞行</label> <i class='fas fa-plane'></i>
 
             <input type="radio" id="jump" name="moveMode" value="jump" />
-            <label for="jump">跳跃</label>
+            <label for="jump">跳跃</label> <i class="fa-solid fa-arrow-trend-up"></i>
 
             <input type="radio" id="swim" name="moveMode" value="swim" />
-            <label for="swim">游泳</label>
+            <label for="swim">游泳</label> <i class='fas fa-water'></i>
     </fieldset>
     <fieldset>
         <legend>动作</legend>
@@ -91,7 +92,7 @@
         <label for="actionNone">无动作</label>
 
         <input type="radio" id="actionStopFlying" name="action" value="stop_flying"/>
-        <label for="actionStopFlying">下落攻击</label>
+        <label for="actionStopFlying">下落攻击</label> <i class="fa-solid fa-plane-arrival"></i>
     </fieldset>
 
     <button id="saveButton">Save</button>
@@ -101,7 +102,7 @@
 </div>
 
 <div>
-    <span id="msg">请点击开始记录获取用户位置</span> <br/>
+    <span id="msg">请点击开始追踪获取用户位置</span> <br/>
     <button id="startRecordButton">开始追踪</button>
     <button id="stopRecordButton">停止追踪</button>
     <button id="saveRecordButton">保存记录</button>
@@ -135,23 +136,22 @@
         <fieldset>
             <legend>行走方式</legend>
                 <input type="radio" id="userNormal" name="userMoveMode" value="normal" checked />
-                <label for="normal">普通</label>
+                <label for="normal">普通</label> <i class='fas fa-walking'></i>
 
                 <input type="radio" id="userFly" name="userMoveMode" value="fly" />
-                <label for="fly">飞行</label>
+                <label for="fly">飞行</label> <i class='fas fa-plane'></i>
 
                 <input type="radio" id="userJump" name="userMoveMode" value="jump" />
-                <label for="jump">跳跃</label>
-
+                <label for="jump">跳跃</label> <i class="fa-solid fa-arrow-trend-up"></i>
                 <input type="radio" id="userSwim" name="userMoveMode" value="swim" />
-                <label for="swim">游泳</label>
+                <label for="swim">游泳</label> <i class='fas fa-water'></i>
         </fieldset>
         <fieldset>
             <legend>点位类型</legend>
                 <input type="radio" id="userTypePath" name="userType" value="path" checked />
-                <label for="userTypePath">路径</label>
+                <label for="userTypePath">路径</label> <i class='fas fa-map-marker-alt'></i>
                 <input type="radio" id="userTypeTarget" name="userType" value="target" />
-                <label for="userTypeTarget">目标</label>
+                <label for="userTypeTarget">目标</label> <i class='fas fa-bullseye'></i>
         </fieldset>
         <fieldset>
             <legend>动作</legend>
@@ -159,20 +159,20 @@
             <label for="userActionNone">无动作</label>
 
             <input type="radio" id="userActionStopFlying" name="userAction" value="stop_flying"/>
-            <label for="userActionStopFlying">下落攻击</label>
+            <label for="userActionStopFlying">下落攻击</label> <i class="fa-solid fa-plane-arrival"></i>
         </fieldset>
     </fieldset>
-    <button id="insertNodeButton">插入用户所在点位</button>
+    <button id="insertNodeButton">插入预设点位</button>
 </div>
 <hr/>
 <div>
     <h2>使用手册</h2>
     <h3>记录与回放</h3>
-    <p>按下开始记录，等待画板加载路径，黄圈则是人物所在位置</p>
-    <p>快捷键：按下键盘的<b>Insert</b>插入编辑框的预设信息(开启记录后，x、y会实时更新), 请注意 <b>第一个点位必须是传送点附近,否则无法传送！</b>, 当路径是空白的时候请走到传送点插入点位</p>
+    <p>按下开始追踪，等待画板加载路径，黄圈则是人物所在位置</p>
+    <p>快捷键：按下键盘的<b>Insert</b>插入编辑框的预设信息(开启追踪后，x、y会实时更新), 请注意 <b>第一个点位必须是传送点附近,否则无法传送！</b>, 当路径是空白的时候请走到传送点插入点位</p>
     <p>快捷键：按下键盘的<b>BackSpace</b>删除上一个点位</p>
     <p>传送点所在国家：地图切换侧边栏的文字识别需要用到</p>
-    <p>点击回放按钮则自动停止记录, 手动切换到原神窗口且保证小地图出现在左上角, 此时不要操作键盘鼠标，程序会自动回放记录的路径。如需要退出则按下<b>ESC</b></p>
+    <p>点击回放按钮则自动停止追踪, 手动切换到原神窗口且保证小地图出现在左上角, 此时不要操作键盘鼠标，程序会自动回放记录的路径。如需要退出则按下<b>ESC</b></p>
 
     <h3>点位编辑</h3>
     <p>鼠标移动到点位上方会弹出编辑框，编辑完成后按下save即可保存</p>
