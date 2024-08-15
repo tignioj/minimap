@@ -1,3 +1,4 @@
+import base64
 import json
 import os.path
 from threading import Thread, Lock
@@ -141,7 +142,8 @@ def create_cached_local_map():
 
 @app.route('/minimap/get_position', methods=['GET'])
 def get_position():
-    pos = app.minimap.get_position()
+    absolute_position = request.args.get('absolute_position', 0) == '1'
+    pos = app.minimap.get_position(absolute_position=absolute_position)
     return jsonify(pos)
 
 
