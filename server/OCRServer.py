@@ -1,19 +1,27 @@
 from flask import Flask, request, jsonify
+import os
 from paddleocr import PaddleOCR
 from capture.capture_factory import capture
 import cv2
 from mylogger.MyLogger3 import MyLogger
-from myutils.configutils import cfg
+from myutils.configutils import cfg, resource_path
 import logging
+
+# 把OCR首次运行需要的文件下载到本地
+# https://github.com/PaddlePaddle/PaddleOCR/blob/release/2.6/doc/doc_ch/whl.md#31-%E4%BB%A3%E7%A0%81%E4%BD%BF%E7%94%A8
 
 host = cfg['ocr']['host']
 port = cfg['ocr']['port']
-
 logging.getLogger('ppocr').setLevel(logging.INFO)
 
 logger = MyLogger('OCRServer')
-ocr = PaddleOCR(use_angle_cls=False, lang="ch",
-                use_gpu=False)  # need to run only once to download and load model into memory
+your_det_model_dir = os.path.join(resource_path, 'ocr', 'ch_PP-OCRv4_det_infer')
+your_rec_model_dir = os.path.join(resource_path, 'ocr', 'ch_PP-OCRv4_rec_infer')
+# your_rec_char_dict_path=None
+your_cls_model_dir = os.path.join(resource_path, 'ocr', 'ch_ppocr_mobile_v2.0_cls_infer')
+ocr = PaddleOCR(det_model_dir=f'{your_det_model_dir}', lang="ch", rec_model_dir=f'{your_rec_model_dir}',
+                     cls_model_dir=f'{your_cls_model_dir}',
+                     use_angle_cls=False, use_gpu=False, show_log=False)
 class FlaskApp(Flask):
     pass
 
