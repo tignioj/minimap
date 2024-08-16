@@ -5,6 +5,8 @@ import cv2
 from capture.genshin_capture import GenShinCaptureObj
 from myutils.configutils import resource_path, get_paimon_icon_path
 from myutils.timerutils import Timer
+from mylogger.MyLogger3 import MyLogger
+logger = MyLogger('recognizable_capture', save_log=True)
 
 class RecognizableCapture(GenShinCaptureObj):
     def __init__(self):
@@ -31,6 +33,7 @@ class RecognizableCapture(GenShinCaptureObj):
         self.sift = cv2.SIFT.create()
         # 匹配器
         self.bf_matcher = cv2.BFMatcher()
+
         paimon_png = cv2.imread(get_paimon_icon_path(), cv2.IMREAD_GRAYSCALE)
         kp, des = self.sift.detectAndCompute(paimon_png, None)  # 判断是否在大世界
         self.map_paimon = { 'img': paimon_png, 'des': des, 'kp': kp }
@@ -89,7 +92,9 @@ class RecognizableCapture(GenShinCaptureObj):
         try:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         except Exception as e:
-            raise e
+            # raise e
+            logger.error(e)
+            return False
 
         # 检测和计算图像和模板的关键点和描述符
         kp1, des1 = self.sift.detectAndCompute(img, None)

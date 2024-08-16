@@ -1,9 +1,9 @@
 import logging
+import os
 import time
 from server import ServerAPI
-from myutils.configutils import cfg
+from myutils.configutils import cfg, resource_path
 from myutils.imgutils import crop_img
-logging.getLogger('ppocr').setLevel(logging.WARNING)
 class MiniMapInter:
     def get_position(self): pass
     def get_local_map(self): pass
@@ -29,6 +29,7 @@ class MinimapServer(MiniMapInter):
         return ServerAPI.rotation(use_alpha=use_alpha)
 
     def get_user_map_position(self): return ServerAPI.user_map_position()
+    def get_user_map_scale(self): return ServerAPI.user_map_scale()
 
     def create_cached_local_map(self, center=None,use_middle_map=False): return ServerAPI.create_cached_local_map(center_pos=center, use_middle_map=use_middle_map)
 
@@ -43,14 +44,20 @@ class MinimapNative(MiniMapInter):
         from matchmap.sifttest.sifttest5 import MiniMap
         from matchmap.gia_rotation import RotationGIA
         self.minimap = MiniMap()
-        logging.getLogger('ppocr').setLevel(logging.WARNING)
         self.rotation = RotationGIA()
         self.large_map = self.minimap.map_2048['img']
         self.gc = capture
         capture.add_observer(self.minimap)
         capture.add_observer(self.rotation)
         from paddleocr import PaddleOCR
-        self.ocr = PaddleOCR(use_angle_cls=False, lang="ch", use_gpu=False, show_log=False)
+        your_det_model_dir = os.path.join(resource_path, 'ocr', 'ch_PP-OCRv4_det_infer')
+        your_rec_model_dir = os.path.join(resource_path, 'ocr', 'ch_PP-OCRv4_rec_infer')
+        # your_rec_char_dict_path=None
+        your_cls_model_dir = os.path.join(resource_path, 'ocr', 'ch_ppocr_mobile_v2.0_cls_infer')
+        self.ocr = PaddleOCR(det_model_dir=f'{your_det_model_dir}', lang="ch", rec_model_dir=f'{your_rec_model_dir}',
+                        cls_model_dir=f'{your_cls_model_dir}',
+                        use_angle_cls=False, use_gpu=False, show_log=False)
+        # self.ocr = PaddleOCR(use_angle_cls=False, lang="ch", use_gpu=False, show_log=False)
 
 
     def get_position(self):
@@ -98,6 +105,7 @@ class MinimapNative(MiniMapInter):
     def get_user_map_position(self):
         return self.minimap.get_user_map_position()
 
+    def get_user_map_scale(self): return self.minimap.get_user_map_scale()
     def create_cached_local_map(self,center=None,use_middle_map=False):
         result = False
         if center:

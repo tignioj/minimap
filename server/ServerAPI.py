@@ -44,6 +44,9 @@ def position():
 def user_map_position():
     return requests.get(f"{url}/usermap/get_position").json()
 
+def user_map_scale():
+    return requests.get(f"{url}/usermap/get_scale").json()
+
 def create_cached_local_map(center_pos=None, use_middle_map=False):
     jsondata = {'center_pos': center_pos, 'use_middle_map': use_middle_map}
     result = requests.post(f"{url}/usermap/create_cache", json=jsondata).json()

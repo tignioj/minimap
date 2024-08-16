@@ -7,6 +7,7 @@ from capture.capture_factory import capture
 from myutils.configutils import get_bigmap_path, cfg
 from myutils.timerutils import Timer
 from myutils.imgutils import crop_img
+from myutils.sift_utils import get_match_position, get_match_corner
 gs = capture
 from mylogger.MyLogger3 import MyLogger
 import threading
@@ -65,8 +66,10 @@ class MiniMap:
         # 多线程缓存局部地图标志
         self.global_match_task_running = False
 
-        # 匹配器
+        # 局部匹配用bf(小地图bf匹配速度比flann快)
         self.bf_matcher = cv2.BFMatcher()
+
+        # 全局匹配用flann
         FLANN_INDEX_KDTREE = 1
         index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
         search_params = dict(checks=50)
@@ -111,49 +114,33 @@ class MiniMap:
         if pos is None: return None
         return (self.PIX_CENTER_AX + pos[0], self.PIX_CENTER_AY + pos[1])
 
-    def __match_position(self, small_image, keypoints_small, descriptors_small, keypoints_large, descriptors_large,
-                         matcher):
-        if small_image is None or keypoints_small is None or descriptors_large is None or descriptors_small is None or len(keypoints_large) == 0 or len(descriptors_large) == 0:
-            self.logger.error("请传入有效特征点")
+    def get_user_map_scale(self):
+        """
+        获取m地图和实际像素比例
+        :return:
+        """
+        if capture.has_paimon():
+            self.logger.debug('左上角发现派蒙，表示不在打开的地图界面，获取地图比例失败')
+            return None
+        screenshot = gs.get_screenshot()
+        screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+
+        screenshot_resized = cv2.resize(screenshot, None, fx=0.5, fy=0.5)
+        kp1, des1 = self.sift.detectAndCompute(screenshot_resized, None)
+        large_img_corners = get_match_corner(screenshot_resized, kp1, des1, self.map_256['kp'], self.map_256['des'],
+                                             self.flann_matcher)
+        if large_img_corners is None:
+            self.logger.debug("无法获取m地图边角点")
             return None
 
-        try:
-            matches = matcher.knnMatch(descriptors_small, descriptors_large, k=2)
-        except Exception as e:
-            msg = f'进行匹配的时候出错了，报错信息{e}'
-            self.logger.error(msg)
-            raise e
+        large_width = np.linalg.norm(large_img_corners[1] - large_img_corners[0])
+        large_height = np.linalg.norm(large_img_corners[2] - large_img_corners[1])
 
-        # 应用比例测试来过滤匹配点
-        good_matches = []
-        gms = []
-        for m, n in matches:
-            if m.distance < 0.75 * n.distance:
-                good_matches.append(m)
-                gms.append([m])
-
-        if len(good_matches) < 7:
-            self.logger.debug("低质量匹配")
-            return None
-
-        # 获取匹配点的坐标
-        src_pts = np.float32([keypoints_small[m.queryIdx].pt for m in good_matches]).reshape(-1, 2)
-        dst_pts = np.float32([keypoints_large[m.trainIdx].pt for m in good_matches]).reshape(-1, 2)
-
-        # 使用RANSAC找到变换矩阵
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 3.0)
-        if M is None:
-            self.logger.debug("透视变换失败！！")
-            return None
-
-        # 计算小地图的中心点
-        h, w = small_image.shape[:2]
-        center_point = np.array([[w / 2, h / 2]], dtype='float32')
-        center_point = np.array([center_point])
-        transformed_center = cv2.perspectiveTransform(center_point, M)
-        # 打印小地图在大地图中的中心坐标
-        # print("Center of the small map in the large map: ", transformed_center)
-        return transformed_center[0][0]
+        h, w = screenshot.shape[:2]
+        ratio = self.map_2048['block_size'] / self.map_256['block_size']
+        scale_y = h / large_height / ratio
+        scale_x = w / large_width / ratio
+        return (scale_x, scale_y)
 
     def get_user_map_position(self):
         """
@@ -169,7 +156,8 @@ class MiniMap:
         # cv2.imshow('screenshot', screenshot)
 
         kp1, des1 = self.sift.detectAndCompute(screenshot, None)
-        pos = self.__match_position(screenshot, kp1, des1, self.map_256['kp'], self.map_256['des'], self.flann_matcher)
+        pos = get_match_position(screenshot, kp1, des1, self.map_256['kp'], self.map_256['des'], self.flann_matcher)
+        # pos = self.__match_position(screenshot, kp1, des1, self.map_256['kp'], self.map_256['des'], self.bf_matcher)
 
         if pos is None:
             self.logger.debug("无法获取m地图所在位置")
@@ -193,7 +181,7 @@ class MiniMap:
 
             t0 = time.time()
             map = self.map_2048
-            global_match_pos = self.__match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'], self.flann_matcher)
+            global_match_pos = get_match_position(small_image, keypoints_small, descriptors_small, map['kp'], map['des'], self.flann_matcher)
             if global_match_pos is None:
                 self.logger.error('2048全局匹配坐标获取失败，请重试')
                 return
@@ -203,7 +191,7 @@ class MiniMap:
             global_match_pos = (global_match_pos[0] * scale, global_match_pos[1] * scale)
             global_match_ok = self.global_match_cache(global_match_pos)
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(e, exc_info=True)
         finally:
             self.global_match_task_running = False
 
@@ -277,13 +265,14 @@ class MiniMap:
         :return:
         """
         # TODO BUG: 有时候会出现剧烈抖动, 将本次请求结果与上次请求结果作比较，如果差距过大则丢弃
+        #   或者说不应该丢弃？让调用者自己处理？
         t0 = time.time()
         if self.local_map_descriptors is None or self.local_map_keypoints is None:
             self.logger.debug('当前尚未缓存局部地图的特征点，请稍后再进行局部匹配')
             return None
 
         # 虽然是局部匹配，但是坐标是算法在大地图匹配生成的，因此返回的坐标是全局坐标
-        pix_pos = self.__match_position(small_image, keypoints_small, descriptors_small, self.local_map_keypoints,
+        pix_pos = get_match_position(small_image, keypoints_small, descriptors_small, self.local_map_keypoints,
                                     self.local_map_descriptors, self.bf_matcher)
         if pix_pos is None:
             time_cost = time.time() - self.__last_time_global_match
@@ -417,14 +406,15 @@ if __name__ == '__main__':
     # 解决思路：
     # 1. 不同分辨率下裁剪的小地图要一致，保持圆形在正中间
     from myutils.configutils import cfg
-    mp = MiniMap()
+    mp = MiniMap(debug_enable=False)
     mp.logger.setLevel(logging.INFO)
     capture.add_observer(mp)
     while True:
         time.sleep(0.05)
         t0 = time.time()
-        pos = mp.get_position()
+        # pos = mp.get_position()
         # pos = mp.get_user_map_position()
+        pos = mp.get_user_map_scale()
         print(pos,time.time() - t0)
 
 

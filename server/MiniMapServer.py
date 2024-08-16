@@ -117,6 +117,10 @@ def playback():
 def get_user_map_position():
     return jsonify(app.minimap.get_user_map_position())
 
+@app.route('/usermap/get_scale', methods=['GET'])
+def get_user_map_scale():
+    return jsonify(app.minimap.get_user_map_scale())
+
 
 @app.route('/usermap/create_cache', methods=['POST'])
 def create_cached_local_map():

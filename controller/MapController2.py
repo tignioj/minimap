@@ -34,30 +34,12 @@ class MapController(BaseController):
         self.ocr = ocr
         self.target_anchor = None
 
-        # 如何得到scale_x和scale_y
-        # 计算中心点的坐标A(匹配结果)，然后把地图移动到使得人物处于左上角边界状态坐标B(匹配结果)
-        # B - A 坐标做差得到dx和dy，如此可以计算出分辨率和坐标的百分比
-        # 对于1920*1080分辨率来说, 差值是dx=2019, 1120
-
-        if self.gc.w == 1280 and self.gc.h == 720:
-            # -2006.4609375 - 1112.990234375
-            # 2010.39453125 - 1108.8876953125
-            # dx, dy = 1720.52001953125, 946.502685546875
-            dx, dy = 2010.39, 1108.88
-        elif self.gc.w == 1920 and self.gc.h == 1080:
-            dx, dy = 2019, 1120
-        elif self.gc.w == 1600 and self.gc.h == 900:
-            dx, dy = 2008, 1125
-        elif self.gc.w == 2560 and self.gc.h == 1440:
-            dx, dy = 2349, 1303
+        scale = self.tracker.get_user_map_scale()
+        if scale is not None:
+            (self.scale_x, self.scale_y) = scale
+            self.log('大地图移动比例', self.scale_x, self.scale_y)
         else:
-            msg = f'不支持的分辨率{self.gc.w}*{self.gc.h}'
-            self.logger.error(msg)
-            # TODO 处理不受支持分辨率异常
-
-        self.scale_x = (self.gc.w / 2) / dx
-        self.scale_y = (self.gc.h / 2) / dy
-        self.log('大地图移动比例', self.scale_x, self.scale_y, dx, dy)
+            self.log('无法获取大地图比例')
 
     def click_anchor(self, anchor_name=None):
         if anchor_name is None:
@@ -110,38 +92,31 @@ class MapController(BaseController):
         self.log("正在关闭大地图")
         self.ui_close_button()
 
-    # 2. 切换到固定的缩放大小（依赖层岩巨源）
-    def scale_middle_map(self, country):
-        self.log("正在调整地图比例")
-        self.ocr.find_text_and_click("探索度")
-        time.sleep(0.5)
-        self.ocr.find_text_and_click("尘歌壶")
-        time.sleep(0.5)
-        self.ocr.find_text_and_click("洞天仙力")
-        time.sleep(0.5)
-        self.ocr.find_text_and_click(country, match_all=True) # 全文字匹配避免点击到每日委托
-        time.sleep(0.5)
-        self.log("调整地图比例结束")
+    def scale_up(self):
+        delta = 1000
+        for _ in range(20):
+            # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
+            time.sleep(0.01)  # 短暂等待，防止事件过于密集
+            self.ms_scroll(0, delta)
 
-    # def middle_to_country(self, country):
-    #     if self.stop_listen: return
-    #     """
-    #     切换大地图到指定国家
-    #     :param country:
-    #     :return:
-    #     """
-    #     self.log("打开侧边栏的国家切换面板")
-    #     self.ocr.find_text_and_click("探索度")
-    #     time.sleep(1)
-    #     self.log("寻找'{}'并尝试点击".format(country))
-    #     if self.ocr.find_text_and_click(country, match_all=True):
-    #         self.log("成功点击{}".format(country))
-    #     else:
-    #         self.log("未能点击{}，开始递归!".format(country))
-    #         self.close_middle_map()
-    #         self.open_middle_map()
-    #         # 递归
-    #         self.middle_to_country(country)
+    # 2. 切换到固定的缩放大小（依赖层岩巨源）
+    def scale_middle_map(self):
+        self.log("正在请求地图比例中")
+        scale = self.tracker.get_user_map_scale()
+        for i in range(10):
+            if scale: break
+            self.log(f"正在请求地图比例中，剩余{10-i}秒")
+            scale = self.tracker.get_user_map_scale()
+            time.sleep(1)
+        self.log(f'请求比例结果为{scale}')
+        if scale[0] < 0.28 or scale[1] < 0.28:
+            self.log('地图缩放不合理，尝试放大')
+            self.scale_up()
+            self.scale_middle_map()
+            return
+
+        (self.scale_x, self.scale_y) = scale
+        self.log("调整地图比例结束")
 
     # 3. 匹配地图，得到地图的中心点位置。
     def get_middle_map_position(self):
@@ -167,10 +142,9 @@ class MapController(BaseController):
 
     def random_point(self):
         center = self.gc.get_genshin_screen_center()
-        random_size = 120
         # 添加随机数，防止被标记挡住
-        x = center[0] + random.randint(-random_size, random_size)
-        y = center[1] + random.randint(-random_size, random_size)
+        x = center[0] + random.randint(-80, 80)
+        y = center[1] + random.randint(-120, 120)
         return (x, y)
 
     def move_to_point(self, point):
@@ -218,11 +192,8 @@ class MapController(BaseController):
             self.log(f'距离{point}还差{diff}, dx = {delta_x}, dy = {delta_y}')
 
             # 给起始拖拽位置添加随机数, 以防止拖动时点到标签无法拖动
-            center = self.gc.get_genshin_screen_center()
             # 添加随机数，防止被标记挡住(但是添加随机数后有可能拖到屏幕外，暂时没啥异常，先不处理吧...)
-            center[0] += random.randint(-80,80)
-            center[1] += random.randint(-120,120)
-            self.drag(center, delta_screen_x, delta_screen_y)
+            self.drag(self.random_point(), delta_screen_x, delta_screen_y)
 
         self.move_mouse_to_anchor_position(point)
 
@@ -251,9 +222,8 @@ class MapController(BaseController):
         if self.stop_listen: return
         self.log(f"开始传送到{country}{position}, is_stop_listen = {self.stop_listen}")
         self.open_middle_map()  # 打开地图
-        # self.middle_to_country(country)  # 切换侧边栏到指定地区
-        self.scale_middle_map(country)  # 缩放比例调整（以及防止点到海域无法识别大地图)，并切换到指定地区
-        # self.choose_country(country)
+        self.scale_middle_map()  # 缩放比例调整
+        self.choose_country(country)
 
         try:
             self.move_to_point(position)  # 移动大地图直到目标锚点出现在可视范围内
