@@ -9,8 +9,7 @@ import random
 # TODO 1. 传送点自动选择最近的国家。
 #   <del>已知点击侧边栏的时候会自动跳转到城镇中心，把这些中心坐标存起来，在传送的时候距离哪个近就点击哪个国家。<del/>
 #   未来会加入巨渊、渊下宫的支持，这些信息应当由记录的时候提供。
-# TODO 2. 优化点击传送锚点的速度
-# TODO 3. 移动两次，自动计算缩放比
+# TODO 2. 如何解决移动地图时的漂移问题
 
 class LocationException(Exception):
     pass
@@ -101,11 +100,10 @@ class MapController(BaseController):
 
     # 2. 切换到固定的缩放大小（依赖层岩巨源）
     def scale_middle_map(self):
-        self.log("正在请求地图比例中")
         scale = self.tracker.get_user_map_scale()
         for i in range(10):
-            if scale: break
             self.log(f"正在请求地图比例中，剩余{10-i}秒")
+            if scale: break
             scale = self.tracker.get_user_map_scale()
             time.sleep(1)
         self.log(f'请求比例结果为{scale}')
@@ -198,6 +196,11 @@ class MapController(BaseController):
         self.move_mouse_to_anchor_position(point)
 
     def choose_country(self, country):
+        txts = self.ocr.find_match_text("探索度")
+        if len(txts) > 1:
+            self.log('发现多个探索度，缩放不合理,尝试放大地图')
+            self.scale_up()
+            time.sleep(0.5)
         self.ocr.find_text_and_click("探索度")
         time.sleep(0.5)
         self.ocr.find_text_and_click(country, match_all=True)  # 全文字匹配避免点击到每日委托
@@ -222,8 +225,9 @@ class MapController(BaseController):
         if self.stop_listen: return
         self.log(f"开始传送到{country}{position}, is_stop_listen = {self.stop_listen}")
         self.open_middle_map()  # 打开地图
-        self.scale_middle_map()  # 缩放比例调整
         self.choose_country(country)
+        time.sleep(0.5)
+        self.scale_middle_map()  # 缩放比例调整
 
         try:
             self.move_to_point(position)  # 移动大地图直到目标锚点出现在可视范围内
