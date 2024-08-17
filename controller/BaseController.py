@@ -47,6 +47,10 @@ class MouseController(mouse.Controller):
         super().__init__()
         self.handler = handler
 
+    def scroll(self, dx,dy):
+        wait_for_window(self.handler)
+        super().scroll(dx,dy)
+
     def press(self, button):
         wait_for_window(self.handler)
         super().press(button)
@@ -119,6 +123,9 @@ class BaseController:
 
     def _on_click(self, x, y, button, pressed):
         pass
+
+    def ms_scroll(self, dx,dy):
+        self.__ms.scroll(dx,dy)
 
     def ui_close_button(self):
         """
@@ -241,14 +248,13 @@ class BaseController:
 
             # print(f"current: {current_rotation}, target{degree},diff{diff}, 转向:{direction}, 转动距离:{s}")
             s = s * 2
-
             max_rate = cfg.get('change_rotation_max_speed', 200)
             if max_rate > 800: max_rate = 800
             elif max_rate < 200: max_rate = 200
 
             if s > max_rate: s = max_rate
+            # print(s)
             win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
-
 
 
 if __name__ == '__main__':
