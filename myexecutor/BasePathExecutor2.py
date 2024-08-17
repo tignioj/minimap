@@ -21,9 +21,9 @@ logger = MyLogger('path_executor', level=logging.DEBUG, save_log=True)
 
 # 已知问题：
 # TODO 1. 游泳点位概率出现原地转圈
-# TODO 2. 关掉小碎步会增加原地转圈概率
 # 距离点位越进, 角度变化幅度越大
-# TODO 3: 目标点附近如果有npc，可能会导致进入对话
+# TODO 2: 目标点附近如果有npc，可能会导致进入对话
+# Todo 3: 位置突变异常不要仅判断一个点，应该收集多个点后去掉最值求平均后判断
 
 class MovingStuckException(Exception):
     pass
@@ -144,6 +144,7 @@ class BasePathExecutor(BaseController):
 
         self.object_to_detect = None  # 目标检测对象, 例如 钓鱼
         self.position_history = deque(maxlen=8)  # 一秒钟存1次，计算总距离
+        self.rotation_history = deque(maxlen=20)  # 0.2秒存1次，用于判断是否原地打转
 
         # 8秒内移动的总距离(像素)在多少范围内认为卡住，允许范围(2~50)
         self.stuck_movement_threshold = cfg.get('stuck_movement_threshold', 20)
@@ -196,6 +197,16 @@ class BasePathExecutor(BaseController):
         self.enable_loop_jump = cfg.get('enable_loop_jump', 1) == 1  # 循环按下空格跳跃
         self.enable_dash = cfg.get('enable_dash', 1) == 1  # 循环按下鼠标右键冲刺
 
+        self.loop_press_e_interval = cfg.get('loop_press_e_interval', 0.5)  # 循环按下e的时间间隔
+        if self.loop_press_e_interval < 0: self.loop_press_e_interval = 0
+        elif self.loop_press_e_interval > 60: self.loop_press_e_interval = 60
+
+        self.small_step_interval = cfg.get('small_step_interval', 0.1)  # 小碎步松开w频率
+        if self.small_step_interval > 0.2:
+            self.small_step_interval = 0.2
+        elif self.small_step_interval < 0.02:
+            self.small_step_interval = 0.02
+
         # 0.05s更新一次位置, 值越小，请求位置信息越频繁
         # self.update_user_status_interval = cfg.get('update_user_status_interval', 0.2)
         self.update_user_status_interval = cfg.get('update_user_status_interval', 0.1)
@@ -207,7 +218,7 @@ class BasePathExecutor(BaseController):
         self.last_time_update_user_status = time.time()  # 上一次更新用户状态(当前位置、转向）的时间
 
         ############ 状态 ##############
-        self.current_position = None
+        self.current_coordinate = None
         self.current_rotation = None  # 当前视角
         self.next_point: Point = None
         self.prev_point: Point = None
@@ -220,17 +231,18 @@ class BasePathExecutor(BaseController):
         self._thread_update_state_finished = False  # 更新状态
 
         ######## 其他 #######
-        self.rate_limiter1_history = RateLimiter(1)  # 一秒钟之内只能执行一次
+        self.rate_limiter1_history = RateLimiter(1)  # 1秒存放一次历史路径
+        self.rate_limiter_02_rotation = RateLimiter(0.2)  # 0.2秒内存放一次旋转方向
         self.rate_limiter5_debug_print = RateLimiter(5)  # 5秒内只能执行一次
 
-        self.rate_limiter_press_e = RateLimiter(1)
+        self.rate_limiter_press_e = RateLimiter(self.loop_press_e_interval)
         self.rate_limiter_press_z = RateLimiter(1)
         self.rate_limiter_press_dash = RateLimiter(1)
-        self.rate_limiter_press_jump = RateLimiter(1)  # 避免跳跃和冲刺同时按下导致无效
+        self.rate_limiter_press_jump = RateLimiter(1)
 
 
         self.rate_limiter_fly = RateLimiter(0.1)
-        self.rate_limiter_small_step_release_w = RateLimiter(0.08)
+        self.rate_limiter_small_step_release_w = RateLimiter(self.small_step_interval)
 
     def _thread_object_detection(self):
         pass
@@ -239,7 +251,7 @@ class BasePathExecutor(BaseController):
         if self.stop_listen: return
         self.logger.debug(args)
 
-    def calculate_total_displacement(self):
+    def calculate_history_total_displacement(self):
         """
         计算多少秒内的总位移
         :return:
@@ -256,6 +268,27 @@ class BasePathExecutor(BaseController):
             prev_pos = curr_pos
 
         return total_displacement
+
+    def calculate_rotation_average_change(self):
+        """
+        计算角度平均变化幅度
+        :return:
+        """
+        if len(self.rotation_history) < 2:
+            return 0  # 数据不足，无法计算平均变化幅度
+
+        changes = []
+        for i in range(1, len(self.rotation_history)):
+            prev_direction = self.rotation_history[i - 1]
+            curr_direction = self.rotation_history[i]
+
+            # 计算两方向之间的变化幅度
+            delta = abs(curr_direction - prev_direction)
+            delta = min(delta, 360 - delta)  # 确保计算的是最小变化幅度
+
+            changes.append(delta)
+
+        return sum(changes) / len(changes)
 
     def crazy_f(self):
         self.kb_press_and_release('f')
@@ -278,7 +311,7 @@ class BasePathExecutor(BaseController):
         time.sleep(0.1)
         self.kb_press_and_release(self.Key.space)
         # 判断是否产生了位移
-        if not point1_near_by_point2(self.stuck_before_position, self.current_position, 3):
+        if not point1_near_by_point2(self.stuck_before_position, self.current_coordinate, 3):
             # 大于3个像素就产生了位移
             self.logger.debug('产生了3以上的位移，清空历史列表')
             self.position_history.clear()
@@ -291,7 +324,7 @@ class BasePathExecutor(BaseController):
         time.sleep(0.1)
         self.kb_press_and_release(self.Key.space)
         # 判断是否产生了位移
-        if not point1_near_by_point2(self.stuck_before_position, self.current_position, 3):
+        if not point1_near_by_point2(self.stuck_before_position, self.current_coordinate, 3):
             # 大于3个像素就产生了位移
             self.logger.debug('产生了3以上的位移，清空历史列表')
             self.position_history.clear()
@@ -302,8 +335,8 @@ class BasePathExecutor(BaseController):
         if self.enable_loop_press_e: self.rate_limiter_press_e.execute(self.kb_press_and_release, 'e')
 
         # 限制1秒钟只能执行1次，这样就能记录每一秒的位移
-        self.rate_limiter1_history.execute(self.position_history.append, self.current_position)
-        total_displacement = self.calculate_total_displacement()  # 8秒内的位移
+        self.rate_limiter1_history.execute(self.position_history.append, self.current_coordinate)
+        total_displacement = self.calculate_history_total_displacement()  # 8秒内的位移
         if total_displacement < self.stuck_movement_threshold:
             self.stuck_before_position = coordinates
             raise MovingStuckException(f"8秒内位移总值为{total_displacement}, 判定为卡住了！")
@@ -315,18 +348,30 @@ class BasePathExecutor(BaseController):
 
         # 转向: 注意，update_state()线程永远保证self.positions在首次赋值之后不再是空值,但是计算角度的函数可能会返回空值，因此还是要判断
         rot = self.get_next_point_rotation(coordinates)
-        if rot: self.to_degree(self.get_next_point_rotation(coordinates))
+        if rot:
+            # 0.2秒存放一次视角
+            self.rate_limiter_02_rotation.execute(self.rotation_history.append, rot)
+            # 判断是否原地打转
+            # 判断原理：从一个点位走到另一个点位时通常视角是固定的一个方向。当短时间内视角变化太大，并且坐标变化不大的时候就认为打转了
+            # 判断历史转向平均变化幅度
+            history_avg_rotation_change = self.calculate_rotation_average_change()
+            self.logger.debug('history rotation change: {}'.format(history_avg_rotation_change))
+            if history_avg_rotation_change > 25:
+                self.logger.error('你似乎打转了！')
+                # 强制小碎步
+                self.rate_limiter_small_step_release_w.execute(self.kb_press_and_release, 'w')
+            self.to_degree(self.get_next_point_rotation(coordinates))
         # 前进: 注意要先转向后再前进，否则可能会出错
 
         # 小碎步实现方法：先按下w等待一小段时间再松开w，反复循环
         # 小碎步的条件：当和目标点差距8个像素时候，就认为符合最基本条件
-        nearby = self.next_point.type == self.next_point.TYPE_TARGET and point1_near_by_point2(self.current_position,
+        nearby = self.next_point.type == self.next_point.TYPE_TARGET and point1_near_by_point2(self.current_coordinate,
                                                                                                coordinates, 8)
-        if nearby: self.logger.debug(f'接近下一个点位{self.next_point}, 当前在{coordinates}')
+        # if nearby: self.logger.debug(f'接近下一个点位{self.next_point}, 当前在{coordinates}')
         # 接近上一个点位
         nearby_last_point = self.prev_point is not None and self.prev_point.type == self.prev_point.TYPE_TARGET and point1_near_by_point2(
-            self.current_position, (self.prev_point.x, self.prev_point.y), 8)
-        if nearby_last_point: self.logger.debug(f'接近上一个点位{self.prev_point}, 当前在{coordinates}')
+            self.current_coordinate, (self.prev_point.x, self.prev_point.y), 8)
+        # if nearby_last_point: self.logger.debug(f'接近上一个点位{self.prev_point}, 当前在{coordinates}')
 
         if nearby or nearby_last_point: self.on_nearby(coordinates)
 
@@ -348,7 +393,7 @@ class BasePathExecutor(BaseController):
         :return:
         """
         if self.next_point.type == Point.TYPE_PATH:
-            return point1_near_by_point2(self.current_position, (self.next_point.x,self.next_point.y), self.path_point_nearby_threshold)
+            return point1_near_by_point2(self.current_coordinate, (self.next_point.x, self.next_point.y), self.path_point_nearby_threshold)
 
     def is_nearby_target_point(self):
         """
@@ -356,7 +401,7 @@ class BasePathExecutor(BaseController):
         :return:
         """
         if self.next_point.type == Point.TYPE_TARGET:
-            return point1_near_by_point2(self.current_position, (self.next_point.x,self.next_point.y), self.target_nearby_threshold)
+            return point1_near_by_point2(self.current_coordinate, (self.next_point.x, self.next_point.y), self.target_nearby_threshold)
 
     # 移动(尽量不要阻塞））
     # 异常：原地踏步,超时, 位置突变(死亡后被传送)
@@ -364,10 +409,11 @@ class BasePathExecutor(BaseController):
     # 移动方式：跳跃, 飞行，小碎步，爬山（未实现）
     # 动作：停止飞行（下落攻击）
     # 拓展：自定义按键(未实现）
-    def move(self, coordinates):
+    def move(self, next_point_coordinate):
         if self.stop_listen: return
         point_start_time = time.time()
-        self.position_history.clear()
+        self.position_history.clear()  # 清空历史坐标
+        self.rotation_history.clear()  # 清空历史转向
         # 逐步接近目标点位
         # 达到途径点的阈值时，跳出循环，直接进入下一个点位
         # 退出的条件满足其一即可
@@ -379,25 +425,23 @@ class BasePathExecutor(BaseController):
                 # 当前点位和历史点位差距过大, 可能死亡导致被传送
                 # 游戏特性: 死亡后可能传送到附近,也可能传送到最近一次传送的锚点(非距离最近锚点)
                 if len(self.position_history) > 1:
-                    last_time_save_pos = self.position_history[-1]
-                    if not point1_near_by_point2(self.current_position, last_time_save_pos, self.position_mutation_threshold):
+                    last_time_save_coordinate = self.position_history[-1]
+                    if not point1_near_by_point2(self.current_coordinate, last_time_save_coordinate, self.position_mutation_threshold):
                         msg = '当前记录与历史点位记录差距过大!可能由于死亡被传送!'
                         self.debug(msg)
                         raise MovingPositionMutationException(msg)
 
-                self.__do_move(coordinates, point_start_time)  # 走一步
+                self.__do_move(next_point_coordinate, point_start_time)  # 走一步
 
-                # 如果距离点位超过n个像素值，则可以采取冲刺+跳跃行动
                 if self.next_point.move_mode == Point.MOVE_MODE_FLY:
                     if not self.gc.is_flying(): self.rate_limiter_fly.execute(self.kb_press_and_release, self.Key.space)
 
                 # 以下的行为可能会导致冲过头,因此设定一个阈值,超过该距离才允许执行
-                elif not point1_near_by_point2(self.current_position, coordinates, 15):
+                elif not point1_near_by_point2(self.current_coordinate, next_point_coordinate, 20):
                     # 冲刺
                     if self.enable_dash: self.rate_limiter_press_dash.execute(self.mouse_right_click)
                     # 跳跃
                     if self.enable_loop_jump or self.next_point.move_mode == Point.MOVE_MODE_JUMP: self.rate_limiter_press_jump.execute(self.kb_press_and_release, self.Key.space)
-
 
             except MovingStuckException as e:
                 self.logger.error(e)
@@ -405,7 +449,7 @@ class BasePathExecutor(BaseController):
             except MovingTimeOutException as e:
                 self.logger.error(e)
                 self.do_action_if_timeout()
-                return  # 超时跳过
+                break # 这里不用return的原因是：当前点位可能是飞行结束点位，需要进行下落攻击，否则摔死
             except MovingPositionMutationException as e:
                 self.logger.error('捕获到了位置突变异常但是这里处理不了,抛出去')
                 raise e
@@ -415,7 +459,7 @@ class BasePathExecutor(BaseController):
             self.logger.debug("下落攻击以停止飞行！")
             self.mouse_left_click()
 
-        self.logger.debug(f'跑点{coordinates}用时：{time.time() - point_start_time}')
+        self.logger.debug(f'跑点{next_point_coordinate}用时：{time.time() - point_start_time}')
         self.kb_release('w')
 
     def on_move_after(self, point):
@@ -427,19 +471,19 @@ class BasePathExecutor(BaseController):
     def update_state(self):
         start = time.time()
         pos = self.tracker.get_position()
-        if pos: self.current_position = pos
+        if pos: self.current_coordinate = pos
         rot = self.tracker.get_rotation()
         if rot: self.current_rotation = rot
 
         self.last_time_update_user_status = time.time()
-        msg = f"更新状态: cost:{time.time() - start},next:{self.next_point}, current pos:{self.current_position}, rotation:{self.current_rotation},is_path_end:{self.is_path_end}, is_object_detected_end:{self._thread_object_detect_finished}"
+        msg = f"更新状态: cost:{time.time() - start},next:{self.next_point}, current pos:{self.current_coordinate}, rotation:{self.current_rotation},is_path_end:{self.is_path_end}, is_object_detected_end:{self._thread_object_detect_finished}"
         self.rate_limiter5_debug_print.execute(self.debug, msg)
 
     def get_next_point_rotation(self, next_point):
         from myutils.executor_utils import calculate_angle
-        if self.current_position and next_point:
+        if self.current_coordinate and next_point:
             nextp = (next_point[0], next_point[1])
-            x0, y0 = self.current_position[0], self.current_position[1]
+            x0, y0 = self.current_coordinate[0], self.current_coordinate[1]
             deg = calculate_angle(x0, y0, nextp[0], nextp[1])
             # self.log(f"计算角度 ,当前:{self.current_position}, next{nextp}, 结果{deg}")
             return deg
@@ -483,15 +527,14 @@ class BasePathExecutor(BaseController):
         :return:
         """
         start_time = time.time()
-        pos = self.current_position
-        while not pos:
-            pos = self.current_position
+        while not self.current_coordinate:
+            self.current_coordinate = self.tracker.get_position()
             if self.stop_listen: return None
             self.logger.debug(f'正在等待位置中，已经等待{time.time() - start_time:}')
             if time.time() - start_time > wait_times:
                 return None
             time.sleep(0.001)
-        return pos
+        return self.current_coordinate is not None
 
     def execute(self):
         self.logger.debug(f'开始执行{self.json_file_path}')
@@ -527,12 +570,12 @@ class BasePathExecutor(BaseController):
                 i += 1
                 continue  # 上面的while循环未能成功加载位置，跳到下一个点位
 
-            if not point1_near_by_point2(self.current_position, (point.x, point.y), 200):
+            if not point1_near_by_point2(self.current_coordinate, (point.x, point.y), 200):
                 self.logger.error(f'距离下一个点位太远,跳过{point}')
                 i += 1
                 continue
 
-            self.debug(f"当前位置{self.current_position}, 正在前往点位{point}")
+            self.debug(f"当前位置{self.current_coordinate}, 正在前往点位{point}")
             self.next_point = point
             try:
                 self.move((point.x, point.y))
@@ -546,7 +589,7 @@ class BasePathExecutor(BaseController):
                     self.is_path_end = True
                     return False
                 # 查找最近的一个执行点的下标
-                index = find_closest_point_index(coordinates=self.current_position, points=self.points,
+                index = find_closest_point_index(coordinates=self.current_coordinate, points=self.points,
                                                  distance_threshold=self.position_mutation_threshold)
                 if index is not None:
                     self.logger.debug(f'查找到距离当前坐标最近的点是{self.points[index]},从这里开始执行任务')
@@ -636,5 +679,6 @@ if __name__ == '__main__':
     # execute_one(getjson_path_byname('调查_璃月_地中之岩_2024-04-29_06_23_28.json'))
     # execute_one(getjson_path_byname('月莲_须弥_降魔山下_6个.json'))
     # execute_one(getjson_path_byname('霓裳花_璃月_8个.json'))
-    execute_one(getjson_path_byname('月莲_茸蕈窟_须弥_4个.json'))
-    # execute_all()
+    # execute_one(getjson_path_byname('月莲_茸蕈窟_须弥_4个.json'))
+    # execute_one(getjson_path_byname('月莲_须弥_降魔山下_7个.json'))
+    execute_all()

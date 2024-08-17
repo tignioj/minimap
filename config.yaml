@@ -39,6 +39,7 @@ target_nearby_threshold: 2
 path_point_nearby_threshold: 5  # 对于途径点精确度奥多少个像素认为接近
 
 # 是否允许小碎步接近目标：注意此选项对Point.type=='path'的途径点以及游泳模式下无效
+# 人物原地打转时，会强制临时启用小碎步
 allow_small_steps: 1
 
 # 跑路的时候不断按下按键（例如e技能开盾，z也可以装砍树的道具) 0表示关闭,1表示开启
