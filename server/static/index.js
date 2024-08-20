@@ -8,6 +8,7 @@ const userXInput = document.getElementById('userX');
 const userYInput = document.getElementById('userY');
 const nameInput = document.getElementById('nameInput');
 const countrySelect = document.getElementById('countrySelect')
+const anchorNameInput = document.getElementById('anchorNameInput')
 
 const msgElement = document.getElementById("msg")
 
@@ -118,10 +119,12 @@ function isUndefinedNullOrEmpty(value) {
     return value === undefined || value === null || value === "";
 }
 function getPathObject() {
-    name = nameInput.value
-    country = countrySelect.value
+    const name = nameInput.value
+    const country = countrySelect.value
+    const anchorName = anchorNameInput.value
     return {
         name: isUndefinedNullOrEmpty(name) ? 'undefined' : name,
+        anchor_name: isUndefinedNullOrEmpty(anchorName) ? '传送锚点': anchorName,
         country: isUndefinedNullOrEmpty(countrySelect) ? '蒙德': country,
         positions: points
     };

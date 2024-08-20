@@ -115,7 +115,7 @@
 </div>
 <hr/>
 <div>
-    <label for="nameInput">名称<input type="text" id="nameInput"/></label>
+    <label for="nameInput">名称<input type="text" placeholder="未定义" id="nameInput"/></label>
     <label for="countrySelect">传送点所在国家</label>
     <select id="countrySelect">
         <option value="蒙德">蒙德</option>
@@ -124,6 +124,7 @@
         <option value="稻妻">稻妻</option>
         <option value="枫丹">枫丹</option>
     </select>
+    <label for="anchorNameInput">传送锚点名称<input type="text" placeholder="传送锚点" id="anchorNameInput"/></label>
     <button id="playBackButton">回放</button>
 </div>
 <hr/>
@@ -169,6 +170,7 @@
     <h2>使用手册</h2>
     <h3>记录与回放</h3>
     <p>按下开始追踪，等待画板加载路径，黄圈则是人物所在位置</p>
+    <p>传送锚点名称：如果传送锚点是副本，请输入该副本的名字</p>
     <p>快捷键：按下键盘的<b>Insert</b>插入编辑框的预设信息(开启追踪后，x、y会实时更新), 请注意 <b>第一个点位必须是传送点附近,否则无法传送！</b>, 当路径是空白的时候请走到传送点插入点位</p>
     <p>快捷键：按下键盘的<b>BackSpace</b>删除上一个点位</p>
     <p>传送点所在国家：地图切换侧边栏的文字识别需要用到</p>
