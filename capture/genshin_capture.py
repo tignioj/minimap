@@ -8,6 +8,8 @@ from myutils.configutils import cfg
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger('genshin_capture')
 
+class ResolutionException(Exception): pass
+
 class GenShinCaptureObj(ObservableCapture):
     def __init__(self):
         super().__init__(cfg.get('window_name', '原神'))
@@ -16,10 +18,20 @@ class GenShinCaptureObj(ObservableCapture):
         self.minimap_radius = None
         self.mask = None
         self.paimon_area = None
-        self.user_status_area = None
+
+        self.user_status_area = None  # 飞行、爬山状态区域
+        self.user_status_area_offset = None
+        self.user_status_key_area = None  # 技能space和x区域
+
+        self.side_team_area = None  # 右边栏队伍区域
+        self.team_area_offset = None
+
+
+        # self.map_star_menu_area = None  # 大地图菜单
+        # self.map_star_menu_area_offset = None
+
         self.minimap = None
         self.rate_limiter_update_screenshot = RateLimiter(0.01)  # 限制100帧
-        self.user_status_area_offset = 0,0,0,0
 
         # 更新截图区域
         self.__update_crop_size()
@@ -33,6 +45,9 @@ class GenShinCaptureObj(ObservableCapture):
         self.update_screenshot_if_none()
         return self.paimon_area
 
+    def get_team_area(self):
+        self.update_screenshot_if_none()
+        return self.side_team_area
 
     def crop_image(self, image, width, height, left_offset, top_offset):
         return image[top_offset:top_offset + height, left_offset:left_offset + width]
@@ -44,11 +59,15 @@ class GenShinCaptureObj(ObservableCapture):
             self.rate_limiter_update_screenshot.execute(self.update_screenshot)
 
     def update_screenshot(self):
-        self.screenshot = self.get_screenshot(use_alpha=True)
-        self.paimon_area = self.screenshot[0:100, 10:120]
-        self.user_status_area = self.screenshot[self.user_status_area_offset[0]:self.user_status_area_offset[1], self.user_status_area_offset[2]:self.user_status_area_offset[3]]
-        self.user_status_key_area = self.screenshot[self.user_status_area_offset[0]+45:self.user_status_area_offset[1]+5,
+        screenshot = self.get_screenshot(use_alpha=True)
+        self.screenshot = screenshot
+        self.paimon_area = screenshot[0:100, 10:120]
+        self.user_status_area = screenshot[self.user_status_area_offset[0]:self.user_status_area_offset[1],
+                                self.user_status_area_offset[2]:self.user_status_area_offset[3]]
+        self.user_status_key_area = screenshot[self.user_status_area_offset[0]+45:self.user_status_area_offset[1]+5,
                                     self.user_status_area_offset[2]:self.user_status_area_offset[3]]
+        self.side_team_area = screenshot[self.team_area_offset[0]:self.team_area_offset[1],
+                              self.team_area_offset[2]:self.team_area_offset[3]]
 
     def get_user_status_area(self):
         self.update_screenshot_if_none()
@@ -65,19 +84,24 @@ class GenShinCaptureObj(ObservableCapture):
         if self.w == 1280:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 144, 144, 40, 11
             self.user_status_area_offset = self.h-85,self.h-20, self.w-150, self.w-20
+            self.team_area_offset = 130, self.h-320, self.w-240, self.w
         elif self.w == 1600:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 180, 180, 50, 14
             self.user_status_area_offset = self.h-110,self.h-25, self.w-185, self.w-30
+            self.team_area_offset = 180, self.h-400, self.w-285, self.w
+
         elif self.w == 1920:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 216, 216, 60, 17
             self.user_status_area_offset = self.h-130, self.h-25, self.w-225, self.w-35
+            self.team_area_offset = 210, self.h-480, self.w-350, self.w
         elif self.w == 2560:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 288, 288, 80, 23  # 23
             self.user_status_area_offset = self.h-165, self.h-35, self.w-290, self.w-55
+            self.team_area_offset = 265, self.h-625, self.w-460, self.w
         else:
             msg = 'Resolution error, current resolution is: {}x{}, support 16:9 only'.format(self.w, self.h)
             logger.error(msg)
-            # raise ResolutionException(msg)
+            raise ResolutionException(msg)
 
         # 小地图掩码
         self.circle_mask = np.zeros((self.mini_map_width, self.mini_map_height), np.uint8)
@@ -167,18 +191,20 @@ class __Observer:
         threading.Thread(target=_saveimg).start()
 
 if __name__ == '__main__':
-    import cv2
     gc = GenShinCaptureObj()
     obs = __Observer()
     gc.add_observer(obs)
     import threading
     while True:
-        # b, g, r, alpha = cv2.split(map)
+        b, g, r, alpha = cv2.split(gc.get_screenshot())
         t = time.time()
-        cv2.imshow('minimap', gc.get_mini_map())
-        cv2.imshow('user key', gc.get_user_status_key_area())
-        cv2.imshow('screen', gc.get_screenshot())
-        cv2.imshow('paimon', gc.get_paimon_area())
+        # cv2.imshow('minimap', gc.get_mini_map())
+        # cv2.imshow('user key', gc.get_user_status_key_area())
+        # cv2.imshow('screen', gc.get_screenshot())
+        # cv_imshow('paimon', gc.get_paimon_area())
+        # cv2.imshow('team', gc.get_team_area())
+        # _saveimg()
+        # cv_imshow('alpha', alpha)
         key = cv2.waitKey(2)
         if key == ord('q'):
             cv2.destroyAllWindows()
