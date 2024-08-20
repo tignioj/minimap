@@ -10,6 +10,9 @@ import random
 #   <del>已知点击侧边栏的时候会自动跳转到城镇中心，把这些中心坐标存起来，在传送的时候距离哪个近就点击哪个国家。<del/>
 #   未来会加入巨渊、渊下宫的支持，这些信息应当由记录的时候提供。
 # TODO 2. 如何解决移动地图时的漂移问题
+# TODO 3. 不同电脑缩放比例不同。
+# TODO 4. 缩放到最大时，点击不精准（换纳兰那点位，似乎是传送锚点本身坐标的问题）
+# TODO 5. 传送锚点名称如果不是副本，且同时存在其他标记，可能会无法点击
 
 class LocationException(Exception):
     pass
@@ -91,8 +94,12 @@ class MapController(BaseController):
         self.log("正在关闭大地图")
         self.ui_close_button()
 
-    def scale_up(self):
-        delta = 1000
+    def zoom_out(self, delta=-1000):
+        for _ in range(20):
+            # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
+            time.sleep(0.01)  # 短暂等待，防止事件过于密集
+            self.ms_scroll(0, delta)
+    def zoom_in(self, delta=1000):
         for _ in range(20):
             # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
             time.sleep(0.01)  # 短暂等待，防止事件过于密集
@@ -109,7 +116,7 @@ class MapController(BaseController):
         self.log(f'请求比例结果为{scale}')
         if scale[0] < 0.28 or scale[1] < 0.28:
             self.log('地图缩放不合理，尝试放大')
-            self.scale_up()
+            self.zoom_in()
             self.scale_middle_map()
             return
 
@@ -199,7 +206,7 @@ class MapController(BaseController):
         txts = self.ocr.find_match_text("探索度")
         if len(txts) > 1:
             self.log('发现多个探索度，缩放不合理,尝试放大地图')
-            self.scale_up()
+            self.zoom_in()
             time.sleep(0.5)
         self.ocr.find_text_and_click("探索度")
         time.sleep(0.5)
