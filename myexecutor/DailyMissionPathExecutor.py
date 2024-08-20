@@ -34,14 +34,21 @@ logger = MyLogger("daily_mission_executor")
 # 语言交流
 
 
+# 目前仅能完部分的战斗委托, 并且比较依赖那维莱特、水神
+# 如果队伍伤害不够可能还得再来一遍
+
 class UnfinishedException(Exception): pass  # 只录制了一半的委托
 
 class DailyMissionPoint(Point):
+    EVENT_DESTROY_AILIN = "destroy_ailin"  # 艾琳一次性破坏木桩
     DAILY_MISSION_TYPE_SKIP_DIALOG = 'dialog'
     DAILY_MISSION_TYPE_FIGHT = 'fight'
+    DAILY_MISSION_TYPE_FAST_MOVE = 'fast_move'  # 极速前进
     DAILY_MISSION_TYPE_DESTROY_TOWER = 'destroy_tower'
 
     EVENT_FIGHT = 'fight'
+    EVENT_STANDING_ON_PLATE = 'standing_on_plate'  # 极速前进, 要踩下机关
+    EVENT_FAST_FIGHT = 'fast_fight'  # 极速前进，消灭怪物就可以加时长，要求尽快结束战斗，有各种元素类型史莱姆唯独没有风史莱姆，可以用散兵自动索敌平a
     EVENT_DESTROY = 'destroy'
     EVENT_DIALOG = 'dialog'
     EVENT_FIND_NPC = 'find_npc'
@@ -56,6 +63,10 @@ class DailyMissionPath(BasePath):
     def __init__(self, name, country, positions: List[DailyMissionPoint], anchor_name=None, enable=None):
         super().__init__(name=name, country=country, positions=positions, anchor_name=anchor_name)
         self.enable=enable
+        self.mission_position_index = -1  # 默认情况下取最后一个点位作为委托在地图上的位置
+        self.note = None  # 自定义备注
+        # TODO：指定委托所在的位置，用于搜索；对于战斗类型通常是最后一个点的位置，其他的不一定
+        # self.mission_position = None  #
 
 class DailyMissionPathExecutor(BasePathExecutor):
     def __init__(self, json_file_path, debug_enable=None):
@@ -175,7 +186,13 @@ class DailyMissionPathExecutor(BasePathExecutor):
         for mission_file_name in os.listdir(mission_path):
             with open(os.path.join(mission_path, mission_file_name), encoding='utf-8') as f:
                 dme = json.load(f)
-                mission_point = dme.get('positions')[-1]
+                # TODO: 委托的起始位置如何确定？对于战斗类型是最后一个；对于其他呢？可能需要指定下标
+                index = dme.get("mission_position_index")
+                if index:
+                    mission_point = dme.get('positions')[index]
+                else:
+                    mission_point = dme.get('positions')[-1]  # 没有位置变动的委托，例如战斗委托
+
                 d = euclidean_distance(target_point, (mission_point['x'], mission_point['y']))
                 if min_distance is None:
                     min_distance = d
@@ -185,6 +202,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
                 if min_distance > d:
                     min_distance = d
                     closet_mission_json = os.path.join(mission_path, mission_file_name)
+        if min_distance > 100: return None  # 丢弃距离过远的委托
         return closet_mission_json
 
     # 5. 遍历实际坐标，遍历所有已存放的委托列表, 查找最近的一个委托
@@ -199,7 +217,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
         # 5. 执行委托
         for mission_world_point in mission_world_points:
             closest = DailyMissionPathExecutor.search_closest_mission_json(mission_world_point)
-            print(closest)
+            if closest is None: continue
             try:
                 DailyMissionPathExecutor(closest).execute()
             except UnfinishedException as e:
@@ -213,20 +231,46 @@ class DailyMissionPathExecutor(BasePathExecutor):
             raise UnfinishedException("未完成路线，跳过")
         super().on_execute_before()
 
-    def wait_until_wipe_out(self):
+    def start_fight(self):
+        """
+        进入战斗, 目前只能调用BGI的自动战斗, 这里我设置了快捷键
+        :return:
+        """
+        self.kb_press_and_release('`')
+
+    def stop_fight(self):
+        """
+        进入战斗, 目前只能调用BGI的自动战斗, 这里我设置了快捷键
+        :return:
+        """
+        self.kb_press_and_release('`')
+
+    def wait_until_fight_finished(self):
         start_time = time.time()
+        self.start_fight()
         while time.time()-start_time < 25:
             time.sleep(1)
             self.log(f"正在检测委托是否完成, 剩余{25-(time.time()-start_time)}秒")
             if self.ocr.find_match_text('委托完成'):
                 break
+        self.stop_fight()
     def wait_until_destroy(self):
+        self.start_fight()
         start_time = time.time()
         while time.time()-start_time < 20:
             time.sleep(1)
             self.log(f"正在检测委托是否完成, 剩余{20-(time.time()-start_time)}秒")
             if self.ocr.find_match_text('委托完成'):
                 break
+        self.stop_fight()
+
+    def wait_until_ailin_destroy(self):
+        """
+        需要切人，要求一次性打掉木桩
+        :return:
+        """
+        pass
+
 
     def wait_until_dialog_finished(self):
         start = time.time()
@@ -237,28 +281,49 @@ class DailyMissionPathExecutor(BasePathExecutor):
                 break
             time.sleep(1)
 
+    def wait_until_fast_fight_finished(self):
+        # 目前很难判断快速战斗是否结束, 直接粗暴的给10秒
+        start = time.time()
+        while time.time() - start < 10:
+            time.sleep(0.2)
+            self.mouse_left_click()
+
+
     def on_move_after(self, point: DailyMissionPoint):
         super().on_move_after(point)
         if point.type == DailyMissionPoint.TYPE_TARGET:
+            if point.events is None: return
             for event in point.events:
                 event_type = event.get("type")
                 if event_type == DailyMissionPoint.EVENT_FIGHT:
                     self.log("战斗!")
-                    self.kb_press_and_release('`')
-                    self.wait_until_wipe_out()
-                    self.kb_press_and_release('`')
+                    self.wait_until_fight_finished()
                 elif event_type == DailyMissionPoint.EVENT_DESTROY:
-                    self.log("破坏柱子!")
-                    self.kb_press_and_release('`')
+                    self.log("破坏丘丘人柱子!")
+                    self.start_fight()  # 龙王转圈
                     self.wait_until_destroy()
-                    self.kb_press_and_release('`')
+                    self.stop_fight()
+                elif event_type == DailyMissionPoint.EVENT_DESTROY_AILIN:
+                    self.log("艾琳要求一次性破坏木桩")
+                    self.wait_until_ailin_destroy()
+                elif event_type == DailyMissionPoint.EVENT_STANDING_ON_PLATE:
+                    self.log("极速前进, 踩下使柱子")  # 目前做不到
+                    time.sleep(5)
+                elif event_type == DailyMissionPoint.EVENT_FAST_FIGHT:
+                    self.log("快速战斗")
+                    self.wait_until_fast_fight_finished()
                 elif event_type == DailyMissionPoint.EVENT_FIND_NPC:
+                    time.sleep(2)  # 等待2秒让人稳定下来，避免移动的时候对话框消失
                     self.log("查找npc")
-                    time.sleep(1)
+                    time.sleep(0.5)
                     self.kb_press_and_release('f')
-                    time.sleep(1)
+                    time.sleep(0.5)
+                    self.kb_press_and_release('f')
+                    time.sleep(0.5)
+                    self.kb_press_and_release('f')
                 elif event_type == DailyMissionPoint.EVENT_DIALOG:
                     self.log("对话")
+                    time.sleep(1)
                     self.wait_until_dialog_finished()
                 else:
                     self.log(f"暂时无法处理{event_type}类型的委托")
