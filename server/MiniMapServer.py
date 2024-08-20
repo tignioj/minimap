@@ -88,10 +88,11 @@ def _thread_playback(jsondict):
         try:
             json_object = json.dumps(jsondict, indent=4, ensure_ascii=False)
             from myutils.configutils import resource_path
-            with open(os.path.join(resource_path, 'temp.json'), mode="w", encoding="utf-8") as outfile:
+            temp_json_path = os.path.join(resource_path, 'temp.json')
+            with open(temp_json_path, mode="w", encoding="utf-8") as outfile:
                 outfile.write(json_object)
             from myexecutor.BasePathExecutor2 import BasePathExecutor
-            bp = BasePathExecutor(json_dict=jsondict)
+            bp = BasePathExecutor(json_file_path=temp_json_path)
             bp.execute()
             playback_ok = True
         except Exception as e:
