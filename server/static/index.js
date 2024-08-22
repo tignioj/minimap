@@ -337,6 +337,7 @@ function handleFileSelect(event) {
             points = obj['positions']
             pos = points[0]
             countrySelect.value = obj['country']
+            anchorNameInput.value = obj['anchor_name']
             updateCanvasCenter(pos)
             renderJSONObject()
             info('加载成功')
