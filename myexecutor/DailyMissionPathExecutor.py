@@ -1,3 +1,4 @@
+import threading
 import time
 
 # 委托流程：
@@ -15,6 +16,7 @@ from capture.capture_factory import capture
 from matchmap.minimap_interface import MinimapInterface
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("daily_mission_executor")
+from server.BGIWebHook import BGIEventHandler
 
 # 纯战斗
 
@@ -38,6 +40,12 @@ logger = MyLogger("daily_mission_executor")
 # 如果队伍伤害不够可能还得再来一遍
 
 class UnfinishedException(Exception): pass  # 只录制了一半的委托
+
+# https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
+# @app.get('/shutdown')
+# def shutdown():
+#     shutdown_server()
+#     return 'Server shutting down...'
 
 class DailyMissionPoint(Point):
     EVENT_DESTROY_AILIN = "destroy_ailin"  # 艾琳一次性破坏木桩
@@ -236,17 +244,24 @@ class DailyMissionPathExecutor(BasePathExecutor):
         进入战斗, 目前只能调用BGI的自动战斗, 这里我设置了快捷键
         :return:
         """
-        self.kb_press_and_release('`')
+        self.log('按下快捷键开始自动战斗')
+        while not BGIEventHandler.is_fighting:
+            self.kb_press_and_release('`')
+            time.sleep(1)
 
     def stop_fight(self):
         """
         进入战斗, 目前只能调用BGI的自动战斗, 这里我设置了快捷键
         :return:
         """
-        self.kb_press_and_release('`')
+        self.log('按下快捷键停止自动战斗')
+        while BGIEventHandler.is_fighting:
+            self.kb_press_and_release('`')
+            time.sleep(1)
 
     def wait_until_fight_finished(self):
         start_time = time.time()
+        time.sleep(0.5)
         self.start_fight()
         while time.time()-start_time < 25:
             time.sleep(1)
@@ -274,8 +289,8 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
     def wait_until_dialog_finished(self):
         start = time.time()
-        while time.time()-start < 30:
-            self.log(f"正在等待对话结束, 剩余等待时间{30-(time.time()-start)}")
+        while time.time()-start < 50:
+            self.log(f"正在等待对话结束, 剩余等待时间{50-(time.time()-start)}")
             if capture.has_paimon():
                 self.log("发现派蒙，对话结束")
                 break
@@ -300,9 +315,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
                     self.wait_until_fight_finished()
                 elif event_type == DailyMissionPoint.EVENT_DESTROY:
                     self.log("破坏丘丘人柱子!")
-                    self.start_fight()  # 龙王转圈
                     self.wait_until_destroy()
-                    self.stop_fight()
                 elif event_type == DailyMissionPoint.EVENT_DESTROY_AILIN:
                     self.log("艾琳要求一次性破坏木桩")
                     self.wait_until_ailin_destroy()
@@ -339,6 +352,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
 if __name__ == '__main__':
     # pos = (1282.2781718749993, -5754.44564453125)
+    threading.Thread(target=BGIEventHandler.start_server).start()
     from controller.MapController2 import MapController
     mp = MapController()
     time.sleep(2)
@@ -351,4 +365,5 @@ if __name__ == '__main__':
     mp.zoom_out(-5000)
     time.sleep(0.5)
     DailyMissionPathExecutor.execute_all_mission()
+    BGIEventHandler.shutdown_server()
 
