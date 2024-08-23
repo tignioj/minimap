@@ -23,6 +23,9 @@ class GenShinCaptureObj(ObservableCapture):
         self.user_status_area_offset = None
         self.user_status_key_area = None  # 技能space和x区域
 
+        self.close_button_area = None  # ui关闭按钮
+        self.close_button_area_offset = None
+
         self.side_team_area = None  # 右边栏队伍区域
         self.team_area_offset = None
 
@@ -68,10 +71,17 @@ class GenShinCaptureObj(ObservableCapture):
                                     self.user_status_area_offset[2]:self.user_status_area_offset[3]]
         self.side_team_area = screenshot[self.team_area_offset[0]:self.team_area_offset[1],
                               self.team_area_offset[2]:self.team_area_offset[3]]
+        self.close_button_area = screenshot[self.close_button_area_offset[0]:self.close_button_area_offset[1],
+                                 self.close_button_area_offset[2]:self.close_button_area_offset[3]]
 
     def get_user_status_area(self):
         self.update_screenshot_if_none()
         return self.user_status_area
+
+    def get_icon_close_area(self):
+        self.update_screenshot_if_none()
+        return self.close_button_area
+
     def get_user_status_key_area(self):
         self.update_screenshot_if_none()
         return self.user_status_key_area
@@ -102,6 +112,9 @@ class GenShinCaptureObj(ObservableCapture):
             msg = 'Resolution error, current resolution is: {}x{}, support 16:9 only'.format(self.w, self.h)
             logger.error(msg)
             raise ResolutionException(msg)
+
+        # 非严格判定
+        self.close_button_area_offset = 0, 120, self.w - 180, self.w
 
         # 小地图掩码
         self.circle_mask = np.zeros((self.mini_map_width, self.mini_map_height), np.uint8)
@@ -198,7 +211,10 @@ if __name__ == '__main__':
     while True:
         b, g, r, alpha = cv2.split(gc.get_screenshot())
         t = time.time()
-        # cv2.imshow('minimap', gc.get_mini_map())
+        cv2.imshow('minimap', gc.get_mini_map())
+        cv2.imshow('close', gc.close_button_area)
+        cv2.imwrite('icon_close.jpg', gc.close_button_area)
+        sys.exit(0)
         # cv2.imshow('user key', gc.get_user_status_key_area())
         # cv2.imshow('screen', gc.get_screenshot())
         # cv_imshow('paimon', gc.get_paimon_area())

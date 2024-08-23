@@ -15,6 +15,7 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_paimon = cv2.imread(os.path.join(template_path, 'paimeng_icon_trim.png'), cv2.IMREAD_GRAYSCALE)
 
         # 1080p截图下来的图片, 做模板匹配的时候要缩放
+        # TODO: 换成游戏内截图而非手动截图
         self.__icon_user_status_up_org = cv2.imread(os.path.join(template_path, 'template_up.png'), cv2.IMREAD_GRAYSCALE)
         self.__icon_user_status_down_org = cv2.imread(os.path.join(template_path, 'template_down.png'), cv2.IMREAD_GRAYSCALE)
         self.__icon_user_status_swim_org = cv2.imread(os.path.join(template_path, 'template_swim.png'), cv2.IMREAD_GRAYSCALE)
@@ -22,12 +23,19 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_user_status_key_x_org = cv2.imread(os.path.join(template_path, 'key_x.png'), cv2.IMREAD_GRAYSCALE)
         self.__icon_user_status_key_space_org = cv2.imread(os.path.join(template_path, 'key_space.png'), cv2.IMREAD_GRAYSCALE)
 
+        self.__icon_close_org = cv2.imread(os.path.join(template_path, 'icon_close.png'), cv2.IMREAD_GRAYSCALE)  # 普通ui的关闭按钮
+        self.__icon_close_side_map_org = cv2.imread(os.path.join(template_path, 'icon_close_side_map.png'), cv2.IMREAD_GRAYSCALE)  # 切换国家时候的关闭按钮
+
         self.icon_user_status_up = self.__icon_user_status_up_org.copy()
         self.icon_user_status_down = self.__icon_user_status_down_org.copy()
         self.icon_user_status_swim = self.__icon_user_status_swim_org.copy()
 
         self.icon_user_status_key_x = self.__icon_user_status_key_x_org.copy()
         self.icon_user_status_key_space = self.__icon_user_status_key_space_org.copy()
+
+        self.icon_close = self.__icon_close_org.copy()
+        self.icon_close_side_map = self.__icon_close_side_map_org.copy()
+
 
 
         self.sift = cv2.SIFT.create()
@@ -67,6 +75,9 @@ class RecognizableCapture(GenShinCaptureObj):
 
         self.icon_user_status_key_x = cv2.resize(self.__icon_user_status_key_x_org, None, fx=scale, fy=scale)
         self.icon_user_status_key_space = cv2.resize(self.__icon_user_status_key_space_org, None, fx=scale, fy=scale)
+
+        self.icon_close = cv2.resize(self.__icon_close_org, None, fx=scale, fy=scale)
+        self.icon_close_side_map = cv2.resize(self.__icon_close_side_map_org, None, fx=scale, fy=scale)
 
     def is_swimming(self):
         return self.__has_icon(self.get_user_status_area(),self.icon_user_status_swim)
@@ -125,6 +136,9 @@ class RecognizableCapture(GenShinCaptureObj):
         super().notice_update_event()
         self.__icon_fit_resolution()
 
+    def has_ui_close_button(self): # 注意，Map侧边切换国家的关闭按钮不是同一个按钮
+        return self.__has_icon(self.get_icon_close_area(),self.icon_close) or self.__has_icon(self.get_icon_close_area(), self.icon_close_side_map)
+
     def check_icon(self):
         t = time.time()
         down = self.__has_icon(self.get_user_status_area(), self.icon_user_status_down)
@@ -152,6 +166,7 @@ if __name__ == '__main__':
         start_time = time.time()
         hasp = rc.has_paimon()
         cost = time.time() - start_time
+        print('close', rc.has_ui_close_button())
         # rc.check_icon()
         print(f'flying: {flying}, swimming: {swimming}, climbing: {climbing}, paimon, {hasp}, cost: {cost}')
         # cv2.imshow('screenshot', sc)
