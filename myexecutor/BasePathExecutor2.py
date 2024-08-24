@@ -51,7 +51,7 @@ class Point:
     # swim模式，可能会导致冲过头,尤其是浅水区人不在游泳而点位设置成了游泳的时候
     MOVE_MODE_SWIM = 'swim'  # swim 模式下，会禁止小碎步，因为小碎步的实现是疯狂按下w和停止w，这会加速消耗体力
 
-    ACTION_STOP_FLYING_ON_MOVE_DONE = 'stop_flying'  # 接近目标的时候是否下落攻击以停止飞行
+    ACTION_STOP_FLYING_ON_MOVE_DONE = 'stop_flying'  # 到达某个点的时候是否下落攻击以停止飞行
 
     def __init__(self, x, y, type=TYPE_PATH, move_mode=MOVE_MODE_NORMAL, action=None):
         self.x = x
@@ -279,6 +279,10 @@ class BasePathExecutor(BaseController):
         return sum(changes) / len(changes)
 
     def crazy_f(self):
+        # 若是不小心点到烹饪界面，先关闭, 然后滚轮向下
+        if self.gc.has_ui_close_button():
+            self.map_controller.ui_close_button()
+            self.ms_scroll(0, -1000)
         self.kb_press_and_release('f')
 
     def on_nearby(self, coordinates):
@@ -526,19 +530,27 @@ class BasePathExecutor(BaseController):
             time.sleep(0.001)
         return self.current_coordinate is not None
 
-    def on_execute_before(self):
+    def on_execute_before(self, from_index=None):
         if len(self.base_path.positions) < 1:
             self.logger.warning(f"空白路线, 跳过")
             raise EmptyPathException()
+        # 指定了点位，则不传送
+        if from_index: return
         # 传送的时候可以顺便缓存局部地图，因此把传送放在第一行
         self.map_controller.transform(position=(self.base_path.transmit_point.x,
                                                 self.base_path.transmit_point.y),
                                       country=self.base_path.country,
                                       anchor_name=self.base_path.anchor_name,
                                       create_local_map_cache=True)
-    def execute(self):
+
+    def execute(self, from_index=None):
+        """
+        执行
+        :param from_index: 指定的点位开始执行，指定此选项会关闭传送
+        :return:
+        """
         try:
-            self.on_execute_before()
+            self.on_execute_before(from_index=from_index)
             self.logger.debug(f'开始执行{self.base_path.name}')
         except EmptyPathException as e:
             self.logger.error(e)
@@ -559,6 +571,8 @@ class BasePathExecutor(BaseController):
         moving_position_mutation_counter = 0
 
         i = 1  # 跳过传送点
+        if from_index and (1 < from_index < len(self.base_path.positions)):
+            i = from_index
         while i < len(self.base_path.positions):
             point = self.base_path.positions[i]
             if self.stop_listen: return

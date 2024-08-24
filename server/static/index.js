@@ -12,18 +12,22 @@ const anchorNameInput = document.getElementById('anchorNameInput')
 
 const msgElement = document.getElementById("msg")
 
+// 编辑框按钮
 const saveButton = document.getElementById('saveButton');
 const deleteButton = document.getElementById('deleteButton');
 const cancelButton = document.getElementById('cancelButton');
 const newButton = document.getElementById('newButton');
+const playBackFromHereButton = document.getElementById('playBackFromHereButton')
 const insertNodeButton = document.getElementById('insertNodeButton');
+
+// 记录按钮
 const startRecordButton = document.getElementById('startRecordButton');
 const stopRecordButton = document.getElementById('stopRecordButton');
 const saveRecordButton = document.getElementById('saveRecordButton');
 const loadRecordButton = document.getElementById('loadRecordButton')
 const playBackButton = document.getElementById('playBackButton');
-const pointRadius = 4;
 
+const pointRadius = 4;
 let selectedPointIndex = null;
 let draggingPointIndex = null;
 let dragOffsetX = 0;
@@ -133,9 +137,11 @@ function setPlayingRecord(playing) {
     if (playing) {
         isPlayingRecord = true
         playBackButton.disabled =  true
+        playBackFromHereButton.disabled = true
     } else {
         isPlayingRecord = false
         playBackButton.disabled = false
+        playBackFromHereButton.disabled = false
     }
 }
 
@@ -234,49 +240,7 @@ function renderJSONObject() {
     });
 }
 
-playBackButton.addEventListener('click', () => {
-    if(isPlayingRecord) { return; }
-
-    if (points.length < 1)  {
-        errorMsg('空路径，无法回放！')
-        return
-    }
-    info('回放中, 已停止追踪，按下ESC停止回放')
-    isStartRecord = false  // 停止记录
-
-    setPlayingRecord(true)
-    const data = getPathObject()
-    fetch(playBackURL, {
-        method: 'POST', // 请求方法
-        headers: {
-            'Content-Type': 'application/json' // 指定发送的数据格式为 JSON
-        },
-        body: JSON.stringify(data) // 将 JavaScript 对象转换为 JSON 字符串
-    })
-    .then(response => {
-        if (!response.ok) {
-            setPlayingRecord(false)
-            throw new Error('Network response was not ok ' + response.statusText);
-        }
-        return response.json(); // 解析响应为 JSON
-    })
-    .then(data => {
-        console.log('Success:', data); // 处理成功的响应
-        if (data.result === true) {
-            info(data.msg)
-            setPlayingRecord(true)
-        } else {
-            errorMsg(data.msg)
-            setPlayingRecord(false)
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error); // 处理错误
-        errorMsg(error)
-        setPlayingRecord(false)
-    });
-
-})
+playBackButton.addEventListener('click',  playBack)
 
 function formatDateTime() {
     let now = new Date();
@@ -535,6 +499,56 @@ newButton.addEventListener('click', (event) => {
         hideEditPanel();
         drawPoints();
         renderJSONObject();
+    }
+})
+
+function playBack(fromIndex) {
+    if(isPlayingRecord) { return; }
+    if (points.length < 1)  {
+        errorMsg('空路径，无法回放！')
+        return
+    }
+    info('回放中, 已停止追踪，按下ESC停止回放')
+    isStartRecord = false  // 停止记录
+
+    setPlayingRecord(true)
+    const data = getPathObject()
+    if (!isUndefinedNullOrEmpty(fromIndex)) {
+        data['from_index'] = Number(fromIndex)
+    }
+    fetch(playBackURL, {
+        method: 'POST', // 请求方法
+        headers: {
+            'Content-Type': 'application/json' // 指定发送的数据格式为 JSON
+        },
+        body: JSON.stringify(data) // 将 JavaScript 对象转换为 JSON 字符串
+    })
+    .then(response => {
+        if (!response.ok) {
+            setPlayingRecord(false)
+            throw new Error('Network response was not ok ' + response.statusText);
+        }
+        return response.json(); // 解析响应为 JSON
+    })
+    .then(data => {
+        console.log('Success:', data); // 处理成功的响应
+        if (data.result === true) {
+            info(data.msg)
+            setPlayingRecord(true)
+        } else {
+            errorMsg(data.msg)
+            setPlayingRecord(false)
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error); // 处理错误
+        errorMsg(error)
+        setPlayingRecord(false)
+    });
+}
+playBackFromHereButton.addEventListener('click', (event) => {
+    if (!isUndefinedNullOrEmpty(selectedPointIndex)) {
+        playBack(selectedPointIndex)
     }
 })
 

@@ -80,7 +80,7 @@ def index():
 lock = Lock()
 
 
-def _thread_playback(jsondict):
+def _thread_playback(jsondict:dict):
     global playing_thread_running
     with lock:
         playing_thread_running = True
@@ -89,11 +89,12 @@ def _thread_playback(jsondict):
             json_object = json.dumps(jsondict, indent=4, ensure_ascii=False)
             from myutils.configutils import resource_path
             temp_json_path = os.path.join(resource_path, 'temp.json')
+            from_index = jsondict.get('from_index', None)
             with open(temp_json_path, mode="w", encoding="utf-8") as outfile:
                 outfile.write(json_object)
             from myexecutor.BasePathExecutor2 import BasePathExecutor
             bp = BasePathExecutor(json_file_path=temp_json_path)
-            bp.execute()
+            bp.execute(from_index=from_index)
             playback_ok = True
         except Exception as e:
             logger.error(e)
