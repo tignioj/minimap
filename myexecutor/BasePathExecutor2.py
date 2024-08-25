@@ -542,6 +542,14 @@ class BasePathExecutor(BaseController):
                                       country=self.base_path.country,
                                       anchor_name=self.base_path.anchor_name,
                                       create_local_map_cache=True)
+    def on_move_before(self, point: Point):
+        """
+        在下一个点位开始行动之前
+        生命周期方法，子类实现
+        :param point:
+        :return:
+        """
+        pass
 
     def execute(self, from_index=None):
         """
@@ -590,7 +598,9 @@ class BasePathExecutor(BaseController):
 
             self.debug(f"当前位置{self.current_coordinate}, 正在前往点位{point}")
             self.next_point = point
+
             try:
+                self.on_move_before(point)
                 self.move((point.x, point.y))
             except MovingPositionMutationException:
 
