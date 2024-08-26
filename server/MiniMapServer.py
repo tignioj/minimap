@@ -18,6 +18,8 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 from pynput.keyboard import Listener
 from mylogger.MyLogger3 import MyLogger
+from myutils.configutils import resource_path, get_user_folder
+from myutils.jsonutils import getjson_path_byname
 from engineio.async_drivers import threading  # pyinstaller打包flask的时候要导入
 
 host = cfg['minimap']['host']
@@ -30,6 +32,21 @@ if cfg.get('debug_enable') == 1:
 else:
     debug_enable = False
 
+from myexecutor.BasePathExecutor2 import BasePathExecutor
+from myexecutor.CollectPathExecutor import CollectPathExecutor
+from myexecutor.FightPathExecutor import FightPathExecutor
+from myexecutor.DailyMissionPathExecutor import DailyMissionPathExecutor
+from myexecutor.GouliangPathExecutor import GouLiangPathExecutor
+
+executor_map = {
+    "BasePathExecutor": BasePathExecutor,
+    "CollectPathExecutor": CollectPathExecutor,
+    "FightPathExecutor": FightPathExecutor,
+    "DailyMissionPathExecutor": DailyMissionPathExecutor,
+    "GouLiangPathExecutor": GouLiangPathExecutor,
+    None: BasePathExecutor,
+    "": BasePathExecutor
+}
 
 class FlaskApp(Flask):
     minimap = MiniMap()
@@ -77,10 +94,125 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/pathlist/edit/<filename>')
+def edit(filename):
+    return render_template('edit.html', filename=filename)
+
+
+@app.route('/pathlist/get/<filename>')
+def getfile(filename: str):
+    p = getjson_path_byname(filename.strip())
+    if os.path.exists(p):
+        with open(p, 'r', encoding='utf8') as f:
+            data = json.load(f)
+            return jsonify({'success': True, 'data': data})
+    else:
+        return jsonify({'success': False, 'data': '文件不存在'})
+
+
+@app.post('/pathlist/save/<filename>')
+def savepathlist(filename):
+    p = getjson_path_byname(filename)
+    data = request.get_data(as_text=True)
+    if data is None:
+        return jsonify({'success': False, 'data': None})
+    if os.path.exists(p):
+        with open(p, 'w', encoding='utf8') as f:
+            f.write(data)
+            return jsonify({'success': True})
+
+    return jsonify({'success': False, 'data': None})
+
+
+@app.route('/pathlist/list')
+def pathlist():
+    p = cfg.get('points_path', os.path.join(resource_path, 'pathlist'))
+    filemap = {}
+    try:
+        dirs = os.listdir(p)
+        for d in dirs:
+            subdir = os.path.join(p, d)
+            files = os.listdir(subdir)
+            filemap[d] = files
+        return jsonify({'success': True, 'data': filemap})
+    except FileNotFoundError as e:
+        return jsonify({'success': False, 'data': '目录不存在'})
+
+
+
+@app.get('/todo/get')
+def todo_get():
+    todo_path = os.path.join(get_user_folder(), 'todo.json')
+    if not os.path.exists(todo_path):
+        with open(todo_path, 'w', encoding='utf8') as f:
+            todo_dict = {'default': []}
+            f.write(json.dumps(todo_dict))
+        return jsonify({'success': True, 'data': todo_dict})
+
+    with open(todo_path, 'r', encoding='utf8') as f:
+        try:
+            data = json.load(f)
+        except json.decoder.JSONDecodeError as e:
+            return jsonify({'success': False, 'data':'json解析错误！'})
+
+    return jsonify({'success': True, 'data': data})
+
+
+@app.post('/todo/save')
+def todo_save():
+    todo_path = os.path.join(get_user_folder(), 'todo.json')
+    with open(todo_path, 'w', encoding='utf8') as f:
+        f.write(request.get_data(as_text=True))
+    return jsonify({'success': True, 'data': '保存成功'})
+
+
+_is_thread_todo_running = False
+def _thread_todo_runner():
+    with lock:
+        global _is_thread_todo_running
+        _is_thread_todo_running = True
+
+        try:
+            todo_path = os.path.join(get_user_folder(), 'todo.json')
+            # 提取非重复文件名称
+            json_file_set = set()
+            with open(todo_path, 'w', encoding='utf8') as f:
+                todo_dict = json.load(f)
+                keys = todo_dict.keys()
+                for key in keys:
+                    json_file = todo_dict.get(key)
+                    if json_file not in json_file_set:
+                        json_file_set.add(json_file)
+
+            # 加载json并执行
+            for json_file in json_file_set:
+                json_dict = json.load(json_file)
+                while playing_thread_running:
+                    logger.debug(f'当前正在执行中，请等待')
+                    time.sleep(5)
+                Thread(target=_thread_playback, args=(json_dict,)).start()
+        finally:
+            _is_thread_todo_running = False
+
+
+@app.get('/todo/run')
+def todo_run():
+    if not _is_thread_todo_running:
+        Thread(target=_thread_todo_runner, ).start()
+        return jsonify({'success': True, 'data': '开始执行清单'})
+    else:
+        return jsonify({'success': False, 'data': '已经正在执行清单中'})
+
+@app.get('/todo/stop')
+def todo_stop():
+    if not _is_thread_todo_running:
+        return jsonify({'success': False, 'data': '未执行清单，无需停止'})
+    else:
+        return jsonify({'success': True, 'data': '正在停止执行清单'})
+
 lock = Lock()
 
-
-def _thread_playback(jsondict:dict):
+def _thread_playback(jsondict: dict):
     global playing_thread_running
     with lock:
         playing_thread_running = True
@@ -92,8 +224,10 @@ def _thread_playback(jsondict:dict):
             from_index = jsondict.get('from_index', None)
             with open(temp_json_path, mode="w", encoding="utf-8") as outfile:
                 outfile.write(json_object)
-            from myexecutor.BasePathExecutor2 import BasePathExecutor
-            bp = BasePathExecutor(json_file_path=temp_json_path)
+
+            executor_text = jsondict.get('executor')
+            executor = executor_map.get(executor_text)
+            bp = executor(json_file_path=temp_json_path)
             bp.execute(from_index=from_index)
             playback_ok = True
         except Exception as e:
@@ -118,6 +252,7 @@ def playback():
 @app.route('/usermap/get_position', methods=['GET'])
 def get_user_map_position():
     return jsonify(app.minimap.get_user_map_position())
+
 
 @app.route('/usermap/get_scale', methods=['GET'])
 def get_user_map_scale():
