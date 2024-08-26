@@ -37,9 +37,6 @@ class BGIEventHandler(Flask):
     def start_server():
         app.run(port=5003)
 
-    @staticmethod
-    def shutdown_server():
-        rq.get('http://127.0.0.1:5003/shutdown')
 
 app = BGIEventHandler(__name__)
 @app.route('/webhook', methods=['POST'])
@@ -60,18 +57,14 @@ def webhook():
         # 返回一个响应
         return jsonify({'status': 'success', 'data': data}), 200
 
-import os,signal
-@app.route('/shutdown', methods=['GET'])
-def stopServer():
-    os.kill(os.getpid(), signal.SIGINT)
-    return jsonify({"success": True, "message": "Server is shutting down..." })
 
 if __name__ == '__main__':
     import threading
     thread = threading.Thread(target=BGIEventHandler.start_server)
+    thread.setDaemon(True)
     thread.start()
     start = time.time()
     while time.time() - start < 5:
         time.sleep(1)
         print(BGIEventHandler.is_fighting)
-    BGIEventHandler.shutdown_server()
+    # BGIEventHandler.shutdown_server()
