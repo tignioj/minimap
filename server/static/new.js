@@ -330,10 +330,10 @@ document.addEventListener("DOMContentLoaded", function() {
     });
     socket.on('playback_event', function (data) {
         if(data.result) {
-            info('执行结束')
+            info(data.msg)
             setPlayingRecord(false)
         }else {
-            info('执行过程出现异常')
+            errorMsg(data.msg)
             setPlayingRecord(false)
         }
     })
@@ -519,8 +519,10 @@ function playBack(fromIndex) {
             info(data.msg)
             setPlayingRecord(true)
         } else {
+            if(data.status === 'playback_already_running') {
+                setPlayingRecord(true)
+            }
             errorMsg(data.msg)
-            setPlayingRecord(false)
         }
     })
     .catch(error => {

@@ -53,6 +53,10 @@ executor_map = {
 SOCKET_EVENT_PLAYBACK = 'playback_event'
 SOCKET_EVENT_KEYBOARD = 'key_event'
 
+PLAYBACK_STATUS_RUNNING = 'playback_running'
+PLAYBACK_STATUS_ALREADY_RUNNING= 'playback_already_running'
+PLAYBACK_STATUS_STOP = 'playback_stopped'
+
 class FlaskApp(Flask):
     minimap = MiniMap()
     large_map = minimap.map_2048['img']
@@ -267,7 +271,7 @@ def todo_run():
         Thread(target=_thread_todo_runner, args=(todo_json,)).start()
         return jsonify({'success': True})
     else:
-        return jsonify({'success': False, 'data': '已经有线程执行清单中'})
+        return jsonify({'success': False, 'status':PLAYBACK_STATUS_ALREADY_RUNNING,'data': '已经有线程执行清单中'})
 
 @app.get('/todo/stop')
 def todo_stop():
@@ -316,7 +320,8 @@ def playback():
     BaseController.stop_listen = False
 
     global playing_thread_running
-    if playing_thread_running: return jsonify({'result': False, 'msg': '已经有脚本正在运行中，请退出该脚本后再重试!'})
+    if playing_thread_running: return jsonify({'result': False, 'status':PLAYBACK_STATUS_ALREADY_RUNNING,
+                                               'msg': '已经有脚本正在运行中，请退出该脚本后再重试!'})
 
     jsondict = request.json
     if jsondict is None: return jsonify({'result': False, 'msg': '空json对象，无法回放'})

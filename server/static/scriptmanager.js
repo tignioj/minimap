@@ -273,6 +273,9 @@ function runTodo() {
         .then(data => {
             if (data.success === true) {
                 // info(data.data)
+                if(data.status === 'playback_already_running') {
+                    setTodoRunning(true)
+                }
             } else {
                 errorMsg(data.data)
             }
