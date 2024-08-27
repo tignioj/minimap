@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>编辑配置文件</title>
+    <style>
+        #editor {
+            height: 800px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+<h3>编辑配置文件</h3>
+<div id="editor">{{ config_text }}</div>
+<br><br>
+<button onclick="saveConfig()">Save</button>
+
+<script src="{{url_for('static', filename='api.js')}}"></script>
+<script src="{{url_for('static', filename='config_editor/ace.js')}}"></script>
+<script src="{{url_for('static', filename='config_editor/mode-yaml.js')}}"></script>
+<script src="{{url_for('static', filename='config_editor/theme-monokai.js')}}"></script>
+<script src="{{url_for('static', filename='config_editor/config_editor.js')}}"></script>
+</body>
+</html>
