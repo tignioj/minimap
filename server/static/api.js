@@ -18,10 +18,16 @@ const positionURL = `${serverURL}/minimap/get_position`; // 返回
  */
 const imgURL = `${serverURL}/minimap/get_region_map`;  // 参数x,y,width, 返回格式image/jpeg
 
+const pathListEditURL= `${serverURL}/pathlist/edit`
+const pathListListURL = `${serverURL}/pathlist/list`
+const pathListFileURL = `${serverURL}/pathlist/get`
+const pathListSaveURL= `${serverURL}/pathlist/save`
+
 // 需要服务器允许跨域请求
 const socketURL = `${serverURL}`;
 
 const playBackURL= `${serverURL}/playback`;
+const playBackStopURL = `${serverURL}/playback/stop`
 
 // 监听事件
 const key_event = 'key_event'  // 监听服务器的快捷键
