@@ -18,13 +18,21 @@ import win32api, win32con
 from matchmap.minimap_interface import MinimapInterface
 # from capture.genshin_capture import GenShinCapture
 from capture.capture_factory import capture
-from myutils.configutils import cfg
+from myutils.configutils import get_config
 logger = MyLogger('BaseController')
 
-def wait_for_window(handler):
+def wait_for_window():
+    if BaseController.stop_listen:
+        logger.debug('你停止运行了')
+        # handler.ms_listener.stop()
+        # handler.kb_listener.stop()
+        sys.exit(0)
+
     while not capture.is_active():
-        if handler.stop_listen:
+        if BaseController.stop_listen:
             logger.debug('你停止运行了')
+            # handler.ms_listener.stop()
+            # handler.kb_listener.stop()
             sys.exit(0)
         logger.debug('不是原神窗口，暂停运行')
         time.sleep(1)
@@ -35,11 +43,11 @@ class KeyBoardController(keyboard.Controller):
         self.handler = handler
 
     def press(self, key):
-        wait_for_window(self.handler)
+        wait_for_window()
         super().press(key)
 
     def release(self, key):
-        wait_for_window(self.handler)
+        wait_for_window()
         super().release(key)
 
 class MouseController(mouse.Controller):
@@ -48,23 +56,23 @@ class MouseController(mouse.Controller):
         self.handler = handler
 
     def scroll(self, dx,dy):
-        wait_for_window(self.handler)
+        wait_for_window()
         super().scroll(dx,dy)
 
     def press(self, button):
-        wait_for_window(self.handler)
+        wait_for_window()
         super().press(button)
 
     def release(self, button):
-        wait_for_window(self.handler)
+        wait_for_window()
         super().release(button)
 
     def move(self, x, y):
-        wait_for_window(self.handler)
+        wait_for_window()
         super().move(x,y)
 
     def click(self, button, count=1):
-        wait_for_window(self.handler)
+        wait_for_window()
         super().click(button, count)
 
     @property
@@ -79,7 +87,7 @@ class MouseController(mouse.Controller):
         # if pos[0] < 0 or pos[1] < 0:
         #     raise ValueError("Position coordinates must be non-negative.")
         # Directly call the parent setter method
-        wait_for_window(self.handler)
+        wait_for_window()
         mouse.Controller.position.fset(self, pos)  # Call parent setter method
 
 
@@ -89,6 +97,8 @@ class BaseController:
         if self.debug_enable:
             self.logger.debug(args)
 
+    stop_listen = False
+
     """
     提供操作人物的方法
     """
@@ -97,7 +107,7 @@ class BaseController:
         self.tracker = MinimapInterface
 
         if debug_enable is None:
-            debug_enable = cfg.get('debug_enable', False)
+            debug_enable = get_config('debug_enable', False)
             if debug_enable: self.logger = MyLogger(self.__class__.__name__, logging.DEBUG)
             else: self.logger = MyLogger(self.__class__.__name__, logging.INFO)
         else:
@@ -108,12 +118,11 @@ class BaseController:
         self.__keyboard = KeyBoardController(self)
         self.__ms = MouseController(self)
 
-        self.stop_listen = False
         self.debug_enable = debug_enable
-        self.kb_listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
-        self.ms_listener = mouse.Listener(on_click=self._on_click)
-        self.kb_listener.start()
-        self.ms_listener.start()
+        # self.kb_listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
+        # self.ms_listener = mouse.Listener(on_click=self._on_click)
+        # self.kb_listener.start()
+        # self.ms_listener.start()
 
     def set_ms_position(self, pos):
         self.__ms.position = pos
@@ -126,6 +135,12 @@ class BaseController:
 
     def ms_scroll(self, dx,dy):
         self.__ms.scroll(dx,dy)
+
+    def ms_middle_press(self):
+        self.__ms.press(Button.middle)
+
+    def ms_middle_release(self):
+        self.__ms.release(Button.middle)
 
     def ui_close_button(self):
         """
@@ -161,20 +176,20 @@ class BaseController:
     def kb_release(self, key):
         self.__keyboard.release(key)
 
-    def _on_press(self, key):
-        try:
-            c = key.char
-        except AttributeError:
-            # print('special key {0} pressed'.format(key))
-            if key == Key.esc:
-                self.log('你按下了esc退出程序')
-                self.stop_listen = True
-                self.ms_listener.stop()
-                self.kb_listener.stop()
-                sys.exit(0)
+    # def _on_press(self, key):
+    #     try:
+    #         c = key.char
+    #     except AttributeError:
+    #         # print('special key {0} pressed'.format(key))
+    #         if key == Key.esc:
+    #             self.log('你按下了esc退出程序')
+    #             self.stop_listen = True
+    #             self.ms_listener.stop()
+    #             self.kb_listener.stop()
+    #             sys.exit(0)
 
-    def _on_release(self, key):
-        pass
+    # def _on_release(self, key):
+    #     pass
 
     def drag(self, position_from, dx, dy, duration_ms=200):
         """
@@ -217,7 +232,7 @@ class BaseController:
         if degree is None: return
         start = time.time()
         while capture.has_paimon():
-            wait_for_window(self)
+            wait_for_window()
             if time.time() - start > 5: break  # 避免超过5秒
             current_rotation = self.tracker.get_rotation()
             # 假设要求转向到45，获取的是60，则 degree - current_rotation = -15
@@ -248,7 +263,7 @@ class BaseController:
 
             # print(f"current: {current_rotation}, target{degree},diff{diff}, 转向:{direction}, 转动距离:{s}")
             s = s * 2
-            max_rate = cfg.get('change_rotation_max_speed', 200)
+            max_rate = get_config('change_rotation_max_speed', 200)
             if max_rate > 800: max_rate = 800
             elif max_rate < 200: max_rate = 200
 
@@ -259,12 +274,14 @@ class BaseController:
 
 if __name__ == '__main__':
     bc = BaseController()
-    for i in range(1,5):
-        if i%2 == 0:
-            bc.to_degree(-100)
-        else:
-            bc.to_degree(100)
-        time.sleep(2)
+    for i in range(1,10):
+        bc.ms_middle_press()
+        time.sleep(1)
+    #     if i%2 == 0:
+    #         bc.to_degree(-100)
+    #     else:
+    #         bc.to_degree(100)
+    #     time.sleep(2)
 
     # Logger.log("good", instance=BaseController)
     # bc.drag(GenShinCapture.get_genshin_screen_center(),1000, 200, 500)
