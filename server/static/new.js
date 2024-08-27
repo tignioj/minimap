@@ -136,35 +136,14 @@ function getPathObject() {
 function setPlayingRecord(playing) {
     if (playing) {
         isPlayingRecord = true
-        playBackButton.disabled =  true
+        playBackButton.innerText = "停止"
         playBackFromHereButton.disabled = true
     } else {
         isPlayingRecord = false
-        playBackButton.disabled = false
+        playBackButton.innerText = "回放"
         playBackFromHereButton.disabled = false
     }
 }
-
-        // Example data
-        // const data = {
-        //     "positions": [
-        //         {"x": -4273.244289062501, "y": -950.6892968749999, "type": "path", "move_mode": "normal", "action": ""},
-        //         {"x": -4323.892726562501, "y": -806.2693749999999, "type": "path", "move_mode": "fly", "action": ""},
-        //         {"x": -4325.676906250001, "y": -745.8924218749999, "type": "path", "move_mode": "normal", "action": ""},
-        //         {"x": -4500.082179687501, "y": -661.0223046874999, "type": "path", "move_mode": "fly", "action": "stop_flying"},
-        //         {"x": -4497.800929687501, "y": -669.5779687499999, "type": "target", "move_mode": "normal", "action": ""},
-        //         {"x": -4451.431789062501, "y": -713.2654687499999, "type": "target", "move_mode": "swim", "action": ""},
-        //         {"x": -4388.804835937501, "y": -663.8982812499999, "type": "target", "move_mode": "swim", "action": ""},
-        //         {"x": -4392.807765625001, "y": -634.2752343749999, "type": "target", "move_mode": "swim", "action": ""},
-        //         {"x": -4318.404445312501, "y": -598.2078515624999, "type": "path", "move_mode": "normal", "action": ""},
-        //         {"x": -4274.785304687501, "y": -577.8836328124999, "type": "path", "move_mode": "normal", "action": ""},
-        //         {"x": -4216.687648437501, "y": -633.5262109374999, "type": "path", "move_mode": "fly", "action": "stop_flying"},
-        //         {"x": -4210.639796875001, "y": -642.4422265624999, "type": "target", "move_mode": "normal", "action": ""},
-        //         {"x": -4196.455226562501, "y": -610.8621484374999, "type": "target", "move_mode": "normal", "action": ""},
-        //         {"x": -4123.868312500001, "y": -644.6580468749999, "type": "target", "move_mode": "normal", "action": ""}
-        //     ]
-        // };
-        // points = data.positions
         // https://fontawesome.com/search
 const iconMap = {
     "path": "<i class='fas fa-map-marker-alt'></i>",
@@ -173,6 +152,7 @@ const iconMap = {
     "fly": "<i class='fas fa-plane'></i>",
     "swim": "<i class='fas fa-water'></i>",
     "jump": '<i class="fa-solid fa-arrow-trend-up"></i>',
+    "up_down_grab_leaf": '<i class="fa-solid fa-clover"></i>',
     "stop_flying": '<i class="fa-solid fa-plane-arrival"></i>'
 };
 function getIconHtml(name) {
@@ -240,7 +220,10 @@ function renderJSONObject() {
     });
 }
 
-playBackButton.addEventListener('click',  playBack)
+playBackButton.addEventListener('click',  ()=> {
+    if (!isPlayingRecord) playBack()
+    else stopPlayBack();
+})
 
 function formatDateTime() {
     let now = new Date();
@@ -508,7 +491,7 @@ function playBack(fromIndex) {
         errorMsg('空路径，无法回放！')
         return
     }
-    info('回放中, 已停止追踪，按下ESC停止回放')
+    info('回放中, 已停止追踪')
     isStartRecord = false  // 停止记录
 
     setPlayingRecord(true)
@@ -546,7 +529,33 @@ function playBack(fromIndex) {
         setPlayingRecord(false)
     });
 }
+function stopPlayBack() {
+   fetch(playBackStopURL )
+    .then(response => {
+        if (!response.ok) {
+            setPlayingRecord(false)
+            throw new Error('Network response was not ok ' + response.statusText);
+        }
+        return response.json(); // 解析响应为 JSON
+    })
+    .then(data => {
+        console.log('Success:', data); // 处理成功的响应
+        if (data.result === true) {
+            info(data.msg)
+            setPlayingRecord(false)
+        } else {
+            errorMsg(data.msg)
+            setPlayingRecord(true)
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error); // 处理错误
+        errorMsg(error)
+        setPlayingRecord(false)
+    });
+}
 playBackFromHereButton.addEventListener('click', (event) => {
+    if (isPlayingRecord) return
     if (!isUndefinedNullOrEmpty(selectedPointIndex)) {
         playBack(selectedPointIndex)
     }

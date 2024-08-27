@@ -9,7 +9,7 @@ from capture.capture_factory import capture
 from matchmap.sifttest.sifttest5 import MiniMap
 from matchmap.gia_rotation import RotationGIA
 import cv2
-from myutils.configutils import cfg
+from myutils.configutils import get_config
 from myutils.imgutils import crop_img
 import logging
 
@@ -20,14 +20,17 @@ from pynput.keyboard import Listener
 from mylogger.MyLogger3 import MyLogger
 from myutils.configutils import resource_path, get_user_folder
 from myutils.jsonutils import getjson_path_byname
+import threading as th
+from controller.BaseController import BaseController
+
 from engineio.async_drivers import threading  # pyinstaller打包flask的时候要导入
 
-host = cfg['minimap']['host']
-port = cfg['minimap']['port']
+host = get_config('minimap')['host']
+port = get_config('minimap')['port']
 
 logger = MyLogger('minimap server')
 
-if cfg.get('debug_enable') == 1:
+if get_config('debug_enable') == 1:
     debug_enable = True
 else:
     debug_enable = False
@@ -47,6 +50,8 @@ executor_map = {
     None: BasePathExecutor,
     "": BasePathExecutor
 }
+SOCKET_EVENT_PLAYBACK = 'playback_event'
+SOCKET_EVENT_KEYBOARD = 'key_event'
 
 class FlaskApp(Flask):
     minimap = MiniMap()
@@ -63,17 +68,12 @@ def cvimg_to_base64(cvimg):
 
 
 def _on_press(key):
-    # print(f'key {key} pressed')
-    try:
-        c = key.char
-    except AttributeError:
-        c = key.name
-    socketio.emit('key_event', {'key': c})
-
+    try: c = key.char
+    except AttributeError: c = key.name
+    socketio.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
 
 def _on_release(key):
-    # print(f'key {key} released')
-    socketio.emit('key_event', {'key': key})
+    socketio.emit(SOCKET_EVENT_KEYBOARD, {'key': key})
 
 
 allow_urls = [f'http://{host}:{port}', 'http://localhost:63343']
@@ -89,9 +89,34 @@ kb_listener = Listener(on_press=_on_press)
 kb_listener.start()
 
 
+# ########################  界面
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('scriptmanager.html')
+
+
+@app.route('/new')
+def new_pathlist():
+    return render_template('new.html')
+
+@app.route('/config/edit')
+def config_editor():
+    from myutils.configutils import application_path, config_name
+    config_path = os.path.join(application_path, config_name)
+    with open(config_path, "r", encoding="utf8") as f:
+        txt = f.read()
+    return render_template('config_editor.html', config_text=txt)
+
+# ##############################################
+
+@app.post('/config/save')
+def config_save():
+    from myutils.configutils import application_path, config_name, reload_config
+    config_path = os.path.join(application_path, config_name)
+    with open(config_path, "w", encoding="utf8") as f:
+        f.write(request.get_data(as_text=True))
+    reload_config()
+    return jsonify({'success': True, 'msg':'保存配置成功'})
 
 
 @app.route('/pathlist/edit/<filename>')
@@ -126,7 +151,7 @@ def savepathlist(filename):
 
 @app.route('/pathlist/list')
 def pathlist():
-    p = cfg.get('points_path', os.path.join(resource_path, 'pathlist'))
+    p = get_config('points_path', os.path.join(resource_path, 'pathlist'))
     filemap = {}
     try:
         dirs = os.listdir(p)
@@ -145,7 +170,7 @@ def todo_get():
     todo_path = os.path.join(get_user_folder(), 'todo.json')
     if not os.path.exists(todo_path):
         with open(todo_path, 'w', encoding='utf8') as f:
-            todo_dict = {'default': []}
+            todo_dict = {'采集清单': {"enable":True, "files":[]}}
             f.write(json.dumps(todo_dict))
         return jsonify({'success': True, 'data': todo_dict})
 
@@ -167,54 +192,101 @@ def todo_save():
 
 
 _is_thread_todo_running = False
-def _thread_todo_runner():
-    with lock:
-        global _is_thread_todo_running
-        _is_thread_todo_running = True
 
+def get_unrepeated_file(todo_json):
+    # 提取非重复文件
+    json_file_set = set()
+    values = todo_json.values()
+    for item in values:
+        enable = item.get('enable', False)
+        # 只保留启用的清单
+        if not enable: continue
+        files = item.get('files', [])
+        for file in files:
+            if file not in json_file_set:
+                json_file_set.add(file)
+    return json_file_set
+
+def socket_emit(event, msg, success=True):
+    socketio.emit(event, {'result': success, 'msg': msg})
+
+
+todo_runner_lock = Lock()
+def _thread_todo_runner(todo_json=None):
+    with todo_runner_lock:  # 子线程嵌套时，不要用同一个锁！
+        global playing_thread_running
+        global _is_thread_todo_running
+
+        if _is_thread_todo_running or playing_thread_running:
+            logger.error("已经有清单线程正在执行中，不要重复创建线程！")
+            return
+
+        _is_thread_todo_running = True
         try:
-            todo_path = os.path.join(get_user_folder(), 'todo.json')
-            # 提取非重复文件名称
-            json_file_set = set()
-            with open(todo_path, 'w', encoding='utf8') as f:
-                todo_dict = json.load(f)
-                keys = todo_dict.keys()
-                for key in keys:
-                    json_file = todo_dict.get(key)
-                    if json_file not in json_file_set:
-                        json_file_set.add(json_file)
+            if todo_json:
+                json_file_set = get_unrepeated_file(todo_json)
+            else:
+                todo_path = os.path.join(get_user_folder(), 'todo.json')
+                with open(todo_path, 'r', encoding='utf8') as f:
+                    todo_dict = json.load(f)
+                    json_file_set = get_unrepeated_file(todo_dict)
 
             # 加载json并执行
-            for json_file in json_file_set:
-                json_dict = json.load(json_file)
+            for json_file_name in json_file_set:
+                json_file_path = getjson_path_byname(json_file_name)
+                socket_emit(SOCKET_EVENT_PLAYBACK, msg=f'正在执行{json_file_name}')
+                if not os.path.exists(json_file_path): continue
+
                 while playing_thread_running:
-                    logger.debug(f'当前正在执行中，请等待')
-                    time.sleep(5)
-                Thread(target=_thread_playback, args=(json_dict,)).start()
+                    logger.debug(f'回放线程正在执行中，请等待')
+                    time.sleep(1)
+                    if not _is_thread_todo_running:
+                        logger.debug("停止执行清单")
+                        BaseController.stop_listen = True
+                        return
+
+                with open(json_file_path, 'r', encoding='utf8') as f:
+                    json_dict = json.load(f)
+                _thread_playback(json_dict)
         finally:
             _is_thread_todo_running = False
+            logger.debug('结束执行清单了')
+            socket_emit(SOCKET_EVENT_PLAYBACK, msg='结束执行清单了')
 
-
-@app.get('/todo/run')
+@app.post('/todo/run')
 def todo_run():
+    # 每次请求是不同的线程，意味着可能存在资源共享问题
     if not _is_thread_todo_running:
-        Thread(target=_thread_todo_runner, ).start()
-        return jsonify({'success': True, 'data': '开始执行清单'})
+        todo_json = request.get_json()
+        files = get_unrepeated_file(todo_json)
+        if len(files) == 0:
+            return jsonify({'success': False, 'data': '空清单，无法执行'})
+
+        BaseController.stop_listen = False
+
+        Thread(target=_thread_todo_runner, args=(todo_json,)).start()
+        return jsonify({'success': True})
     else:
-        return jsonify({'success': False, 'data': '已经正在执行清单中'})
+        return jsonify({'success': False, 'data': '已经有线程执行清单中'})
 
 @app.get('/todo/stop')
 def todo_stop():
+    BaseController.stop_listen = True
+
+    global _is_thread_todo_running
     if not _is_thread_todo_running:
         return jsonify({'success': False, 'data': '未执行清单，无需停止'})
     else:
-        return jsonify({'success': True, 'data': '正在停止执行清单'})
+        _is_thread_todo_running = False
+        return jsonify({'success': True, 'data': '停止执行清单'})
 
-lock = Lock()
+
+
+playback_lock = Lock()
 
 def _thread_playback(jsondict: dict):
     global playing_thread_running
-    with lock:
+    with playback_lock:
         playing_thread_running = True
         playback_ok = False
         try:
@@ -225,6 +297,7 @@ def _thread_playback(jsondict: dict):
             with open(temp_json_path, mode="w", encoding="utf-8") as outfile:
                 outfile.write(json_object)
 
+            socket_emit(SOCKET_EVENT_PLAYBACK, msg=f'正在执行{jsondict.get("name")}')
             executor_text = jsondict.get('executor')
             executor = executor_map.get(executor_text)
             bp = executor(json_file_path=temp_json_path)
@@ -235,18 +308,25 @@ def _thread_playback(jsondict: dict):
             playback_ok = False
         finally:
             playing_thread_running = False
-            socketio.emit('playback_event', {'result': playback_ok})
+            socket_emit(SOCKET_EVENT_PLAYBACK, success=playback_ok, msg="执行结束")
 
 
 @app.route('/playback', methods=['POST'])
 def playback():
+    BaseController.stop_listen = False
+
     global playing_thread_running
     if playing_thread_running: return jsonify({'result': False, 'msg': '已经有脚本正在运行中，请退出该脚本后再重试!'})
 
     jsondict = request.json
     if jsondict is None: return jsonify({'result': False, 'msg': '空json对象，无法回放'})
     Thread(target=_thread_playback, args=(jsondict,)).start()
-    return jsonify({'result': True, 'msg': '已运行回放脚本，如需停止按下ESC'})
+    return jsonify({'result': True, 'msg': '已运行回放脚本'})
+
+@app.route('/playback/stop')
+def playback_stop():
+    BaseController.stop_listen = True
+    return jsonify({'result': True, 'msg': '已停止回放脚本'})
 
 
 @app.route('/usermap/get_position', methods=['GET'])

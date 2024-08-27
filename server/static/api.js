@@ -29,6 +29,17 @@ const socketURL = `${serverURL}`;
 const playBackURL= `${serverURL}/playback`;
 const playBackStopURL = `${serverURL}/playback/stop`
 
+
+//
+const todoSaveURL = `${serverURL}/todo/save`
+const todoGetURL= `${serverURL}/todo/get`
+const todoRunURL= `${serverURL}/todo/run`
+const todoStopURL= `${serverURL}/todo/stop`
+
+//
+const saveConfigURL = `${serverURL}/config/save`
+
+
 // 监听事件
 const key_event = 'key_event'  // 监听服务器的快捷键
 const playback_event = 'key_event'  // 监听回放事件
