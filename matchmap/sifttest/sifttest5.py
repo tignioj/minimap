@@ -4,7 +4,7 @@ import time
 import cv2
 import numpy as np
 from capture.capture_factory import capture
-from myutils.configutils import get_bigmap_path, cfg
+from myutils.configutils import get_bigmap_path, get_config
 from myutils.timerutils import Timer
 from myutils.imgutils import crop_img
 from myutils.sift_utils import get_match_position, get_match_corner
@@ -20,11 +20,12 @@ class MiniMap:
         """
         self.logger = MyLogger(__class__.__name__, logging.DEBUG, save_log=True)
         if debug_enable is None:
-            debug_enable = cfg.get('debug_enable', False)
+            debug_enable = get_config('debug_enable', False)
             if debug_enable: self.logger = MyLogger(__class__.__name__,level=logging.DEBUG, save_log=True)
 
         self.debug_enable = debug_enable
-        self.sift = cv2.SIFT.create()
+        # https://docs.opencv.org/4.x/d7/d60/classcv_1_1SIFT.html
+        self.sift = cv2.SIFT.create(sigma=1.4)
 
         # from matchmap.load_save_sift_keypoint import load
         from myutils.kp_gen import load
@@ -53,7 +54,7 @@ class MiniMap:
         self.map_256 = {'block_size': bs, 'des': des, 'kp': kp }
 
 
-        local_map_size = cfg.get('local_map_size', 1024)
+        local_map_size = get_config('local_map_size', 1024)
         if local_map_size < 512: local_map_size = 512
         if local_map_size > 10240: local_map_size = 10240
         self.logger.info(f'搜索范围设置为{local_map_size}')
@@ -79,8 +80,8 @@ class MiniMap:
         self.__GLOBAL_MATCH_UPDATE_TIME_INTERVAL = 5  # 上次匹配时间间隔
 
         # 确定中心点
-        self.PIX_CENTER_AX = cfg.get('center_x', 15593.298)  # 璃月天衡山右边那个十字圆环
-        self.PIX_CENTER_AY = cfg.get('center_y',13528.16)
+        self.PIX_CENTER_AX = get_config('center_x', 15593.298)  # 璃月天衡山右边那个十字圆环
+        self.PIX_CENTER_AY = get_config('center_y',13528.16)
         self.update(capture.w, capture.h)
 
         # self.result_pos = None  # 最终坐标(像素)
@@ -332,7 +333,7 @@ class MiniMap:
             self.logger.debug("线程正在执行缓存中，请稍后再获取")
             return False
     def __position_out_of_local_map_range(self, pos):
-        threshold = 50
+        threshold = 100
         max_pos = self.local_map_size - threshold
         return pos[0] < threshold or pos[1] < threshold or pos[0] > max_pos or pos[1] > max_pos
 
@@ -345,6 +346,8 @@ class MiniMap:
         """
         small_image = gs.get_mini_map()
         keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
+        imgKp1 = cv2.drawKeypoints(small_image, keypoints_small, None, color=(0, 0, 255))
+        self.__cvshow('imgKp1', imgKp1)
 
         if not capture.has_paimon():
             self.logger.debug('未找到派蒙，无法获取位置')
@@ -370,10 +373,10 @@ class MiniMap:
 
 
     def __cvshow(self, name, img):
-        if self.debug_enable:
-            name = f'{name}-{threading.currentThread().name}'
-            cv2.imshow(name, img)
-            cv2.waitKey(2)
+        if self.debug_enable: pass
+            # name = f'{name}-{threading.currentThread().name}'
+            # cv2.imshow(name, img)
+            # cv2.waitKey(2)
 
 
     def update(self, width, height):
@@ -396,8 +399,8 @@ class MiniMap:
             self.logger.debug(f'不受支持的分辨率{width}x{height}')
             return
 
-        self.PIX_CENTER_AX = cfg['center_x'] + offset_x
-        self.PIX_CENTER_AY = cfg['center_y'] + offset_y
+        self.PIX_CENTER_AX = get_config('center_x') + offset_x
+        self.PIX_CENTER_AY = get_config('center_y') + offset_y
         self.logger.debug(f'坐标中心调整为{self.PIX_CENTER_AX}, {self.PIX_CENTER_AY}')
 
 
@@ -405,16 +408,16 @@ if __name__ == '__main__':
     # TODO: BUG 同一个位置，不同分辨率获取的位置有差异！
     # 解决思路：
     # 1. 不同分辨率下裁剪的小地图要一致，保持圆形在正中间
-    from myutils.configutils import cfg
-    mp = MiniMap(debug_enable=False)
+    from myutils.configutils import get_config
+    mp = MiniMap(debug_enable=True)
     mp.logger.setLevel(logging.INFO)
     capture.add_observer(mp)
     while True:
         time.sleep(0.05)
         t0 = time.time()
-        # pos = mp.get_position()
+        pos = mp.get_position()
         # pos = mp.get_user_map_position()
-        pos = mp.get_user_map_scale()
+        # pos = mp.get_user_map_scale()
         print(pos,time.time() - t0)
 
 

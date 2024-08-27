@@ -4,14 +4,14 @@ from paddleocr import PaddleOCR
 from capture.capture_factory import capture
 import cv2
 from mylogger.MyLogger3 import MyLogger
-from myutils.configutils import cfg, resource_path
+from myutils.configutils import resource_path, get_config
 import logging
 
 # 把OCR首次运行需要的文件下载到本地
 # https://github.com/PaddlePaddle/PaddleOCR/blob/release/2.6/doc/doc_ch/whl.md#31-%E4%BB%A3%E7%A0%81%E4%BD%BF%E7%94%A8
 
-host = cfg['ocr']['host']
-port = cfg['ocr']['port']
+host = get_config('ocr')['host']
+port = get_config('ocr')['port']
 logging.getLogger('ppocr').setLevel(logging.INFO)
 
 logger = MyLogger('OCRServer')
