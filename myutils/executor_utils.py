@@ -1,6 +1,6 @@
 from mylogger.MyLogger3 import MyLogger
 import os
-from myutils.configutils import cfg
+from myutils.configutils import get_config
 from typing import List
 # from myexecutor.BasePathExecutor2 import Point
 import numpy as np

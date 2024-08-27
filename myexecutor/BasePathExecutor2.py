@@ -11,7 +11,7 @@ from controller.OCRController import OCRController
 from myutils.executor_utils import point1_near_by_point2, find_closest_point_index
 from typing import List
 import json
-from myutils.configutils import cfg, PROJECT_PATH
+from myutils.configutils import get_config, PROJECT_PATH
 from myutils.timerutils import RateLimiter
 from mylogger.MyLogger3 import MyLogger
 import logging
@@ -34,6 +34,7 @@ class MovingStuckException(Exception):
 class MovingTimeOutException(Exception):
     pass
 
+class ExecuteTerminateException(Exception): pass
 
 # 色死亡会被传送,传送后当前位置和历史位置作比较,超过一定阈值则认为死亡. 有时候会被传送到很远的的锚点,有时候会原地复活
 # 原地复活的情况无法通过这种方式判断死亡,因此这不是严格意义上的判定死亡方式,而是人物的行动轨迹是否突变.
@@ -108,7 +109,7 @@ class BasePathExecutor(BaseController):
 
     def __init__(self, json_file_path=None, debug_enable=None):
         super().__init__(debug_enable=debug_enable)
-        if debug_enable is None: debug_enable = cfg.get('debug_enable', False)
+        if debug_enable is None: debug_enable = get_config('debug_enable', False)
         if json_file_path is None: raise Exception(f"无法加载json对象")
         try:
             self.base_path:BasePath = self.load_basepath_from_json_file(json_file_path)
@@ -120,7 +121,7 @@ class BasePathExecutor(BaseController):
         self.debug_enable = debug_enable
 
         ################## 参数 #########################
-        self.move_next_point_allow_max_time = cfg.get('move_next_point_allow_max_time', 20)
+        self.move_next_point_allow_max_time = get_config('move_next_point_allow_max_time', 20)
         if self.move_next_point_allow_max_time < 5:
             self.move_next_point_allow_max_time = 5
         elif self.move_next_point_allow_max_time > 60:
@@ -130,19 +131,19 @@ class BasePathExecutor(BaseController):
         self.rotation_history = deque(maxlen=20)  # 0.2秒存1次，用于判断是否原地打转
 
         # 8秒内移动的总距离(像素)在多少范围内认为卡住，允许范围(2~50)
-        self.stuck_movement_threshold = cfg.get('stuck_movement_threshold', 20)
+        self.stuck_movement_threshold = get_config('stuck_movement_threshold', 20)
         if self.stuck_movement_threshold < 2:
             self.stuck_movement_threshold = 2
         elif self.stuck_movement_threshold > 50:
             self.stuck_movement_threshold = 50
 
         # 精度：当前位置距离目标点距离多少个像素点表示他们是临近, 小碎步时候要用到
-        self.target_nearby_threshold = cfg.get('target_nearby_threshold', 2)
+        self.target_nearby_threshold = get_config('target_nearby_threshold', 2)
         if self.target_nearby_threshold < 0.1: self.target_nearby_threshold = 0.1
         if self.target_nearby_threshold > 10: self.target_nearby_threshold = 10
 
         # 判断是否到达途径点的阈值
-        self.path_point_nearby_threshold = cfg.get('path_point_nearby_threshold', 2)
+        self.path_point_nearby_threshold = get_config('path_point_nearby_threshold', 2)
         if self.path_point_nearby_threshold < 2: self.path_point_nearby_threshold = 2
         if self.path_point_nearby_threshold > 50: self.path_point_nearby_threshold = 50
 
@@ -150,55 +151,55 @@ class BasePathExecutor(BaseController):
         # 原理: 人物死亡会被传送, 要么原地复活,要么被传送到附近的锚点, 原地复活不会触发此异常(因为位置变化不大)
         # (不能和next_point比较,因为有些路径本身打点可能打的比较远)
         # 不能设置太小, 以防止人物正常的移动产生较大位移时, 误判为位置突变
-        self.position_mutation_threshold = cfg.get('position_mutation_threshold', 100)
+        self.position_mutation_threshold = get_config('position_mutation_threshold', 100)
         if self.position_mutation_threshold < 50:
             self.position_mutation_threshold = 50
         elif self.position_mutation_threshold > 200:
             self.position_mutation_threshold = 200
 
         # 即使找到了最近的点,也要求最近的距离不能大于指定阈值
-        self.search_closet_point_max_distance = cfg.get('search_closet_point_max_distance', 200)
+        self.search_closet_point_max_distance = get_config('search_closet_point_max_distance', 200)
         if self.search_closet_point_max_distance > 500:
             self.search_closet_point_max_distance = 500
         elif self.search_closet_point_max_distance < 80:
             self.search_closet_point_max_distance = 80
 
         # 允许多少次位置突变(当前位置突然和历史轨迹的距离超过一定阈值)
-        self.position_mutation_max_time = cfg.get('position_mutation_max_time', 3)
+        self.position_mutation_max_time = get_config('position_mutation_max_time', 3)
         if self.position_mutation_max_time < 0:
             self.position_mutation_max_time = 0  # 突变一次就结束
         elif self.position_mutation_max_time > 10:
             self.position_mutation_max_time = 10
 
         # 路径展示器的宽高
-        self.path_viewer_width = cfg.get('path_viewer_width', 500)
+        self.path_viewer_width = get_config('path_viewer_width', 500)
         if self.path_viewer_width < 50:
             self.path_viewer_width = 50
         elif self.path_viewer_width > 4096:
             self.path_viewer_width = 4096
 
-        self.allow_small_steps = cfg.get('allow_small_steps', 1) == 1  # 是否允许小碎步接近目标：注意此选项对Point.type=='path'的途径点无效
-        self.enable_crazy_f = cfg.get('enable_crazy_f', 1) == 1  # 是否在接近目标点时候疯狂按下f：对途径点无效
-        self.enable_loop_press_e = cfg.get('enable_loop_press_e', 1) == 1  # 循环按下e开技能
-        self.enable_loop_press_z = cfg.get('enable_loop_press_z', 1) == 1  # 循环按下z使用道具
-        self.enable_loop_jump = cfg.get('enable_loop_jump', 1) == 1  # 循环按下空格跳跃
-        self.enable_dash = cfg.get('enable_dash', 1) == 1  # 循环按下鼠标右键冲刺
+        self.allow_small_steps = get_config('allow_small_steps', 1) == 1  # 是否允许小碎步接近目标：注意此选项对Point.type=='path'的途径点无效
+        self.enable_crazy_f = get_config('enable_crazy_f', 1) == 1  # 是否在接近目标点时候疯狂按下f：对途径点无效
+        self.enable_loop_press_e = get_config('enable_loop_press_e', 1) == 1  # 循环按下e开技能
+        self.enable_loop_press_z = get_config('enable_loop_press_z', 1) == 1  # 循环按下z使用道具
+        self.enable_loop_jump = get_config('enable_loop_jump', 1) == 1  # 循环按下空格跳跃
+        self.enable_dash = get_config('enable_dash', 1) == 1  # 循环按下鼠标右键冲刺
 
-        self.loop_press_e_interval = cfg.get('loop_press_e_interval', 0.5)  # 循环按下e的时间间隔
+        self.loop_press_e_interval = get_config('loop_press_e_interval', 0.5)  # 循环按下e的时间间隔
         if self.loop_press_e_interval < 0:
             self.loop_press_e_interval = 0
         elif self.loop_press_e_interval > 60:
             self.loop_press_e_interval = 60
 
-        self.small_step_interval = cfg.get('small_step_interval', 0.1)  # 小碎步松开w频率
+        self.small_step_interval = get_config('small_step_interval', 0.1)  # 小碎步松开w频率
         if self.small_step_interval > 0.2:
             self.small_step_interval = 0.2
         elif self.small_step_interval < 0.02:
             self.small_step_interval = 0.02
 
         # 0.05s更新一次位置, 值越小，请求位置信息越频繁
-        # self.update_user_status_interval = cfg.get('update_user_status_interval', 0.2)
-        self.update_user_status_interval = cfg.get('update_user_status_interval', 0.1)
+        # self.update_user_status_interval = get_config('update_user_status_interval', 0.2)
+        self.update_user_status_interval = get_config('update_user_status_interval', 0.1)
         if self.update_user_status_interval > 0.2:
             self.update_user_status_interval = 0.2
         elif self.update_user_status_interval < 0.01:
@@ -483,7 +484,7 @@ class BasePathExecutor(BaseController):
             return deg
 
     def _thread_path_viewer(self):
-        if not cfg.get('show_path_viewer', 1): return  # 无需展示路径
+        if not get_config('show_path_viewer', 1): return  # 无需展示路径
         from myexecutor.KeyPointViewer import get_points_img_live
         #  当前路径结束后，应当退出循环，结束线程，以便于开启下一个线程展示新的路径
         logger.info(f"准备展示路径:{self.base_path.name}")
@@ -546,104 +547,110 @@ class BasePathExecutor(BaseController):
         """
         在下一个点位开始行动之前
         生命周期方法，子类实现
-        :param point:
-        :return:
+        :param point: 
+        :return: 
         """
         pass
-
+    
     def execute(self, from_index=None):
         """
         执行
         :param from_index: 指定的点位开始执行，指定此选项会关闭传送
         :return:
         """
+        thread_update_state = threading.Thread(target=self._thread_update_state)
+        thread_path_viewer = threading.Thread(target=self._thread_path_viewer)
+        thread_object_detect = threading.Thread(target=self._thread_object_detection)
+        thread_exception = threading.Thread(target=self._thread_exception_detect)
         try:
             self.on_execute_before(from_index=from_index)
             self.logger.debug(f'开始执行{self.base_path.name}')
-        except EmptyPathException as e:
+            # 更新位置
+            thread_update_state.start()
+            # 路径展示
+            thread_path_viewer.start()
+            # 目标检测
+            thread_object_detect.start()
+            # 异常线程
+            thread_exception.start()
+
+            moving_position_mutation_counter = 0
+
+            i = 1  # 跳过传送点
+            if from_index and (1 < from_index < len(self.base_path.positions)):
+                i = from_index
+            while i < len(self.base_path.positions):
+                point = self.base_path.positions[i]
+                if self.stop_listen: return
+
+                # 阻塞等待位置刷新
+                if not self.wait_for_position_update(10):
+                    self.debug(f"由于超过10秒没有获取到位置,跳过点位{point}")
+                    i += 1
+                    continue  # 上面的while循环未能成功加载位置，跳到下一个点位
+
+                if not point1_near_by_point2(self.current_coordinate, (point.x, point.y), 200):
+                    self.logger.error(f'距离下一个点位太远,跳过{point}')
+                    i += 1
+                    continue
+
+                self.debug(f"当前位置{self.current_coordinate}, 正在前往点位{point}")
+                self.next_point = point
+
+                try:
+                    self.on_move_before(point)
+                    self.move((point.x, point.y))
+                except MovingPositionMutationException:
+
+                    # 角色位置突变如何处理?(死亡被传送到了较远的锚点)
+                    self.logger.error('捕捉到了位置突变异常,尝试查找最近的点')
+                    moving_position_mutation_counter += 1
+                    if moving_position_mutation_counter > self.position_mutation_max_time:
+                        msg = f'位置突变次数{moving_position_mutation_counter}, 超过{self.position_mutation_max_time}, 执行结束'
+                        raise ExecuteTerminateException(msg)
+                    # 查找最近的一个执行点的下标
+                    index = find_closest_point_index(coordinates=self.current_coordinate, points=self.base_path.positions,
+                                                     distance_threshold=self.position_mutation_threshold)
+                    if index is not None:
+                        self.logger.debug(f'查找到距离当前坐标最近的点是{self.base_path.positions[index]},从这里开始执行任务')
+                        i = index
+                        continue
+                    else:
+                        raise ExecuteTerminateException("最近的点位超过了阈值，执行结束")
+
+                self.debug(f"已到达{point}")
+                self.on_move_after(point)
+                self.prev_point = point
+                i += 1
+
+            return True
+        except (EmptyPathException,ExecuteTerminateException) as e:
             self.logger.error(e)
             return False
-        # 更新位置
-        thread_update_state = threading.Thread(target=self._thread_update_state)
-        thread_update_state.start()
-        # 路径展示
-        thread_path_viewer = threading.Thread(target=self._thread_path_viewer)
-        thread_path_viewer.start()
-        # 目标检测
-        thread_object_detect = threading.Thread(target=self._thread_object_detection)
-        thread_object_detect.start()
-        # 异常线程
-        thread_exception = threading.Thread(target=self._thread_exception_detect)
-        thread_exception.start()
-
-        moving_position_mutation_counter = 0
-
-        i = 1  # 跳过传送点
-        if from_index and (1 < from_index < len(self.base_path.positions)):
-            i = from_index
-        while i < len(self.base_path.positions):
-            point = self.base_path.positions[i]
-            if self.stop_listen: return
-
-            # 阻塞等待位置刷新
-            if not self.wait_for_position_update(10):
-                self.debug(f"由于超过10秒没有获取到位置,跳过点位{point}")
-                i += 1
-                continue  # 上面的while循环未能成功加载位置，跳到下一个点位
-
-            if not point1_near_by_point2(self.current_coordinate, (point.x, point.y), 200):
-                self.logger.error(f'距离下一个点位太远,跳过{point}')
-                i += 1
-                continue
-
-            self.debug(f"当前位置{self.current_coordinate}, 正在前往点位{point}")
-            self.next_point = point
-
+        except Exception as e:
+            self.logger.error(e)
+            return False
+        finally:
+            self.log("文件{}执行完毕")
+            self.is_path_end = True
+            # 等待线程结束
             try:
-                self.on_move_before(point)
-                self.move((point.x, point.y))
-            except MovingPositionMutationException:
+                thread_object_detect.join()
+                thread_path_viewer.join()
+                thread_update_state.join()
+                thread_exception.join()
+            except Exception as e:
+                self.logger.debug(f"无需终止线程:{e}")
+            self.log("线程已全部结束")
+            self.on_execute_finally()
 
-                # 角色位置突变如何处理?(死亡被传送到了较远的锚点)
-                self.logger.error('捕捉到了位置突变异常,尝试查找最近的点')
-                moving_position_mutation_counter += 1
-                if moving_position_mutation_counter > self.position_mutation_max_time:
-                    self.logger.error(
-                        f'位置突变次数{moving_position_mutation_counter}, 超过{self.position_mutation_max_time}, 执行结束')
-                    self.is_path_end = True
-                    return False
-                # 查找最近的一个执行点的下标
-                index = find_closest_point_index(coordinates=self.current_coordinate, points=self.base_path.positions,
-                                                 distance_threshold=self.position_mutation_threshold)
-                if index is not None:
-                    self.logger.debug(f'查找到距离当前坐标最近的点是{self.base_path.positions[index]},从这里开始执行任务')
-                    i = index
-                    continue
-                else:
-                    self.debug('最近的点位超过了阈值,执行结束!')
-                    self.is_path_end = True
-                    return False
-
-            self.debug(f"已到达{point}")
-            self.on_move_after(point)
-            self.prev_point = point
-            i += 1
-
-        self.log("文件{}执行完毕")
-        self.is_path_end = True
-        # 等待线程结束
-        thread_object_detect.join()
-        thread_path_viewer.join()
-        thread_update_state.join()
-        thread_exception.join()
-        self.log("线程已全部结束")
-
-        return True
+    def on_execute_finally(self):
+        pass
 
 
 def execute_one(jsonfile):
     logger.info(f"开始执行{jsonfile}")
-    debug_enable = cfg.get('debug_enable', True)
+    debug_enable = get_config('debug_enable', True)
     BasePathExecutor(jsonfile, debug_enable=debug_enable).execute()
     logger.info(f"文件{jsonfile}执行完毕")
     return True
@@ -669,7 +676,7 @@ def execute_all():
     kb_listener.start()
 
     all_start_time = time.time()
-    points_path = cfg.get('points_path', os.path.join(PROJECT_PATH, 'resources', 'pathlist'))
+    points_path = get_config('points_path', os.path.join(PROJECT_PATH, 'resources', 'pathlist'))
     err_list = []
     if not os.path.exists(points_path):
         logger.error('路径不存在！')
