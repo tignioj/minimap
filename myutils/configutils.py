@@ -34,12 +34,15 @@ if cfg.get('resources_path') is not None:
 else:
     resource_path = os.path.join(PROJECT_PATH, 'resources')
 
-def get_bigmap_path(size=2048):
-    return os.path.join(resource_path, 'map', f'combined_image_{size}.png')
+def get_bigmap_path(size=2048,version=5.0):
+    # return os.path.join(resource_path, 'map', f'combined_image_{size}.png')
+    return os.path.join(resource_path, 'map',f'version{version}', f'map{version}_{size}.png')
 
-def get_keypoints_des_path(size=2048):
-    kp = os.path.join(resource_path, 'features', 'sift', f'sift_keypoints_large_blocksize{size}.pkl')
-    des = os.path.join(resource_path, 'features', 'sift', f'sift_descriptors_large_blocksize{size}.pkl')
+def get_keypoints_des_path(size=2048, version=5.0):
+    kp = os.path.join(resource_path, 'features', 'sift', f'version{version}', f'sift_keypoints_version{version}_blocksize{size}.pkl')
+    des = os.path.join(resource_path, 'features', 'sift', f'version{version}', f'sift_descriptors_version{version}_blocksize{size}.pkl')
+    # kp = os.path.join(resource_path, 'features', 'sift', f'sift_keypoints_large_blocksize{size}.pkl')
+    # des = os.path.join(resource_path, 'features', 'sift', f'sift_descriptors_large_blocksize{size}.pkl')
     return kp, des
 
 def get_paimon_icon_path():

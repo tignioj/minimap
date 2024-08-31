@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from myutils.timerutils import RateLimiter
 from capture.observable_capture import ObservableCapture
-from myutils.configutils import cfg
+from myutils.configutils import get_config
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger('genshin_capture')
 
@@ -12,7 +12,7 @@ class ResolutionException(Exception): pass
 
 class GenShinCaptureObj(ObservableCapture):
     def __init__(self):
-        super().__init__(cfg.get('window_name', '原神'))
+        super().__init__(get_config('window_name', '原神'))
         # super().__init__('Genshin Impact')
         # 16:9
         self.minimap_radius = None
@@ -93,20 +93,27 @@ class GenShinCaptureObj(ObservableCapture):
     def __update_crop_size(self):
         if self.w == 1280:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 144, 144, 40, 11
-            self.user_status_area_offset = self.h-85,self.h-20, self.w-150, self.w-20
+            # self.user_status_area_offset = self.h-85,self.h-20, self.w-150, self.w-20
+            self.user_status_area_offset = self.h-85,self.h-20, self.w-240, self.w-20
             self.team_area_offset = 130, self.h-320, self.w-240, self.w
         elif self.w == 1600:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 180, 180, 50, 14
-            self.user_status_area_offset = self.h-110,self.h-25, self.w-185, self.w-30
+            # self.user_status_area_offset = self.h-110,self.h-25, self.w-185, self.w-30
+            # self.user_status_area_offset = self.h-110,self.h-25, self.w-300, self.w-130
+            self.user_status_area_offset = self.h-110,self.h-25, self.w-300, self.w-30
             self.team_area_offset = 180, self.h-400, self.w-285, self.w
 
         elif self.w == 1920:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 216, 216, 60, 17
-            self.user_status_area_offset = self.h-130, self.h-25, self.w-225, self.w-35
+            # self.user_status_area_offset = self.h-130, self.h-25, self.w-225, self.w-35
+            # self.user_status_area_offset = self.h-130, self.h-25, self.w-350, self.w-160
+            self.user_status_area_offset = self.h-130, self.h-25, self.w-350, self.w-60
             self.team_area_offset = 210, self.h-480, self.w-350, self.w
         elif self.w == 2560:
             self.mini_map_width, self.mini_map_height, self.mini_map_left_offset, self.mini_map_top_offset = 288, 288, 80, 23  # 23
-            self.user_status_area_offset = self.h-165, self.h-35, self.w-290, self.w-55
+            # self.user_status_area_offset = self.h-165, self.h-35, self.w-290, self.w-55
+            # self.user_status_area_offset = self.h-165, self.h-35, self.w-480, self.w-200
+            self.user_status_area_offset = self.h-165, self.h-35, self.w-480, self.w-55
             self.team_area_offset = 265, self.h-625, self.w-460, self.w
         else:
             msg = 'Resolution error, current resolution is: {}x{}, support 16:9 only'.format(self.w, self.h)
@@ -213,11 +220,11 @@ if __name__ == '__main__':
         t = time.time()
         cv2.imshow('minimap', gc.get_mini_map())
         cv2.imshow('close', gc.close_button_area)
-        cv2.imwrite('icon_close.jpg', gc.close_button_area)
-        sys.exit(0)
+        # cv2.imwrite('icon_close.jpg', gc.close_button_area)
+        cv2.imshow('sta', gc.get_user_status_area())
         # cv2.imshow('user key', gc.get_user_status_key_area())
         # cv2.imshow('screen', gc.get_screenshot())
-        # cv_imshow('paimon', gc.get_paimon_area())
+        # cv2.imshow('paimon', gc.get_paimon_area())
         # cv2.imshow('team', gc.get_team_area())
         # _saveimg()
         # cv_imshow('alpha', alpha)
