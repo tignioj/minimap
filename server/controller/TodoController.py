@@ -6,7 +6,6 @@ import os
 todo_bp = Blueprint('todo', __name__)
 from server.service.TodoService import TodoService, TodoExecuteException
 
-
 class TodoController:
     @staticmethod
     @todo_bp.route('/todo/get')
@@ -20,16 +19,18 @@ class TodoController:
     @staticmethod
     @todo_bp.post('/todo/save')
     def todo_save():
-        if TodoService.save_todo(request.get_data(as_text=True)):
+        if TodoService.save_todo(request.get_json()):
             return TodoController.success('保存成功')
         else:
             return TodoController.error('保存失败')
 
+    @staticmethod
+    def success(status=None, message=None):
+        return jsonify({'success': True, 'status': status, 'message': message})
 
     @staticmethod
-    def success(msg=""): return jsonify({'success': True, 'msg': msg})
-    @staticmethod
-    def error(msg): return jsonify({'success': False, 'msg': msg})
+    def error(status=None, message=None):
+        return jsonify({'success': False, 'status': status, 'message': message})
 
     @staticmethod
     @todo_bp.post('/todo/run')
@@ -39,7 +40,7 @@ class TodoController:
             TodoService.todo_run(todo_json)
             return TodoController.success(msg='成功执行')
         except TodoExecuteException as e:
-            return TodoController.error(e)
+            return TodoController.error(e.args)
 
     @staticmethod
     @todo_bp.get('/todo/stop')
@@ -48,5 +49,5 @@ class TodoController:
             TodoService.todo_stop()
             return TodoController.success(msg='停止执行清单')
         except TodoExecuteException as e:
-            return TodoController.error(msg=e)
+            return TodoController.error(msg=e.args)
 
