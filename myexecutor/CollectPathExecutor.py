@@ -15,11 +15,12 @@ from typing import List
 class CollectPoint(Point):
 
     MOVE_MODE_UP_DOWN_GRAB_LEAF = 'up_down_grab_leaf'  # 视角上下晃动抓四叶印
+    ACTION_NAHIDA_COLLECT = 'nahida_collect'
 
     def __init__(self, x,y,type=None, action=None,move_mode=Point.MOVE_MODE_NORMAL, nahida_collect=False, crazy_f=False):
         super().__init__(x=x,y=y,type=type,move_mode=move_mode,action=action)
-        self.nahida_collect = nahida_collect
-        self.crazy_f = crazy_f
+        # self.nahida_collect = nahida_collect
+        # self.crazy_f = crazy_f
 
 class CollectPath(BasePath): pass
 
@@ -45,8 +46,9 @@ class CollectPathExecutor(BasePathExecutor):
                                  type=point.get('type', Point.TYPE_PATH),
                                  move_mode=point.get('move_mode', Point.MOVE_MODE_NORMAL),
                                  action=point.get('action'),
-                                 nahida_collect=point.get('nahida_collect'),
-                                 crazy_f=point.get('crazy_f'))
+                                 # nahida_collect=point.get('nahida_collect'),
+                                 # crazy_f=point.get('crazy_f')
+                                 )
                 points.append(p)
             return CollectPath(name=json_dict.get('name', 'undefined'),
                             country=json_dict.get('country','蒙德'),
@@ -120,7 +122,7 @@ class CollectPathExecutor(BasePathExecutor):
     def on_nearby(self, coordinate):
         # super().on_nearby(coordinate)
         self.logger.debug(f'接近点位{self.next_point}了')
-        if self.enable_crazy_f or self.next_point.crazy_f:
+        if self.enable_crazy_f:
             self.logger.debug(f'疯狂按下f')
             self.crazy_f()
 
@@ -131,10 +133,10 @@ class CollectPathExecutor(BasePathExecutor):
 
 
     def on_move_after(self, point: CollectPoint):
-        if point.nahida_collect:
+        if point.action == CollectPoint.ACTION_NAHIDA_COLLECT:
             self.logger.info('草神转圈')
             self.nahida_collect()
-        elif point.crazy_f or self.enable_crazy_f:
+        elif self.enable_crazy_f:
             self.logger.info('已经到达点位也要疯狂按f')
             self.crazy_f()
 
