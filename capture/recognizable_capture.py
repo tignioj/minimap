@@ -2,6 +2,8 @@ import os.path
 import time
 
 import cv2
+import numpy as np
+
 from capture.genshin_capture import GenShinCaptureObj
 from myutils.configutils import resource_path, get_paimon_icon_path
 from myutils.timerutils import Timer
@@ -17,26 +19,28 @@ class RecognizableCapture(GenShinCaptureObj):
         # 1080p截图下来的图片, 做模板匹配的时候要缩放
         # TODO: 换成游戏内截图而非手动截图
         self.__icon_user_status_up_org = cv2.imread(os.path.join(template_path, 'template_up.png'), cv2.IMREAD_GRAYSCALE)
-        self.__icon_user_status_down_org = cv2.imread(os.path.join(template_path, 'template_down.png'), cv2.IMREAD_GRAYSCALE)
-        self.__icon_user_status_swim_org = cv2.imread(os.path.join(template_path, 'template_swim.png'), cv2.IMREAD_GRAYSCALE)
-
-        self.__icon_user_status_key_x_org = cv2.imread(os.path.join(template_path, 'key_x.png'), cv2.IMREAD_GRAYSCALE)
-        self.__icon_user_status_key_space_org = cv2.imread(os.path.join(template_path, 'key_space.png'), cv2.IMREAD_GRAYSCALE)
-
-        self.__icon_close_org = cv2.imread(os.path.join(template_path, 'icon_close.png'), cv2.IMREAD_GRAYSCALE)  # 普通ui的关闭按钮
-        self.__icon_close_side_map_org = cv2.imread(os.path.join(template_path, 'icon_close_side_map.png'), cv2.IMREAD_GRAYSCALE)  # 切换国家时候的关闭按钮
-
         self.icon_user_status_up = self.__icon_user_status_up_org.copy()
+
+        self.__icon_user_status_down_org = cv2.imread(os.path.join(template_path, 'template_down.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_user_status_down = self.__icon_user_status_down_org.copy()
+
+        self.__icon_user_status_swim_org = cv2.imread(os.path.join(template_path, 'template_swim.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_user_status_swim = self.__icon_user_status_swim_org.copy()
 
+        self.__icon_user_status_key_x_org = cv2.imread(os.path.join(template_path, 'key_x.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_user_status_key_x = self.__icon_user_status_key_x_org.copy()
+        self.__icon_user_status_key_space_org = cv2.imread(os.path.join(template_path, 'key_space.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_user_status_key_space = self.__icon_user_status_key_space_org.copy()
 
+        self.__icon_close_org = cv2.imread(os.path.join(template_path, 'icon_close.png'), cv2.IMREAD_GRAYSCALE)  # 普通ui的关闭按钮
         self.icon_close = self.__icon_close_org.copy()
+
+        self.__icon_close_side_map_org = cv2.imread(os.path.join(template_path, 'icon_close_side_map.png'), cv2.IMREAD_GRAYSCALE)  # 切换国家时候的关闭按钮
         self.icon_close_side_map = self.__icon_close_side_map_org.copy()
 
-
+        # 队伍中, 有一个小三角对应当前的角色
+        self.__icon_team_current_triangle_org = cv2.imread(os.path.join(template_path,  "icon_team_current_triangle.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_team_current_triangle = self.__icon_team_current_triangle_org.copy()
 
         self.sift = cv2.SIFT.create()
         # 匹配器
@@ -68,6 +72,32 @@ class RecognizableCapture(GenShinCaptureObj):
         elif self.w == 1600: self.__resize_icon_to_fit_scale(0.8)
         elif self.w == 1280: self.__resize_icon_to_fit_scale(0.71)
 
+    def get_team_current_number(self):
+        """
+        在队伍区域中匹配三角形，根据匹配的位置判断当前切的是几号角色
+        :return:
+        """
+        team_area = cv2.cvtColor(self.get_team_area(), cv2.COLOR_BGR2GRAY)
+        result = cv2.matchTemplate(team_area, self.icon_team_current_triangle, cv2.TM_CCOEFF_NORMED)
+        # 设定阈值
+        threshold = 0.95
+        # 获取匹配位置
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        if max_val >= threshold:
+            # 把team area按照垂直方向四等分，判断三角形在四等分中的哪个范围内
+            # 将大图片高度四等分
+            large_height, large_width = team_area.shape
+            section_height = large_height // 4
+
+            y_position = max_loc[1]
+            section_number = y_position // section_height + 1
+            # print(f"图片像素{team_area.shape},最佳匹配位置: {max_loc}, 匹配度: {max_val}, 所在区域{section_number}")
+            return section_number
+            # 判断y在图片中的那
+        # else:
+        #     print("没有找到匹配度超过阈值的结果")
+
+
     def __resize_icon_to_fit_scale(self, scale):
         self.icon_user_status_up = cv2.resize(self.__icon_user_status_up_org, None, fx=scale, fy=scale)
         self.icon_user_status_down = cv2.resize(self.__icon_user_status_down_org, None, fx=scale, fy=scale)
@@ -78,6 +108,9 @@ class RecognizableCapture(GenShinCaptureObj):
 
         self.icon_close = cv2.resize(self.__icon_close_org, None, fx=scale, fy=scale)
         self.icon_close_side_map = cv2.resize(self.__icon_close_side_map_org, None, fx=scale, fy=scale)
+
+        self.icon_team_current_triangle = cv2.resize(self.__icon_team_current_triangle_org, None, fx=scale, fy=scale)
+
 
     def is_swimming(self):
         return self.__has_icon(self.get_user_status_area(),self.icon_user_status_swim)
@@ -148,29 +181,33 @@ class RecognizableCapture(GenShinCaptureObj):
         x = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
         print(f'down: {down}, up: {up}, swim: {swim}, space: {space}, x: {x}, cost: {time.time() -t }')
 
-        cv2.imshow('st',self.get_user_status_area())
-        cv2.imshow('stk',self.get_user_status_key_area())
+        cv2.imshow('status area',self.get_user_status_area())
+        cv2.imshow('status key',self.get_user_status_key_area())
         cv2.imshow('up',self.icon_user_status_up)
         cv2.imshow('down',self.icon_user_status_down)
         cv2.imshow('swim',self.icon_user_status_swim)
         cv2.imshow('space',self.icon_user_status_key_space)
         cv2.imshow('x',self.icon_user_status_key_x)
+        cv2.imshow('triangle',self.icon_team_current_triangle)
 
 if __name__ == '__main__':
     rc = RecognizableCapture()
     while True:
-        sc = rc.get_paimon_area()
-        flying = rc.is_flying()
-        climbing = rc.is_climbing()
-        swimming = rc.is_swimming()
-        start_time = time.time()
-        hasp = rc.has_paimon()
-        cost = time.time() - start_time
-        print('close', rc.has_ui_close_button())
         # rc.check_icon()
-        print(f'flying: {flying}, swimming: {swimming}, climbing: {climbing}, paimon, {hasp}, cost: {cost}')
+        # sc = rc.get_paimon_area()
+        # flying = rc.is_flying()
+        # climbing = rc.is_climbing()
+        # swimming = rc.is_swimming()
+        # start_time = time.time()
+        # hasp = rc.has_paimon()
+        # cost = time.time() - start_time
+        # print('close', rc.has_ui_close_button())
+        # rc.check_icon()
+
+        rc.get_team_current_number()
+        # print(f'flying: {flying}, swimming: {swimming}, climbing: {climbing}, paimon, {hasp}, cost: {cost}')
         # cv2.imshow('screenshot', sc)
-        key = cv2.waitKey(2)
-        if key == ord('q'):
-            break
+        # key = cv2.waitKey(2)
+        # if key == ord('q'):
+        #     break
     cv2.destroyAllWindows()
