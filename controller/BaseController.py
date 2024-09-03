@@ -223,6 +223,17 @@ class BaseController:
     def ms_release(self, button):
         self.__ms.release(button)
 
+    def camera_chage(self, dx:int ,dy:int, scroll:int=0):
+        """
+        相机视角改变
+        :param dx:
+        :param dy:
+        :param scroll:
+        :return:
+        """
+        wait_for_window()
+        win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, int(dx), int(dy), int(scroll), 0)
+
     def to_degree(self, degree):
         """
         将当前视角朝向转至多少度
@@ -232,7 +243,6 @@ class BaseController:
         if degree is None: return
         start = time.time()
         while capture.has_paimon():
-            wait_for_window()
             if time.time() - start > 5: break  # 避免超过5秒
             current_rotation = self.tracker.get_rotation()
             # 假设要求转向到45，获取的是60，则 degree - current_rotation = -15
@@ -269,14 +279,24 @@ class BaseController:
 
             if s > max_rate: s = max_rate
             # print(s)
-            win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
+            # win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
+            self.camera_chage(-direction*s, 0,0)
 
 
 if __name__ == '__main__':
     bc = BaseController()
+    time.sleep(1)
+    from random import randint
+
     for i in range(1,10):
-        bc.ms_middle_press()
-        time.sleep(1)
+        # 稍微动一下屏幕让模板匹配更容易成功
+        x = randint(-500,500)
+        y = randint(-500,500)
+        bc.camera_chage(x,y)
+        time.sleep(0.2)
+
+        # bc.ms_middle_press()
+    #     time.sleep(1)
     #     if i%2 == 0:
     #         bc.to_degree(-100)
     #     else:
