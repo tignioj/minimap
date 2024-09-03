@@ -25,7 +25,7 @@ class CustomFormatter(logging.Formatter):
     bold_red = '\x1b[31;1m'
     reset = '\x1b[0m'
 
-    def __init__(self, fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    def __init__(self, fmt='%(asctime)s - %(name)s:%(lineno)4d - %(levelname)s - %(message)s ',
                  datefmt='%Y-%m-%d %H:%M:%S', style='%'):
         super().__init__(fmt, datefmt)
         self.fmt = fmt
@@ -43,6 +43,9 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 class MyLogger(logging.Logger):
+    def error(self, msg, *args, exc_info=True, **kwargs):
+        # 设置默认开启输出堆栈信息
+        super().error(msg, *args, exc_info=exc_info, **kwargs)
     def __init__(self, name, level=logging.DEBUG, save_log=False):
         super().__init__(name, level)
 
@@ -58,7 +61,7 @@ class MyLogger(logging.Logger):
         formatter_console = CustomFormatter()
 
         formatter_file = logging.Formatter(
-            fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s  Line:%(lineno)d',
             datefmt='%m-%d %H:%M'
         )
 
