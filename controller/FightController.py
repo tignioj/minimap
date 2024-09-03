@@ -86,7 +86,7 @@ class FightController(BaseController):
     def get_character_number(self, name):
         return self.character_names.index(name) + 1
 
-    def people_fight(self, character_with_skills):
+    def character_fight(self, character_with_skills):
         # 切人
         character = character_with_skills['name']
         character_number = self.get_character_number(character)
@@ -134,13 +134,11 @@ class FightController(BaseController):
 
     def execute(self):
         for character_with_skill in self.characters_with_skills:
-            self.people_fight(character_with_skill)
+            self.character_fight(character_with_skill)
 
     def execute_infinity(self):
         try:
-            while not self.stop_fight:
-                for character_with_skill in self.characters_with_skills:
-                    self.people_fight(character_with_skill)
+            self.execute()
         except StopFightException as e:
             raise e
         finally:
