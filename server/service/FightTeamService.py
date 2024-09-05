@@ -1,4 +1,5 @@
 import os
+import threading
 
 from myutils.configutils import get_user_folder
 
@@ -101,7 +102,9 @@ class FightTeamService:
         files = os.listdir(self.team_folder_path)
         return {'default': default_team, 'files': files}
 
-    def run_teams(self, filename):
+    def run_teams_from_saved_file(self, filename):
+        from controller.BaseController import BaseController
+        BaseController.stop_listen = False
         if self.fight_controller:
             try: self.fight_controller.stop_fighting()
             except:pass
@@ -111,6 +114,8 @@ class FightTeamService:
         return f"成功运行{filename}"
 
     def stop_fighting(self):
+        from controller.BaseController import BaseController
+        BaseController.stop_listen = True
         if self.fight_controller:
             try: self.fight_controller.stop_fighting()
             except Exception as e:
@@ -136,4 +141,19 @@ class FightTeamService:
         except Exception as e:
             logger.exception(e,exc_info=True)
             raise FightTeamServiceException(f"设置默认队伍失败:{e.args}")
+
+    def run_teams_from_memory_text(self, filename, text):
+        from controller.BaseController import BaseController
+        BaseController.stop_listen = False
+        if self.fight_controller:
+            raise FightTeamServiceException("请先停止正在执行的脚本")
+            # try:
+            #     self.fight_controller.stop_fighting()
+            # except:pass
+        self.fight_controller = FightController(None, memory_mode=True)
+        team_name = self.fight_controller.get_teamname_from_string(filename)
+        characters = self.fight_controller.get_characters_from_string(filename)
+        self.fight_controller.load_characters_with_skills_from_memory(characters_name=characters, text=text, team_name=team_name)
+        self.fight_controller.start_fighting()
+        return f"正在从临时内容中运行{filename}"
 
