@@ -7,7 +7,7 @@ import time
 # 保存委托
 # 把所有的委托全部存起来，用json文件存放
 
-from BasePathExecutor2 import BasePathExecutor,Point, BasePath
+from myexecutor.BasePathExecutor2 import BasePathExecutor,Point, BasePath
 import os,cv2
 import numpy as np
 from typing import List
@@ -17,6 +17,8 @@ from matchmap.minimap_interface import MinimapInterface
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("daily_mission_executor")
 from server.BGIWebHook import BGIEventHandler
+from controller.FightController import FightController
+
 
 # 纯战斗
 
@@ -79,6 +81,9 @@ class DailyMissionPath(BasePath):
 class DailyMissionPathExecutor(BasePathExecutor):
     def __init__(self, json_file_path, debug_enable=None):
         super().__init__(json_file_path=json_file_path, debug_enable=debug_enable)
+        # self.fight_controller = FightController('那维莱特_莱伊拉_迪希雅_行秋(龙莱迪行).txt')
+        # self.fight_controller = FightController('那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt')
+        self.fight_controller = FightController(None)
 
     @staticmethod
     def load_basepath_from_json_file(json_file_path) -> DailyMissionPath:
@@ -232,12 +237,11 @@ class DailyMissionPathExecutor(BasePathExecutor):
                 logger.error(e)
                 continue
 
-
-    def on_execute_before(self):
+    def on_execute_before(self, from_index=None):
         self.base_path: DailyMissionPath
         if not self.base_path.enable:
             raise UnfinishedException("未完成路线，跳过")
-        super().on_execute_before()
+        super().on_execute_before(from_index=from_index)
 
     def start_fight(self):
         """
@@ -245,27 +249,23 @@ class DailyMissionPathExecutor(BasePathExecutor):
         :return:
         """
         self.log('按下快捷键开始自动战斗')
-        while not BGIEventHandler.is_fighting:
-            self.kb_press_and_release('`')
-            time.sleep(1)
+        self.fight_controller.start_fighting()
+
 
     def stop_fight(self):
         """
         进入战斗, 目前只能调用BGI的自动战斗, 这里我设置了快捷键
         :return:
         """
-        self.log('按下快捷键停止自动战斗')
-        while BGIEventHandler.is_fighting:
-            self.kb_press_and_release('`')
-            time.sleep(1)
+        self.fight_controller.stop_fighting()
 
     def wait_until_fight_finished(self):
         start_time = time.time()
         time.sleep(0.5)
         self.start_fight()
-        while time.time()-start_time < 25:
+        while time.time()-start_time < 40:
             time.sleep(1)
-            self.log(f"正在检测委托是否完成, 剩余{25-(time.time()-start_time)}秒")
+            self.log(f"正在检测委托是否完成, 剩余{40-(time.time()-start_time)}秒")
             if self.ocr.find_match_text('委托完成'):
                 break
         self.stop_fight()
@@ -352,7 +352,9 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
 if __name__ == '__main__':
     # pos = (1282.2781718749993, -5754.44564453125)
-    threading.Thread(target=BGIEventHandler.start_server).start()
+    # t = threading.Thread(target=BGIEventHandler.start_server)
+    # t.setDaemon(True)
+    # t.start()
     from controller.MapController2 import MapController
     mp = MapController()
     time.sleep(2)
@@ -365,5 +367,4 @@ if __name__ == '__main__':
     mp.zoom_out(-5000)
     time.sleep(0.5)
     DailyMissionPathExecutor.execute_all_mission()
-    BGIEventHandler.shutdown_server()
 
