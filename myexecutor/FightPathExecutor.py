@@ -3,27 +3,53 @@
 """
 import sys
 import time
-
-from myexecutor.BasePathExecutor2 import BasePathExecutor
-from server.BGIWebHook import BGIEventHandler
-import threading
+import json
+from myexecutor.BasePathExecutor2 import BasePathExecutor,BasePath, Point
+from typing import List
 from controller.FightController import FightController
 
+class FightPath(BasePath):
+    def __init__(self, name, country, positions: List[Point], anchor_name=None, fight_team=None):
+        super().__init__(name=name, country=country, positions=positions, anchor_name=anchor_name)
+        self.fight_team = fight_team
+class FightPoint(Point): pass
+
+from myutils.configutils import get_config, YAML_KEY_DEFAULT_FIGHT_TEAM, YAML_KEY_DEFAULT_FIGHT_DURATION
+
+
+class FightPathExecutorException(Exception):pass
 class FightPathExecutor(BasePathExecutor):
     def __init__(self, json_file_path, debug_enabled=None):
+        self.base_path:FightPath = None
         super().__init__(json_file_path=json_file_path, debug_enable=debug_enabled)
-        self.fight_controller = FightController()
+        self.fight_controller = FightController(self.base_path.fight_team)
+        self.fight_duration = get_config(YAML_KEY_DEFAULT_FIGHT_DURATION, 12)
+        if self.fight_duration < 1: self.fight_duration = 1
+        elif self.fight_duration > 1000: self.fight_duration = 1000
 
+    @staticmethod
+    def load_basepath_from_json_file(json_file_path) -> FightPath:
+        with open(json_file_path, encoding="utf-8") as r:
+            json_dict = json.load(r)
+            points: List[Point] = []
+            for point in json_dict.get('positions', []):
+                p = Point(x=point.get('x'),
+                          y=point.get('y'),
+                          type=point.get('type', Point.TYPE_PATH),
+                          move_mode=point.get('move_mode', Point.MOVE_MODE_NORMAL),
+                          action=point.get('action'))
+                points.append(p)
+                fight_team = json_dict.get('fight_team')
+                if fight_team is None: fight_team = get_config(YAML_KEY_DEFAULT_FIGHT_TEAM)
+                if fight_team is None: raise FightPathExecutorException("请先配置队伍!")
+            return FightPath(name=json_dict.get('name', 'undefined'),
+                            country=json_dict.get('country','蒙德'),
+                            positions=points,
+                            anchor_name=json_dict.get('anchor_name', '传送锚点'),
+                             fight_team=fight_team)
     def start_fight(self):
-        """
-        进入战斗, 目前只能调用BGI的自动战斗, 这里我设置了快捷键
-        :return:
-        """
-        self.log('按下快捷键开始自动战斗')
-        threading.Thread(target=self.fight_controller.execute_infinity).start()
-        # while not BGIEventHandler.is_fighting:
-        #     self.kb_press_and_release('`')
-        #     time.sleep(1)
+        self.log(f'按下快捷键开始自动战斗{self.fight_controller.team_name}')
+        self.fight_controller.start_fighting()
 
     def stop_fight(self):
         """
@@ -31,21 +57,16 @@ class FightPathExecutor(BasePathExecutor):
         :return:
         """
         self.log('按下快捷键停止自动战斗')
-        self.fight_controller.stop_fight = True
-        # while BGIEventHandler.is_fighting:
-        #     self.kb_press_and_release('`')
-        #     time.sleep(1)
+        self.fight_controller.stop_fighting()
 
     def on_nearby(self, coordinates):
         pass  #  啥也不干，屏蔽掉父类的疯狂f
 
     def wanye_pickup(self):
-        time.sleep(1)  # 等待脚本结束
         # 切万叶
         self.logger.debug("万叶拾取中")
         self.fight_controller.switch_character('枫原万叶')
         time.sleep(0.1)
-
         # 万叶长e
         self.logger.debug('万叶长e')
         self.kb_press('e')
@@ -65,7 +86,7 @@ class FightPathExecutor(BasePathExecutor):
     def on_move_after(self, point):
         if point.type == point.TYPE_TARGET:
             self.start_fight()
-            time.sleep(12)
+            time.sleep(self.fight_duration)
             self.stop_fight()
             time.sleep(0.1)
             self.wanye_pickup()
