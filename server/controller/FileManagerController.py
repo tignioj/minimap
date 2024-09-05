@@ -28,8 +28,9 @@ class FileManagerController(ServerBaseController):
             return FileManagerController.error(message=e.args)
     @staticmethod
     @filemanager_bp.post('/pathlist/save/<old_filename>')
-    def savejson(old_filename):
-        new_filename = request.args.get('new_filename')
+    def savejson(old_filename:str):
+        new_filename = request.args.get('new_filename', '').strip()
+        old_filename = old_filename.strip()
         data = request.json
         if data is None:
             return FileManagerController.error('空数据，无法保存！')
