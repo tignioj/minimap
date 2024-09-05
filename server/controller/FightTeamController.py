@@ -57,13 +57,26 @@ class FightTeamController(ServerBaseController):
             return FightTeamController.error(message=e.args)
 
 
+
+    # get方法，直接从文件读取战斗脚本
     @staticmethod
     @fight_team_bp.get('/fight_team/run/<filename>')
-    def get_run_fightteam(filename):
+    def run_fightteam_file(filename):
         try:
-            return FightTeamController.success(fightteam_service.run_teams(filename))
+            return FightTeamController.success(fightteam_service.run_teams_from_saved_file(filename))
         except (FileNotFoundError, FightTeamServiceException) as e:
             return FightTeamController.error(message=e.args)
+
+    # post方法，从请求中读取战斗脚本
+    @staticmethod
+    @fight_team_bp.post('/fight_team/run_memory/<filename>')
+    def run_fightteam_memory(filename):
+        try:
+            text_content = request.get_data(as_text=True)
+            return FightTeamController.success(fightteam_service.run_teams_from_memory_text(filename, text_content))
+        except (FileNotFoundError, FightTeamServiceException) as e:
+            return FightTeamController.error(message=e.args)
+
     @staticmethod
     @fight_team_bp.get('/fight_team/stop')
     def get_stop_fightteam():
