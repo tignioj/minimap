@@ -1,8 +1,6 @@
 from flask import Flask, request, jsonify, send_file, render_template
 from myutils.configutils import get_config
 import logging
-
-logging.getLogger('werkzeug').setLevel(logging.WARNING)
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from pynput.keyboard import Listener
@@ -13,6 +11,7 @@ from server.controller.PlayBackController import playback_bp
 from server.controller.FileManagerController import filemanager_bp
 from server.controller.ConfigController import config_bp
 from server.controller.MiniMapController import minimap_bp
+from server.controller.FightTeamController import fight_team_bp
 
 from engineio.async_drivers import threading  # pyinstaller打包flask的时候要导入
 
@@ -37,7 +36,9 @@ def _on_press(key):
     socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
 
 def _on_release(key):
-    socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': key})
+    try: c = key.char
+    except AttributeError: c = key.name
+    socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
 
 
 
@@ -66,6 +67,7 @@ def create_app():
     app.register_blueprint(filemanager_bp)
     app.register_blueprint(config_bp)
     app.register_blueprint(minimap_bp)
+    app.register_blueprint(fight_team_bp)
 
     return app
 
@@ -73,6 +75,7 @@ def create_app():
 import webbrowser as w
 
 if __name__ == '__main__':
+    logging.getLogger('werkzeug').setLevel(logging.WARNING)
     schema = 'http'
     url = f'{schema}://{host}:{port}'
     w.open(f'{url}')
