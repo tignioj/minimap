@@ -12,7 +12,7 @@ minimap_bp = Blueprint('minimap', __name__)
 minimap = MiniMap()
 large_map = minimap.map_2048['img']
 minimap.get_position()
-rotate = RotationGIA(True)
+rotate = RotationGIA(False)
 capture.add_observer(rotate)
 capture.add_observer(minimap)
 
