@@ -12,28 +12,26 @@ PyCharm需要用管理员方式启动，否则游戏内输入无效！
 """
 
 import logging
-from datetime import datetime
 from mylogger.MyLogger3 import MyLogger
 import win32api, win32con
 from matchmap.minimap_interface import MinimapInterface
-# from capture.genshin_capture import GenShinCapture
 from capture.capture_factory import capture
 from myutils.configutils import get_config
 logger = MyLogger('BaseController')
 
+class StopListenException(Exception): pass
+
 def wait_for_window():
     if BaseController.stop_listen:
-        logger.debug('你停止运行了')
-        # handler.ms_listener.stop()
-        # handler.kb_listener.stop()
-        sys.exit(0)
+        logger.debug('停止监听')
+        raise StopListenException('停止监听')
+        # sys.exit(0)
 
     while not capture.is_active():
         if BaseController.stop_listen:
-            logger.debug('你停止运行了')
-            # handler.ms_listener.stop()
-            # handler.kb_listener.stop()
-            sys.exit(0)
+            logger.debug('停止监听')
+            raise StopListenException('停止监听')
+            # sys.exit(0)  # 会导致当前线程直接关闭
         logger.debug('不是原神窗口，暂停运行')
         time.sleep(1)
 
@@ -272,13 +270,15 @@ class BaseController:
                     direction = -direction
 
             # print(f"current: {current_rotation}, target{degree},diff{diff}, 转向:{direction}, 转动距离:{s}")
+            if s < 10: return
+
             s = s * 2
             max_rate = get_config('change_rotation_max_speed', 200)
-            if max_rate > 800: max_rate = 800
+            if max_rate > 1000: max_rate = 1000
             elif max_rate < 200: max_rate = 200
 
             if s > max_rate: s = max_rate
-            # print(s)
+            # if s<20: s = 20
             # win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
             self.camera_chage(-direction*s, 0,0)
 
@@ -290,17 +290,17 @@ if __name__ == '__main__':
 
     for i in range(1,10):
         # 稍微动一下屏幕让模板匹配更容易成功
-        x = randint(-500,500)
-        y = randint(-500,500)
-        bc.camera_chage(x,y)
-        time.sleep(0.2)
+        # x = randint(-500,500)
+        # y = randint(-500,500)
+        # bc.camera_chage(x,y)
+        # time.sleep(0.2)
 
         # bc.ms_middle_press()
-    #     time.sleep(1)
-    #     if i%2 == 0:
-    #         bc.to_degree(-100)
-    #     else:
-    #         bc.to_degree(100)
+        time.sleep(1)
+        if i%2 == 0:
+            bc.to_degree(-170)
+        else:
+            bc.to_degree(170)
     #     time.sleep(2)
 
     # Logger.log("good", instance=BaseController)
