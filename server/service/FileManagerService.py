@@ -1,11 +1,12 @@
 import json
 import os
+import re
 
 from flask import request
 
 import mylogger.MyLogger3
 from myutils.configutils import resource_path
-from myutils.jsonutils import getjson_path_byname
+from myutils.fileutils import getjson_path_byname, is_valid_directory_name, FolderNameException
 from server.service.TodoService import TodoService
 logger = mylogger.MyLogger3.MyLogger('filemanager_service')
 
@@ -51,10 +52,18 @@ class FileManagerService:
         # 删除旧数据，保存新数据
         old_filename_path = getjson_path_byname(old_filename)
         if data is None: raise FileManagerServiceException('空数据，无法保存')
+        if not new_filename or not new_filename.strip().endswith('.json'):
+            raise FileManagerServiceException('文件名称异常')
 
         # 尝试从文件名提取目录
         filename_split = new_filename.split('_')
         extract_folder = filename_split[0]
+        # 目录名称校验，禁止使用路径分隔符号
+        try:
+            is_valid_directory_name(extract_folder)
+        except FolderNameException as e:
+            raise FileManagerServiceException(e.args)
+
         # 如果提取到目录, 则检查目录是否存在, 不存在则创建
         extract_folder_path = os.path.join(resource_path, 'pathlist', extract_folder)
         if not os.path.exists(extract_folder_path):
@@ -69,7 +78,7 @@ class FileManagerService:
 
         # 删除旧数据
         if old_filename != new_filename:
-            if os.path.exists(old_filename_path):
+            if os.path.exists(old_filename_path) and old_filename_path.endswith(".json"):
                 logger.debug(f'删掉旧文件{old_filename_path}')
                 os.remove(old_filename_path)
 
