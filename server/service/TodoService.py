@@ -5,7 +5,7 @@ from threading import Lock, Thread
 from controller.BaseController import BaseController
 from server.service.PlayBackService import PlayBackService
 from myutils.configutils import get_user_folder
-from myutils.jsonutils import getjson_path_byname
+from myutils.fileutils import getjson_path_byname
 
 
 class TodoException(Exception):pass
@@ -15,7 +15,7 @@ todo_runner_lock = Lock()
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger('todo_service')
 
-
+from server.service.PlayBackService import SOCKET_EVENT_PLAYBACK_EXCEPTION, SOCKET_EVENT_PLAYBACK_END, SOCKET_EVENT_PLAYBACK_UPDATE, SOCKET_EVENT_PLAYBACK_START
 class TodoService:
     _is_thread_todo_running = False
 
@@ -36,13 +36,15 @@ class TodoService:
         return json_file_set
 
     @staticmethod
-    def _thread_todo_runner(todo_json=None):
+    def _thread_todo_runner(todo_json=None, socketio_instance=None):
         with todo_runner_lock:  # 子线程嵌套时，不要用同一个锁！
-
             if TodoService._is_thread_todo_running or PlayBackService.playing_thread_running:
-                logger.error("已经有清单线程正在执行中，不要重复创建线程！")
+                msg = "已经有清单线程正在执行中，不要重复创建线程！"
+                logger.error(msg)
+                socketio_instance.emit(SOCKET_EVENT_PLAYBACK_EXCEPTION, msg)
                 return
             try:
+                TodoService._is_thread_todo_running = True
                 if todo_json:
                     json_file_set = TodoService.get_unrepeated_file(todo_json)
                 else:
@@ -66,16 +68,21 @@ class TodoService:
                             BaseController.stop_listen = True
                             return
 
+                    if not TodoService._is_thread_todo_running:
+                        logger.debug("停止执行清单")
+                        BaseController.stop_listen = True
+                        return
+
                     with open(json_file_path, 'r', encoding='utf8') as f:
                         json_dict = json.load(f)
-                    PlayBackService.playback_runner(json_dict)
+                    PlayBackService.playback_runner(json_dict, socketio_instance=socketio_instance)
             finally:
                 TodoService._is_thread_todo_running = False
                 logger.debug('结束执行清单了')
-                # socket_emit(SOCKET_EVENT_PLAYBACK, msg='结束执行清单了')
+                socketio_instance.emit(SOCKET_EVENT_PLAYBACK_END, '结束执行清单了')
 
     @staticmethod
-    def todo_run(todo_json):
+    def todo_run(todo_json, socketio_instance=None):
         # # 每次请求是不同的线程，意味着可能存在资源共享问题
         if not TodoService._is_thread_todo_running:
             files = TodoService.get_unrepeated_file(todo_json)
@@ -83,8 +90,7 @@ class TodoService:
                 raise TodoExecuteException('空清单，无法执行')
 
             BaseController.stop_listen = False
-
-            Thread(target=TodoService._thread_todo_runner, args=(todo_json,)).start()
+            Thread(target=TodoService._thread_todo_runner, args=(todo_json, socketio_instance)).start()
             return True
         else:
             raise TodoExecuteException('已经有线程执行清单中')

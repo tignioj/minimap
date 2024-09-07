@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from threading import Thread
 import os
 
@@ -31,7 +31,8 @@ class TodoController(ServerBaseController):
     def todo_run():
         todo_json = request.get_json()
         try:
-            TodoService.todo_run(todo_json)
+            socketio_instance = current_app.extensions['socketio']
+            TodoService.todo_run(todo_json, socketio_instance=socketio_instance)
             return TodoController.success(message='成功执行')
         except TodoExecuteException as e:
             return TodoController.error(e.args)
