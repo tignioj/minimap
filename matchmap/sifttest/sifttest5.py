@@ -12,6 +12,12 @@ gs = capture
 from mylogger.MyLogger3 import MyLogger
 import threading
 
+# TODO: 优化思路：
+# 可以把每个国家的地图分割开，以后版本也不用动以前的地图。
+# 记录：记录时，必须传入国家或者地区名称，然后匹配器根据名称加载对应的大地图进行全局匹配。
+# 鼠标点击某个国家时，一定会有一个确定的中心点，往后记录的点位路径都以此为中心
+# 回放时，根据记录的
+
 class MiniMap:
     def __init__(self, debug_enable=None):
         """
@@ -333,7 +339,7 @@ class MiniMap:
             self.logger.debug("线程正在执行缓存中，请稍后再获取")
             return False
     def __position_out_of_local_map_range(self, pos):
-        threshold = 100
+        threshold = 150
         max_pos = self.local_map_size - threshold
         return pos[0] < threshold or pos[1] < threshold or pos[0] > max_pos or pos[1] > max_pos
 
