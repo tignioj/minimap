@@ -4,28 +4,36 @@
 import sys
 import time
 import json
-from myexecutor.BasePathExecutor2 import BasePathExecutor,BasePath, Point
+from myexecutor.BasePathExecutor2 import BasePathExecutor, BasePath, Point
 from typing import List
 from controller.FightController import FightController
+
 
 class FightPath(BasePath):
     def __init__(self, name, country, positions: List[Point], anchor_name=None, fight_team=None):
         super().__init__(name=name, country=country, positions=positions, anchor_name=anchor_name)
         self.fight_team = fight_team
+
+
 class FightPoint(Point): pass
+
 
 from myutils.configutils import get_config, YAML_KEY_DEFAULT_FIGHT_TEAM, YAML_KEY_DEFAULT_FIGHT_DURATION
 
 
-class FightPathExecutorException(Exception):pass
+class FightPathExecutorException(Exception): pass
+
+
 class FightPathExecutor(BasePathExecutor):
     def __init__(self, json_file_path, debug_enabled=None):
-        self.base_path:FightPath = None
+        self.base_path: FightPath = None
         super().__init__(json_file_path=json_file_path, debug_enable=debug_enabled)
         self.fight_controller = FightController(self.base_path.fight_team)
         self.fight_duration = get_config(YAML_KEY_DEFAULT_FIGHT_DURATION, 12)
-        if self.fight_duration < 1: self.fight_duration = 1
-        elif self.fight_duration > 1000: self.fight_duration = 1000
+        if self.fight_duration < 1:
+            self.fight_duration = 1
+        elif self.fight_duration > 1000:
+            self.fight_duration = 1000
 
     @staticmethod
     def load_basepath_from_json_file(json_file_path) -> FightPath:
@@ -43,10 +51,11 @@ class FightPathExecutor(BasePathExecutor):
                 if fight_team is None: fight_team = get_config(YAML_KEY_DEFAULT_FIGHT_TEAM)
                 if fight_team is None: raise FightPathExecutorException("请先配置队伍!")
             return FightPath(name=json_dict.get('name', 'undefined'),
-                            country=json_dict.get('country','蒙德'),
-                            positions=points,
-                            anchor_name=json_dict.get('anchor_name', '传送锚点'),
+                             country=json_dict.get('country', '蒙德'),
+                             positions=points,
+                             anchor_name=json_dict.get('anchor_name', '传送锚点'),
                              fight_team=fight_team)
+
     def start_fight(self):
         self.log(f'按下快捷键开始自动战斗{self.fight_controller.team_name}')
         self.fight_controller.start_fighting()
@@ -60,7 +69,7 @@ class FightPathExecutor(BasePathExecutor):
         self.fight_controller.stop_fighting()
 
     def on_nearby(self, coordinates):
-        pass  #  啥也不干，屏蔽掉父类的疯狂f
+        pass  # 啥也不干，屏蔽掉父类的疯狂f
 
     def wanye_pickup(self):
         # 切万叶
@@ -69,15 +78,10 @@ class FightPathExecutor(BasePathExecutor):
         time.sleep(0.1)
         # 万叶长e
         self.logger.debug('万叶长e')
-        self.kb_press('e')
-        time.sleep(1)
-        self.kb_release('e')
+        self.fight_controller.fight_mapper.e(hold=True)
         # 下落攻击
-        time.sleep(0.02)
-        self.mouse_left_click()  # 不知道为什么有时候下落攻击失败，多a几次
-        time.sleep(0.02)
-        self.mouse_left_click()
-        time.sleep(0.2)
+        # 不知道为什么有时候下落攻击失败，多a几次
+        self.fight_controller.fight_mapper.attack(0.4)
         for i in range(25):  # 疯狂f
             time.sleep(0.1)
             self.crazy_f()
@@ -99,9 +103,9 @@ class FightPathExecutor(BasePathExecutor):
         # t.start()
 
 
-
 if __name__ == '__main__':
-    from myutils.jsonutils import getjson_path_byname
+    from myutils.fileutils import getjson_path_byname
+
     # FightPathExecutor(getjson_path_byname('丘丘萨满_望风角_蒙德_3个_20240821_204922.json')).execute()
     # FightPathExecutor(getjson_path_byname('丘丘萨满_望风山地_蒙德_2个_20240822_000003.json')).execute()
     # FightPathExecutor(getjson_path_byname('丘丘萨满_望风山地2_蒙德_2个_20240822_001412.json')).execute()
@@ -117,4 +121,3 @@ if __name__ == '__main__':
     FightPathExecutor(getjson_path_byname('丘丘萨满_清泉镇左下_蒙德_2个_20240822_130931.json')).execute()
     FightPathExecutor(getjson_path_byname('丘丘萨满_奔狼领右_蒙德_2个_20240822_132055.json')).execute()
     FightPathExecutor(getjson_path_byname('丘丘萨满_奔狼领右上_蒙德_1个_20240822_132448.json')).execute()
-
