@@ -64,11 +64,12 @@ class OCRController(BaseController):
             if result is not None:
                 for idx in range(len(result)):
                     res = result[idx]
-                    for line in res:
+                    if res is None: continue
+                    for line in res:  # NoneType object is not iterable
                         if target_text in line[1][0]:
                             if match_all and target_text != line[1][0]: continue
                             match_texts.append(line)
-        except TypeError as e:
+        except Exception as e:
             self.logger.error(e)
         return match_texts
     def find_text_and_click(self, target_text, match_all=False, index=0, click_all=False):
