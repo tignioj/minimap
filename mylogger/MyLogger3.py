@@ -16,8 +16,8 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout),
     ])
 
-class CustomFormatter(logging.Formatter):
 
+class CustomFormatter(logging.Formatter):
     grey = '\x1b[38;21m'
     blue = '\x1b[38;5;39m'
     yellow = '\x1b[38;5;226m'
@@ -42,10 +42,16 @@ class CustomFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt, datefmt=self.datefmt)
         return formatter.format(record)
 
+
 class MyLogger(logging.Logger):
-    def error(self, msg, *args, exc_info=True, **kwargs):
+    # def error(self, msg, *args, exc_info=True, **kwargs):
+    #     设置默认开启输出堆栈信息
+    # super().error(msg, *args, exc_info=exc_info, **kwargs)
+
+    def exception(self, msg, *args, exc_info=True, **kwargs):
         # 设置默认开启输出堆栈信息
-        super().error(msg, *args, exc_info=exc_info, **kwargs)
+        super().exception(msg, *args, exc_info=exc_info, **kwargs)
+
     def __init__(self, name, level=logging.DEBUG, save_log=False):
         super().__init__(name, level)
 
@@ -55,7 +61,7 @@ class MyLogger(logging.Logger):
         console_handler = logging.StreamHandler(sys.stdout)  # 不传入参数默认是stderr，输出红色
         self.addHandler(console_handler)
         console_handler.setLevel(level)
-        max_byte = 5*1024*1024
+        max_byte = 5 * 1024 * 1024
 
         # 格式化显示
         formatter_console = CustomFormatter()
@@ -79,13 +85,15 @@ class MyLogger(logging.Logger):
             err_filename = f"{__err_path}/{timestr}.log"
             info_filename = f"{__info_path}/{timestr}.log"
 
-            file_handler = RotatingFileHandler(err_filename, mode="a", encoding="utf-8", maxBytes=max_byte, backupCount=10)
+            file_handler = RotatingFileHandler(err_filename, mode="a", encoding="utf-8", maxBytes=max_byte,
+                                               backupCount=10)
             file_handler.setLevel(logging.ERROR)  # 仅保存错误级别以上的日志
             self.addHandler(file_handler)
             file_handler.setFormatter(formatter_file)
 
             # 普通日志文件
-            info_file_handler = RotatingFileHandler(info_filename, mode="a", encoding="utf-8", maxBytes=max_byte, backupCount=10)
+            info_file_handler = RotatingFileHandler(info_filename, mode="a", encoding="utf-8", maxBytes=max_byte,
+                                                    backupCount=10)
             info_file_handler.setLevel(logging.INFO)  # 仅INFO级别以上的日志
             info_file_handler.setFormatter(formatter_file)
             self.addHandler(info_file_handler)
@@ -94,9 +102,8 @@ class MyLogger(logging.Logger):
         console_handler.setFormatter(formatter_console)
 
 
-
 if __name__ == '__main__':
-    mylogger = MyLogger('mylogger', level=logging.DEBUG,save_log=False)
+    mylogger = MyLogger('mylogger', level=logging.DEBUG, save_log=False)
     n = 20
     while n > 0:
         n -= 1
@@ -107,8 +114,8 @@ if __name__ == '__main__':
         mylogger.critical('critical')
 
         try:
-            a,b = 1,0
-            res = a/b
+            a, b = 1, 0
+            res = a / b
         except ZeroDivisionError:
             mylogger.error('division by zero', exc_info=True)  # 保留堆栈信息
             # mylogger.exception('division by zero')  # 正常处理
