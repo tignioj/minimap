@@ -12,6 +12,7 @@ from server.controller.FileManagerController import filemanager_bp
 from server.controller.ConfigController import config_bp
 from server.controller.MiniMapController import minimap_bp
 from server.controller.FightTeamController import fight_team_bp
+from server.controller.ServerOCRController import ocr_bp
 
 from engineio.async_drivers import threading  # pyinstaller打包flask的时候要导入
 
@@ -41,15 +42,9 @@ def _on_release(key):
     socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
 
 
-
 # socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="http://localhost:63343")
 kb_listener = Listener(on_press=_on_press)
 kb_listener.start()
-
-# ########################  界面
-# @app.route('/')
-# def index():
-#     return render_template('scriptmanager.html')
 #
 # @app.route('/new')
 # def new_pathlist():
@@ -68,6 +63,8 @@ def create_app():
     app.register_blueprint(config_bp)
     app.register_blueprint(minimap_bp)
     app.register_blueprint(fight_team_bp)
+    app.register_blueprint(ocr_bp)
+
 
     return app
 
@@ -81,5 +78,13 @@ if __name__ == '__main__':
     w.open(f'{url}')
     # app.run(host=host, port=port, debug=False)
     app = create_app()
+
+    # ########################  界面
+    @app.route('/')
+    def index():
+        return render_template('index.html')
+    @app.route('/assests')
+    def assests():
+        return render_template('')
     socketio_instance.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
     # app.run(port=5000,debug=False)

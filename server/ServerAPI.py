@@ -30,7 +30,12 @@ gs = capture
 def get_ocr_result():
     response = requests.get(f"{ocr_url}/ocr")
     if response.status_code == 200:
-        return response.json()
+        result = response.json()
+        if result['success']:
+            return result['data']
+        else:
+            logger.error(result['message'])
+            return None
     else:
         return None
 
@@ -123,16 +128,16 @@ if __name__ == '__main__':
     # create_cached_local_map(use_middle_map=False)
     # create_cached_local_map((-7211.3272, -10996.9493))
     # create_cached_local_map((1114,-3508.5))
-    create_cached_local_map((-3786, 1154))
-    # while True:
+    # create_cached_local_map((-3786, 1154))
+    while True:
     #     time.sleep(0.05)
-    #     start = time.time()
+        start = time.time()
     #     pos = position()
-    #     rot = rotation()
+        rot = rotation()
     #     # get_ocr_result()
-    #     cost = time.time() - start
+        cost = time.time() - start
     #     print(f'pos {pos},rotation {rot}, time cost{cost}')
-        # print(f'rotation is {rot},  cost: {cost}')
+        print(f'rotation is {rot},  cost: {cost}')
 
     # import threading
     # for i in range(10):
