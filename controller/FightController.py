@@ -6,6 +6,7 @@ import time
 # 战斗
 from controller.BaseController import BaseController
 from fightmapper.FightMapperImpl import FightMapperImpl
+from controller.BaseController import StopListenException
 
 
 # e:2  e长按两秒
@@ -130,6 +131,7 @@ class FightController(BaseController):
 
     def get_character_number(self, name):
         if name not in self.characters_name:
+            # TODO： 子线程的异常如何捕捉？
             raise StopFightException(f"你指定的角色{name}不在队伍${self.characters_name}中")
         return self.characters_name.index(name) + 1
 
@@ -139,7 +141,7 @@ class FightController(BaseController):
         character_number = self.get_character_number(character)
         skills = character_with_skills['skills']
         # 释放技能
-        print(f'character{character}, num {character_number}, skills {skills}')
+        self.logger.debug(f'character{character}, num {character_number}, skills {skills}')
         while not self.switch_character(character): time.sleep(0.1)
         self.current_character = character
         self.fight_mapper.character_name = character
@@ -188,12 +190,12 @@ class FightController(BaseController):
                 self.execute()
         except StopFightException as e:
             self.logger.debug(e.args)
-        finally:
             # 打断所有动作， 恢复状态
-            if self.current_character == '散兵':
+            if self.current_character == '散兵' or self.current_character == '流浪者':
                 # 连续按2次e避免还在空中
+                self.gc.is_flying()
                 self.kb_press_and_release('e')
-                time.sleep(0.6)
+                time.sleep(0.5)
                 self.kb_press_and_release('e')
                 time.sleep(0.1)
 
@@ -201,6 +203,8 @@ class FightController(BaseController):
             self.kb_press_and_release(self.Key.space)
             self.current_character = None
             self.team_name = None
+        except StopListenException as e:
+            self.logger.debug(e.args)
 
     def start_fighting(self):
         self.stop_fight = False
@@ -236,21 +240,20 @@ if __name__ == '__main__':
     # file_name = '那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt'
     file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
     fc = FightController(file_name)
-    # def _on_press(key):
-    #     try:
-    #         if key.char == '`':
-    #             if fc.stop_fight:
-    #                 fc.start_fighting()
-    #             else:
-    #                 fc.stop_fighting()
-    #     except AttributeError as e:
-    #         pass
-    #
-    # l = Listener(on_press=_on_press)
-    # l.start()
-    # l.join()
+    def _on_press(key):
+        try:
+            if key.char == '`':
+                fc.start_fighting()
+            elif key.char == '~':
+                fc.stop_fighting()
+        except AttributeError as e:
+            pass
 
-    # time.sleep(12)
-    # print('等待结束中', time.time())
-    # fc.stop_fighting()
-    # print('结束了', time.time())
+    l = Listener(on_press=_on_press)
+    l.start()
+    l.join()
+
+    time.sleep(12)
+    print('等待结束中', time.time())
+    fc.stop_fighting()
+    print('结束了', time.time())
