@@ -20,10 +20,10 @@ logger = MyLogger('path_executor', level=logging.DEBUG, save_log=True)
 
 
 # 已知问题：
-# TODO 1. 游泳点位概率出现原地转圈
+# TODO 1. 概率出现原地转圈(超出局部匹配问题)
 # 距离点位越进, 角度变化幅度越大
 # TODO 2: 目标点附近如果有npc，可能会导致进入对话
-# Todo 3: 位置突变异常不要仅判断一个点，应该收集多个点后去掉最值求平均后判断
+# Todo 3: [紧急] 位置突变异常不要仅判断一个点，应该收集多个点后去掉最值求平均后判断
 
 class EmptyPathException(Exception): pass
 
@@ -292,9 +292,9 @@ class BasePathExecutor(BaseController):
         :param next_point:
         :return:
         """
-        self.logger.debug(f'接近点位{self.next_point}了')
+        self.logger.debug(f'接近点位{self.next_point}了, 当前{coordinates}')
         if self.enable_crazy_f:
-            self.debug('疯狂按下f')
+            # self.debug('疯狂按下f')
             self.crazy_f()
 
     def do_action_if_moving_stuck(self):
@@ -324,12 +324,18 @@ class BasePathExecutor(BaseController):
 
     def __do_move(self, coordinates, point_start_time):
         # 开技能
+        td = time.time()
         if self.enable_loop_press_z: self.rate_limiter_press_z.execute(self.kb_press_and_release, 'z')
         if self.enable_loop_press_e: self.rate_limiter_press_e.execute(self.kb_press_and_release, 'e')
 
         # 限制1秒钟只能执行1次，这样就能记录每一秒的位移
         self.rate_limiter1_history.execute(self.position_history.append, self.current_coordinate)
         total_displacement = self.calculate_history_total_displacement()  # 8秒内的位移
+
+        if time.time() - td > 1:
+            self.logger.debug(f'开技能与计算位移耗时{time.time() - td}')
+        td = time.time()
+
         if total_displacement < self.stuck_movement_threshold:
             self.stuck_before_position = coordinates
             raise MovingStuckException(f"8秒内位移总值为{total_displacement}, 判定为卡住了！")
@@ -353,8 +359,12 @@ class BasePathExecutor(BaseController):
                 self.logger.error('你似乎打转了！')
                 # 强制小碎步
                 self.rate_limiter_small_step_release_w.execute(self.kb_press_and_release, 'w')
-            self.to_degree(self.get_next_point_rotation(coordinates))
+            self.to_degree(self.get_next_point_rotation(coordinates))  # 可能会阻塞比较久(<5s)
         # 前进: 注意要先转向后再前进，否则可能会出错
+
+        if time.time() - td > 1:
+            self.logger.debug(f'转向耗时{time.time() - td}')
+        td = time.time()
 
         # 小碎步实现方法：先按下w等待一小段时间再松开w，反复循环
         # 小碎步的条件：当和目标点差距8个像素时候，就认为符合最基本条件
@@ -368,6 +378,9 @@ class BasePathExecutor(BaseController):
 
         if nearby or nearby_last_point: self.on_nearby(coordinates)
 
+        if time.time() - td > 1:
+            self.logger.debug(f'onnearby耗时{time.time() - td}')
+
         # 不是游泳状态但是设置了游泳模式，同样允许小碎步
         swimming = self.gc.is_swimming() and self.next_point.MOVE_MODE_SWIM
         small_step_enable = (nearby and self.allow_small_steps
@@ -377,6 +390,7 @@ class BasePathExecutor(BaseController):
         self.kb_press("w")
         # 按照一定的频率松开w实现小碎步
         if small_step_enable: self.rate_limiter_small_step_release_w.execute(self.kb_press_and_release, 'w')
+        # self.logger.debug(f'小碎步耗时{td - point_start_time}')
 
     def is_nearby_path_point(self):
         """
@@ -415,6 +429,7 @@ class BasePathExecutor(BaseController):
         while not self.is_nearby_path_point() and not self.is_nearby_target_point():
             if self.stop_listen: return
             try:
+                step_cost = time.time()
                 # 当前点位和历史点位差距过大, 可能死亡导致被传送
                 # 游戏特性: 死亡后可能传送到附近,也可能传送到最近一次传送的锚点(非距离最近锚点)
                 if len(self.position_history) > 1:
@@ -425,18 +440,26 @@ class BasePathExecutor(BaseController):
                         self.debug(msg)
                         raise MovingPositionMutationException(msg)
 
-                self.__do_move(next_point_coordinate, point_start_time)  # 走一步
+                self.__do_move(next_point_coordinate, point_start_time)  # 走一步，转向可能阻塞(<5s)
+                if time.time()-step_cost > 3:
+                    self.logger.debug(f'__do_move耗时{time.time()-step_cost}')
+                step_cost = time.time()
 
                 if self.next_point.move_mode == Point.MOVE_MODE_FLY:
                     if not self.gc.is_flying(): self.rate_limiter_fly.execute(self.kb_press_and_release, self.Key.space)
 
                 # 以下的行为可能会导致冲过头,因此设定一个阈值,超过该距离才允许执行
-                elif not point1_near_by_point2(self.current_coordinate, next_point_coordinate, 20):
-                    # 冲刺
-                    if self.enable_dash: self.rate_limiter_press_dash.execute(self.mouse_right_click)
-                    # 跳跃
-                    if self.enable_loop_jump or self.next_point.move_mode == Point.MOVE_MODE_JUMP: self.rate_limiter_press_jump.execute(
-                        self.kb_press_and_release, self.Key.space)
+                # 冲刺
+                if self.enable_dash:
+                    if not point1_near_by_point2(self.current_coordinate, next_point_coordinate, 20):
+                        self.rate_limiter_press_dash.execute(self.mouse_right_click)
+                # 跳跃(阈值稍微小一点)
+                if self.enable_loop_jump or self.next_point.move_mode == Point.MOVE_MODE_JUMP:
+                    if not point1_near_by_point2(self.current_coordinate, next_point_coordinate, 10):
+                        self.rate_limiter_press_jump.execute(self.kb_press_and_release, self.Key.space)
+
+                if time.time()-step_cost > 3:
+                    self.logger.debug(f'跳跃_冲刺 耗时{time.time()-step_cost}')
 
             except MovingStuckException as e:
                 self.logger.error(e)
@@ -700,7 +723,7 @@ def execute_all():
 if __name__ == '__main__':
     # 测试点位
     import os
-    from myutils.jsonutils import getjson_path_byname
+    from myutils.fileutils import getjson_path_byname
 
     # execute_one(getjson_path_byname('风车菊_蒙德_8个_20240814_101536.json'))
     # execute_one(getjson_path_byname('jiuguan_蒙德_wfsd_20240808.json'))
