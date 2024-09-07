@@ -13,24 +13,12 @@ class BaseFightMapper(BaseController):
 
     def wait(self, duration):
         """
-        等待持续时间
-        :param duration: 秒
-        :return:
+        等待
+        :param duration: required, 等待持续时间
+        :return: success: 是否成功
         """
         time.sleep(float(duration))
 
-    def walk(self, direction, duration):
-        """
-        行走
-        :param direction: w|s|a|d 向四个方向行走
-        :param duration: 走多少秒
-        :return:
-        """
-        if not duration:
-            raise FightException('walk必须要有时间参数！')
-        self.kb_press(direction)
-        time.sleep(float(duration))
-        self.kb_release(direction)
 
     def j(self):
         """
@@ -48,7 +36,7 @@ class BaseFightMapper(BaseController):
 
     def dash(self, duration=None):
         """
-        向角色面前方向冲刺
+        冲刺
         :param duration: 冲刺时长
         :return:
         """
@@ -59,18 +47,11 @@ class BaseFightMapper(BaseController):
     def e(self, hold=None):
         """
         元素战技
+        
         :param hold: 传入hold则表示长按，不传参数则短按.注：纳西妲长按会自动转圈
         :return:
         """
         self.skill(hold)
-
-    def q(self):
-        """
-        元素爆发, burst的简写
-        :return:
-        """
-        self.burst()
-
     def skill(self, hold=None):
         """
         元素战技, 可以用字符'e'简写
@@ -80,37 +61,12 @@ class BaseFightMapper(BaseController):
         self.kb_press('e')
         if hold: time.sleep(1)
         self.kb_release('e')
-
-    def w(self, duration):
+    def q(self):
         """
-        向前面行走
-        :param duration: 持续时间
+        元素爆发, burst的简写
         :return:
         """
-        self.walk('w', duration=duration)
-    def s(self, duration):
-        """
-        向后面行走
-        :param duration: 持续时间
-        :return:
-        """
-        self.walk('s', duration=duration)
-    def a(self, duration):
-        """
-        向左边行走
-        :param duration: 持续时间
-        :return:
-        """
-        self.walk('a', duration=duration)
-    def d(self, duration):
-        """
-        向右边行走
-        :param duration:  持续时间
-        :return:
-        """
-        self.walk('d', duration=duration)
-
-
+        self.burst()
     def burst(self):
         """
         元素爆发,可以用q简写
@@ -118,10 +74,53 @@ class BaseFightMapper(BaseController):
         """
         self.kb_press_and_release('q')
 
+    def walk(self, direction, duration):
+        """
+        行走
+        :param direction: required, w|s|a|d 向四个方向行走
+        :param duration: required, 持续走多少秒
+        :return:
+        """
+        if not duration:
+            raise FightException('walk必须要有时间参数！')
+        self.kb_press(direction)
+        time.sleep(float(duration))
+        self.kb_release(direction)
+
+    def w(self, duration):
+        """
+        向前面行走
+        :param duration: required, 持续时间
+        :return:
+        """
+        self.walk('w', duration=duration)
+    def s(self, duration):
+        """
+        向后面行走
+        :param duration: required, 持续时间
+        :return:
+        """
+        self.walk('s', duration=duration)
+    def a(self, duration):
+        """
+        向左边行走
+        :param duration: required, 持续时间
+        :return:
+        """
+        self.walk('a', duration=duration)
+    def d(self, duration):
+        """
+        向右边行走
+        :param duration: required, 持续时间
+        :return:
+        """
+        self.walk('d', duration=duration)
+
+
     def attack(self, duration=None):
         """
-        攻击
-        :param duration: 持续攻击多少秒, 0.2秒攻击一次
+        连续攻击(秒). 0.2秒攻击一次
+        :param duration: 持续时长
         :return:
         """
         self.mouse_left_click()
@@ -130,13 +129,11 @@ class BaseFightMapper(BaseController):
             while time.time() - start < float(duration):
                 time.sleep(0.2)
                 self.mouse_left_click()
-        else:
-            time.sleep(0.2)
 
     def charge(self, duration=None):
         """
         重击，即长按攻击
-        :param duration: 长按攻击时长
+        :param duration: 持续时长
         :return:
         """
         self.ms_press(self.Button.left)
@@ -150,7 +147,7 @@ class BaseFightMapper(BaseController):
     def keydown(self, key):
         """
         键盘按下
-        :param key:
+        :param key: required, 按键名称
         :return:
         """
         key = str(key).lower()
@@ -158,7 +155,7 @@ class BaseFightMapper(BaseController):
     def keyup(self, key):
         """
         抬起按键
-        :param key:
+        :param key: required, 按键名称
         :return:
         """
         key = str(key).lower()
@@ -166,7 +163,7 @@ class BaseFightMapper(BaseController):
     def keypress(self, key):
         """
         按下后抬起
-        :param key:
+        :param key: required, 按键名称
         :return:
         """
         key = str(key).lower()
@@ -204,7 +201,6 @@ class BaseFightMapper(BaseController):
         """
         点击鼠标
         :param button: left|middle|right 分别表示鼠标左键、中键、右键，不传参数则默认左键
-        :param button:
         :return:
         """
         if not button:
@@ -268,18 +264,29 @@ def __generate_docs_array2(cls):
     for method_name, method in cls.__dict__.items():
         # 确保它是一个函数或方法
         if callable(method) and not method_name.startswith("__"):
+            doc = method.__doc__
+            sps = doc.split("\n")
+            sps = [s.strip() for s in sps if s.strip()]  # 先strip操作然后去除空白字符串
+            params = []
+            for sp in sps:
+                if sp.startswith(":param"):
+                    params.append(sp[sp.index(" ")+1:])
+
+            summary = sps[0] + " 参数(" + " ; ".join(params) + ")"
             methods_docs.append({
                 "method_name": method_name,
-                "doc": method.__doc__
+                "summary": summary,
+                "params": params
             })
 
     return methods_docs
 
 if __name__ == '__main__':
-    # docs = __generate_docs_array2(BaseFightMapper)
-    # for doc in docs:
-    #     print(doc)
-    bf = BaseFightMapper()
-    bf.charge()
+    docs = __generate_docs_array2(BaseFightMapper)
+    for doc in docs:
+        print(doc)
+    # bf = BaseFightMapper()
+    # bf.e()
+    # bf.charge()
 
 
