@@ -284,6 +284,7 @@ class BasePathExecutor(BaseController):
         if self.gc.has_ui_close_button():
             self.map_controller.ui_close_button()
             self.ms_scroll(0, -1000)
+            return
         self.kb_press_and_release('f')
 
     def on_nearby(self, coordinates):
