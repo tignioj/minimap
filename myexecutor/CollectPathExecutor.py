@@ -9,8 +9,13 @@ import cv2
 import win32api, win32con
 import numpy as np
 from myexecutor.BasePathExecutor2 import BasePathExecutor, Point, BasePath
-from myutils.jsonutils import getjson_path_byname
+from myutils.fileutils import getjson_path_byname
 from typing import List
+
+# TODO
+# 结尾经常容易漏捡
+# 情况1：树王菇蘑菇平台移动速度过快，到达的时候已经break，可能无法继续执行生命周期的on_nearby方法拾取植物
+# 情况2：判断目的地是否到达是以判定多少像素接近时计算的。大部分情况下接近目标点的时候，break掉，而物品都在前面，此时on_nearby也失效
 
 class CollectPoint(Point):
 
