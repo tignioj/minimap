@@ -221,6 +221,15 @@ class DailyMissionPathExecutor(BasePathExecutor):
     # 5. 遍历实际坐标，遍历所有已存放的委托列表, 查找最近的一个委托
     @staticmethod
     def execute_all_mission():
+        from controller.MapController2 import MapController
+        mp = MapController()
+        mp.open_middle_map()
+        time.sleep(0.8)
+        mp.choose_country('蒙德')
+        mp.zoom_out(-5000)
+        mp.zoom_out(-5000)
+        mp.zoom_out(-5000)
+        time.sleep(1)
 
         # 模板匹配屏幕中出现的委托,得到他们的屏幕坐标
         missions_screen_points = DailyMissionPathExecutor.find_all_mission_from_screen()
@@ -229,6 +238,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
         # 5. 执行委托
         for mission_world_point in mission_world_points:
+            if DailyMissionPathExecutor.stop_listen: return
             closest = DailyMissionPathExecutor.search_closest_mission_json(mission_world_point)
             if closest is None: continue
             try:
@@ -341,8 +351,6 @@ class DailyMissionPathExecutor(BasePathExecutor):
                 else:
                     self.log(f"暂时无法处理{event_type}类型的委托")
 
-
-
 # 1. 按下m，然后滚轮向下把视野放大。
 # 2. 模板匹配查找屏幕中的所有的任务相对于屏幕中心的坐标
 # 3. 请求一次屏幕中心的世界坐标，和当前缩放
@@ -356,15 +364,5 @@ if __name__ == '__main__':
     # t.setDaemon(True)
     # t.start()
     from controller.MapController2 import MapController
-    mp = MapController()
-    time.sleep(2)
-    mp.kb_press_and_release('m')
-    time.sleep(1)
-    time.sleep(0.5)
-    mp.choose_country('蒙德')
-    mp.zoom_out(-5000)
-    mp.zoom_out(-5000)
-    mp.zoom_out(-5000)
-    time.sleep(0.5)
     DailyMissionPathExecutor.execute_all_mission()
 
