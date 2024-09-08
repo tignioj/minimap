@@ -1,5 +1,4 @@
 import threading
-from myexecutor.DailyMissionPathExecutor import DailyMissionPathExecutor
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("daily_mission_service")
 
@@ -15,15 +14,18 @@ class DailyMissionService:
     lock = threading.Lock()
 
 
+
     @staticmethod
     def run(socketio_instance=None):
         with DailyMissionService.lock:
-            if DailyMissionService.__daily_mission_thread:
+            if DailyMissionService.__daily_mission_thread and DailyMissionService.__daily_mission_thread.is_alive():
                 raise DailyMissionException("每日委托已经在运行中")
             from controller.BaseController import BaseController
             BaseController.stop_listen = False
+            from myexecutor.DailyMissionPathExecutor import DailyMissionPathExecutor
+
             DailyMissionService.__daily_mission_thread = threading.Thread(
-                target=DailyMissionPathExecutor.execute_all_mission)
+                target=DailyMissionPathExecutor.execute_all_mission, args=(socketio_instance.emit,))
             DailyMissionService.__daily_mission_thread.start()
             return "成功创建每日委托线程,正在执行中"
 
