@@ -6,6 +6,7 @@ import time
 from controller.BaseController import BaseController
 import random
 
+
 # TODO 1. 传送点自动选择最近的国家。
 #   <del>已知点击侧边栏的时候会自动跳转到城镇中心，把这些中心坐标存起来，在传送的时候距离哪个近就点击哪个国家。<del/>
 #   未来会加入巨渊、渊下宫的支持，这些信息应当由记录的时候提供。
@@ -13,11 +14,18 @@ import random
 # TODO 3. 不同电脑缩放比例不同。
 # TODO 4. 缩放到最大时，点击不精准（换纳兰那点位，似乎是传送锚点本身坐标的问题）
 # TODO 5. 传送锚点名称如果不是副本，且同时存在其他标记，可能会无法点击
+# TODO 6. 稻妻地图缩放太大时，移动到海域无法继续移动
 
 class LocationException(Exception):
     pass
+
+
+class WorldCoordinateException(Exception): pass
+
+
 class MoveTimeoutException(Exception):
     pass
+
 
 class MapController(BaseController):
 
@@ -67,6 +75,26 @@ class MapController(BaseController):
         self.ocr.find_text_and_click("传送", match_all=True)
         time.sleep(1)
 
+    def get_world_coordinate(self, screen_points):
+        """
+        传入一组坐标，根据屏幕坐标得到世界坐标
+        :param screen_points:
+        :return:
+        """
+        user_map_position = self.tracker.get_user_map_position()
+        scale = self.tracker.get_user_map_scale()
+        w, h = self.gc.w, self.gc.h
+
+        mission_world_points = []
+        for screen_point in screen_points:
+            if not user_map_position or not scale: raise WorldCoordinateException("获取世界坐标失败，请重试")
+            dx = screen_point[0] - w / 2
+            dy = screen_point[1] - h / 2
+            world_x = user_map_position[0] + dx / scale[0]
+            world_y = user_map_position[1] + dy / scale[1]
+            mission_world_points.append((world_x, world_y))
+        return mission_world_points
+
     def kb_press(self, key):
         if self.stop_listen: return
         super().kb_press(key)
@@ -99,6 +127,7 @@ class MapController(BaseController):
             # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
             time.sleep(0.01)  # 短暂等待，防止事件过于密集
             self.ms_scroll(0, delta)
+
     def zoom_in(self, delta=1000):
         for _ in range(20):
             # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
@@ -109,7 +138,7 @@ class MapController(BaseController):
     def scale_middle_map(self):
         scale = self.tracker.get_user_map_scale()
         for i in range(10):
-            self.log(f"正在请求地图比例中，剩余{10-i}秒")
+            self.log(f"正在请求地图比例中，剩余{10 - i}秒")
             if scale: break
             scale = self.tracker.get_user_map_scale()
             time.sleep(1)
@@ -190,8 +219,8 @@ class MapController(BaseController):
             delta_screen_y = delta_y * self.scale_y
 
             # 限制不要拖拽到屏幕外面
-            if abs(delta_screen_x) > self.gc.w // 2 : delta_screen_x = (delta_x / abs(delta_x)) * self.gc.w//2
-            if abs(delta_screen_y) > self.gc.h // 2 : delta_screen_y = (delta_y / abs(delta_y)) * self.gc.h//2
+            if abs(delta_screen_x) > self.gc.w // 2: delta_screen_x = (delta_x / abs(delta_x)) * self.gc.w // 2
+            if abs(delta_screen_y) > self.gc.h // 2: delta_screen_y = (delta_y / abs(delta_y)) * self.gc.h // 2
 
             diff = math.sqrt(delta_x ** 2 + delta_y ** 2)
             self.log(f'距离{point}还差{diff}, dx = {delta_x}, dy = {delta_y}')
@@ -204,14 +233,13 @@ class MapController(BaseController):
 
     def choose_country(self, country):
         txts = self.ocr.find_match_text("探索度")
-        if len(txts) > 1:
+        if txts and len(txts) > 1:
             self.log('发现多个探索度，缩放不合理,尝试放大地图')
             self.zoom_in()
             time.sleep(0.5)
         self.ocr.find_text_and_click("探索度")
         time.sleep(0.5)
         self.ocr.find_text_and_click(country, match_all=True)  # 全文字匹配避免点击到每日委托
-
 
     def move_mouse_to_anchor_position(self, point):
         dx, dy = self.get_dx_dy_from_target_position(point)
@@ -238,15 +266,15 @@ class MapController(BaseController):
 
         try:
             self.move_to_point(position)  # 移动大地图直到目标锚点出现在可视范围内
-        # 避免minimap全局匹配，直接指定区域缓存局部地图作为匹配
+            # 避免minimap全局匹配，直接指定区域缓存局部地图作为匹配
             self.tracker.create_cached_local_map(center=position)
             self.click_anchor(anchor_name)  # 点击传送锚点
-        except (LocationException,MoveTimeoutException) as e:
+        except (LocationException, MoveTimeoutException) as e:
             self.logger.error(f'移动过程中出现异常，正在重试传送{e}')
             self.close_middle_map()
             time.sleep(1)
             self.close_middle_map()
-            self.transform(position,country,anchor_name, create_local_map_cache)
+            self.transform(position, country, anchor_name, create_local_map_cache)
             return
 
         # 判断是否成功传送
@@ -264,7 +292,8 @@ class MapController(BaseController):
             time.sleep(1)
             if wait_time < 0:
                 self.log("获取落地位置失败！递归传送中！")
-                self.transform(position, country=country, anchor_name=anchor_name, create_local_map_cache=create_local_map_cache)
+                self.transform(position, country=country, anchor_name=anchor_name,
+                               create_local_map_cache=create_local_map_cache)
                 return  # 避免执行后面的语句
 
         if self.stop_listen: return
@@ -275,6 +304,12 @@ class MapController(BaseController):
             self.transform(position, country, create_local_map_cache)
         else:
             self.log("落地误差符合预期，传送成功!")
+
+    def go_to_seven_anemo(self):
+        self.logger.debug("前往七天神像")
+        x,y, country = 287.70, -3805.00, "璃月"
+        # x,y, country = 1944.8270,-4954.61, "蒙德"
+        self.transform((x,y), country, "七天神像")
 
 
 # 6. 重复移动过程直到目的位置在地图的视野内。
@@ -290,8 +325,10 @@ if __name__ == '__main__':
     # x, y, country, anchor_name = 3040.0, -5620.0, '蒙德', None  # 蒙德钓鱼点1
     # x, y, country, anchor_name =256.94782031249997, 93.6250, '璃月', None  # 璃月港合成台
     # x, y, country, anchor_name = 254.45453417968747, 86.87346, '璃月', None  # 璃月港合成台
-    x, y, country, anchor_name = 8851, 7627, '稻妻', None  # 稻妻越石村
+    # x, y, country, anchor_name = 8851, 7627, '稻妻', None  # 稻妻越石村
+    x, y, country, anchor_name = 1306.567, -6276.533, '蒙德', '塞西莉亚苗圃'  # 稻妻越石村
     mpc = MapController(debug_enable=True)
+    mpc.go_to_seven_anemo()
 
     # 传送锚点流程
     # 1. 按下M键打开大地图
@@ -318,5 +355,5 @@ if __name__ == '__main__':
 
     # 6. 筛选叠层锚点
     # 7. 选择筛选后的锚点并传送
-    mpc.transform((x,y),country, anchor_name)
+    # mpc.transform((x, y), country, anchor_name)
     # mpc.transform((x,y),country)
