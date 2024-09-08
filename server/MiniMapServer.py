@@ -13,6 +13,7 @@ from server.controller.ConfigController import config_bp
 from server.controller.MiniMapController import minimap_bp
 from server.controller.FightTeamController import fight_team_bp
 from server.controller.ServerOCRController import ocr_bp
+from server.controller.DailyMissionController import daily_mission_bp
 
 from engineio.async_drivers import threading  # pyinstaller打包flask的时候要导入
 
@@ -64,6 +65,7 @@ def create_app():
     app.register_blueprint(minimap_bp)
     app.register_blueprint(fight_team_bp)
     app.register_blueprint(ocr_bp)
+    app.register_blueprint(daily_mission_bp)
 
 
     return app
@@ -83,8 +85,6 @@ if __name__ == '__main__':
     @app.route('/')
     def index():
         return render_template('index.html')
-    @app.route('/assests')
-    def assests():
-        return render_template('')
+
     socketio_instance.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
     # app.run(port=5000,debug=False)
