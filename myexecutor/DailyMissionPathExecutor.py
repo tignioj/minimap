@@ -1,5 +1,7 @@
 import threading
 import time
+from controller.BaseController import StopListenException
+from controller.MapController2 import MapController
 
 # 委托流程：
 # 已知委托的地点都是固定的
@@ -13,11 +15,12 @@ import numpy as np
 from typing import List
 import json
 from capture.capture_factory import capture
-from matchmap.minimap_interface import MinimapInterface
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("daily_mission_executor")
-from server.BGIWebHook import BGIEventHandler
 from controller.FightController import FightController
+
+# 递归超时异常
+class ExecuteRecursiveTimeOutException(Exception): pass
 
 
 # 纯战斗
@@ -42,6 +45,7 @@ from controller.FightController import FightController
 # 如果队伍伤害不够可能还得再来一遍
 
 class UnfinishedException(Exception): pass  # 只录制了一半的委托
+class DailyMissionPathExecutorException(Exception): pass
 
 # https://stackoverflow.com/questions/15562446/how-to-stop-flask-application-without-using-ctrl-c
 # @app.get('/shutdown')
@@ -118,7 +122,11 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
     # 2. 模板匹配查找屏幕中的所有的任务的坐标
     @staticmethod
-    def find_all_mission_from_screen():
+    def get_mission_template_matched_screen_position():
+        """
+        获取屏幕上的模板匹配
+        :return:
+        """
         from myutils.configutils import resource_path
         # 传送锚点流程
         # 加载地图位置检测器
@@ -167,29 +175,14 @@ class DailyMissionPathExecutor(BasePathExecutor):
     # 4. 2和3的结果做运算，得到实际坐标
 
     @staticmethod
-    def get_world_missions(missions_screen_points):
-        user_map_position = MinimapInterface.get_user_map_position()
-        w,h = capture.w, capture.h
-        mission_world_points = []
-        for mission_screen_point in missions_screen_points:
-            scale = MinimapInterface.get_user_map_scale()
-            if user_map_position and scale:
-                dx = mission_screen_point[0] - w/2
-                dy = mission_screen_point[1] - h/2
-                world_x = user_map_position[0] + dx/scale[0]
-                world_y = user_map_position[1] + dy/scale[1]
-                mission_world_points.append((world_x,world_y))
-        return mission_world_points
-
-    @staticmethod
-    def search_closest_mission_json(target_point):
+    def get_specify_point_closest_mission_json(target_point):
         """
         查找指定位置最近的委托
         :param target_point:
         :return:
         """
-        if target_point is None:
-            raise Exception("目标点不能为空")
+        if target_point is None: raise Exception("目标点不能为空")
+
         from myutils.executor_utils import euclidean_distance
         from myutils.configutils import resource_path
         mission_path = os.path.join(resource_path, 'pathlist', '委托')
@@ -218,39 +211,107 @@ class DailyMissionPathExecutor(BasePathExecutor):
         if min_distance > 100: return None  # 丢弃距离过远的委托
         return closet_mission_json
 
-    # 5. 遍历实际坐标，遍历所有已存放的委托列表, 查找最近的一个委托
+
     @staticmethod
-    def execute_all_mission():
-        from controller.MapController2 import MapController
-        mp = MapController()
-        mp.open_middle_map()
+    def get_screen_world_mission_json(map_controller:MapController):
+        """
+        获取委托json
+        :param map_controller:
+        :return:
+        """
+        # 打开地图
+        map_controller.open_middle_map()
         time.sleep(0.8)
-        mp.choose_country('蒙德')
-        mp.zoom_out(-5000)
-        mp.zoom_out(-5000)
-        mp.zoom_out(-5000)
+        DailyMissionPathExecutor.go_to_seven_anemo(map_controller)
+        time.sleep(2)
+        map_controller.open_middle_map()
+        time.sleep(2)
+        map_controller.zoom_out(-5000)
+        map_controller.zoom_out(-5000)
+        map_controller.zoom_out(-5000)
         time.sleep(1)
-
         # 模板匹配屏幕中出现的委托,得到他们的屏幕坐标
-        missions_screen_points = DailyMissionPathExecutor.find_all_mission_from_screen()
+        missions_screen_points = DailyMissionPathExecutor.get_mission_template_matched_screen_position()
         # 计算得到世界坐标
-        mission_world_points = DailyMissionPathExecutor.get_world_missions(missions_screen_points)
-
-        # 5. 执行委托
+        mission_world_points = map_controller.get_world_coordinate(missions_screen_points)
+        # 查找最近的委托
+        closet_missions = []
         for mission_world_point in mission_world_points:
-            if DailyMissionPathExecutor.stop_listen: return
-            closest = DailyMissionPathExecutor.search_closest_mission_json(mission_world_point)
+            closest = DailyMissionPathExecutor.get_specify_point_closest_mission_json(mission_world_point)
             if closest is None: continue
-            try:
-                DailyMissionPathExecutor(closest).execute()
-            except UnfinishedException as e:
-                logger.error(e)
+            closet_missions.append(closest)
+
+        return closet_missions
+
+
+    @staticmethod
+    def go_to_seven_anemo(map_controller:MapController):
+        x,y, country = 1944.8270,-4954.61, "蒙德"
+        logger.debug("前往清泉镇七天神像")
+        map_controller.transform((x, y), country, "七天神像")
+
+    # 5. 遍历实际坐标，遍历所有已存放的委托列表, 查找最近的一个委托
+
+    is_running = False
+    @staticmethod
+    def execute_all_mission(emit=lambda val1,val2:None):
+        from server.service.DailyMissionService import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_EXCEPTION, SOCKET_EVENT_DAILY_MISSION_END
+        from controller.MapController2 import MapController
+        map_controller = MapController()
+        closet_missions = DailyMissionPathExecutor.get_screen_world_mission_json(map_controller)
+        try:
+            # 递归执行委托，直到完成
+            start_time = time.time()
+            DailyMissionPathExecutor.execute_missions_recursive(start_time=start_time,
+                                                                map_controller=map_controller,
+                                                                closet_missions=closet_missions,
+                                                                emit=emit)
+        except ExecuteRecursiveTimeOutException as e:
+            emit(SOCKET_EVENT_DAILY_MISSION_END, f'{e.args}')
+        except StopListenException:
+            emit(SOCKET_EVENT_DAILY_MISSION_END, f'手动强制结束执行委托')
+
+        emit(SOCKET_EVENT_DAILY_MISSION_END, f'委托结束')
+
+    @staticmethod
+    def execute_missions_recursive(start_time, map_controller:MapController,closet_missions, emit):
+        if time.time() - start_time > 5*60:
+            # 递归超过5分钟，结束
+            raise ExecuteRecursiveTimeOutException("执行委托超时")
+        black_list_missions = set()
+
+        from server.service.DailyMissionService import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_EXCEPTION, SOCKET_EVENT_DAILY_MISSION_END
+        for closet_mission in closet_missions:
+            dp:DailyMissionPath = DailyMissionPathExecutor.load_basepath_from_json_file(closet_mission)
+            if not dp.enable:
+                black_list_missions.add(closet_mission)
                 continue
+
+            try:
+                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, f"执行委托{closet_mission}")
+                DailyMissionPathExecutor(closet_mission).execute()
+            except StopListenException as e:
+                logger.debug(f'{e.args}')
+                raise e
+            except Exception as e:
+                emit(SOCKET_EVENT_DAILY_MISSION_EXCEPTION, f"{e.args}")
+                logger.error(f'执行委托{closet_mission}出现错误：{e.args}')
+
+        # 重新匹配屏幕上的委托
+        new_closet_missions = set(DailyMissionPathExecutor.get_screen_world_mission_json(map_controller))
+        logger.debug(f'屏幕上的委托{new_closet_missions}')
+        logger.debug(f'黑名单委托{black_list_missions}')
+
+        left_missions = new_closet_missions.difference(black_list_missions)
+        logger.debug(f'减去黑名单委托后，剩余委托{left_missions}')
+        if len(left_missions) == 0:
+            return  # 递归结束
+        DailyMissionPathExecutor.execute_missions_recursive(start_time,map_controller,left_missions, emit)
 
     def on_execute_before(self, from_index=None):
         self.base_path: DailyMissionPath
         if not self.base_path.enable:
-            raise UnfinishedException("未完成路线，跳过")
+            raise UnfinishedException(f"未完成路线:{self.base_path.name}，跳过")
         super().on_execute_before(from_index=from_index)
 
     def start_fight(self):
@@ -363,6 +424,5 @@ if __name__ == '__main__':
     # t = threading.Thread(target=BGIEventHandler.start_server)
     # t.setDaemon(True)
     # t.start()
-    from controller.MapController2 import MapController
     DailyMissionPathExecutor.execute_all_mission()
 
