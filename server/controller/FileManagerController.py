@@ -4,7 +4,7 @@ import os
 from flask import Blueprint, jsonify, request, render_template
 
 from myutils.configutils import resource_path, get_config
-from myutils.jsonutils import getjson_path_byname
+from myutils.fileutils import getjson_path_byname
 from server.controller.ServerBaseController import ServerBaseController
 from server.service.TodoService import TodoService
 from server.service.FileManagerService import FileManagerService, FileManagerServiceException
@@ -13,10 +13,6 @@ filemanager_bp = Blueprint('filemanager', __name__)
 
 
 class FileManagerController(ServerBaseController):
-    @staticmethod
-    @filemanager_bp.route('/pathlist/edit/<filename>')
-    def edit(filename):
-        return render_template('edit.html', filename=filename)
 
     @staticmethod
     @filemanager_bp.route('/pathlist/get/<filename>')
