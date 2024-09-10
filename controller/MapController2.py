@@ -322,6 +322,19 @@ class MapController(BaseController):
         self.teleport((x, y), country, "七天神像")
 
 
+    def turn_off_custom_tag(self):
+        """
+        关掉自定义标记,避免遮挡
+        :return:
+        """
+        self.click_if_appear(self.gc.icon_map_setting_gear)
+        time.sleep(0.5)
+        self.click_if_appear(self.gc.icon_map_setting_on)
+        time.sleep(0.4)
+        self.click_if_appear(self.gc.icon_close_side_map)
+
+
+
 # 6. 重复移动过程直到目的位置在地图的视野内。
 # 7. * 计算该点位在当前视野中的相对位置(难点)
 # 8. 点击该位置并传送（先不考虑锚点重叠的情况）
@@ -338,6 +351,7 @@ if __name__ == '__main__':
     x, y, country, waypoint_name = 8851, 7627, '稻妻', None  # 稻妻越石村
     # x, y, country, waypoint_name = 1306.567, -6276.533, '蒙德', '塞西莉亚苗圃'  # 稻妻越石村
     mpc = MapController(debug_enable=True)
+    mpc.turn_off_custom_tag()
     # mpc.go_to_seven_anemo_for_review()
     # while True:
     #     from matchmap.minimap_interface import MinimapInterface
@@ -347,9 +361,9 @@ if __name__ == '__main__':
 
     # 传送锚点流程
     # 1. 按下M键打开大地图
-    res = mpc.open_middle_map()
+    # res = mpc.open_middle_map()
     # 2. 切换到指定地区（依赖尘歌壶）
-    mpc.scales_adjust(0.28,0.3)
+    # mpc.scales_adjust(0.28,0.3)
     # mpc.scale_middle_map(country)
     # mpc.move((x,y))
     # 3. 计算缩放比例
