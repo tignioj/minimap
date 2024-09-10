@@ -32,10 +32,10 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_user_status_key_space_org = cv2.imread(os.path.join(template_path, 'key_space.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_user_status_key_space = self.__icon_user_status_key_space_org.copy()
 
-        self.__icon_close_org = cv2.imread(os.path.join(template_path, 'icon_close.png'), cv2.IMREAD_GRAYSCALE)  # 普通ui的关闭按钮
-        self.icon_close = self.__icon_close_org.copy()
+        self.__icon_close_top_bar_org = cv2.imread(os.path.join(template_path, 'button_top_bar_close.png'), cv2.IMREAD_GRAYSCALE)  # 普通ui的关闭按钮
+        self.icon_close_tob_bar = self.__icon_close_top_bar_org.copy()
 
-        self.__icon_close_side_map_org = cv2.imread(os.path.join(template_path, 'icon_close_side_map.png'), cv2.IMREAD_GRAYSCALE)  # 切换国家时候的关闭按钮
+        self.__icon_close_side_map_org = cv2.imread(os.path.join(template_path, 'button_close_side_map.png'), cv2.IMREAD_GRAYSCALE)  # 切换国家时候的关闭按钮
         self.icon_close_side_map = self.__icon_close_side_map_org.copy()
 
         # 队伍中, 有一个小三角对应当前的角色
@@ -50,9 +50,9 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_reward_org = cv2.imread(os.path.join(template_path, "icon_dimai_reward.jpg"), cv2.IMREAD_GRAYSCALE)
         self.icon_reward = self.__icon_reward_org.copy()
 
-        # 齿轮
-        self.__icon_geer_org = cv2.imread(os.path.join(template_path, "icon_geer.png"), cv2.IMREAD_GRAYSCALE)
-        self.icon_geer = self.__icon_reward_org.copy()
+        # 地脉齿轮
+        self.__icon_gear_org = cv2.imread(os.path.join(template_path, "icon_gear.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_gear = self.__icon_reward_org.copy()
 
         # 领取奖励-钥匙
         self.__icon_key_org = cv2.imread(os.path.join(template_path, "icon_key.png"), cv2.IMREAD_GRAYSCALE)
@@ -64,6 +64,24 @@ class RecognizableCapture(GenShinCaptureObj):
         # 地脉-黄金
         self.__icon_dimai_money_org =  cv2.imread(os.path.join(template_path, "icon_dimai_money.jpg"), cv2.IMREAD_GRAYSCALE)
         self.icon_dimai_money = self.__icon_dimai_money_org.copy()
+
+        # 原粹树脂
+        self.__icon_origin_resin_org = cv2.imread(os.path.join(template_path, "icon_origin_resin.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_origin_resin = self.__icon_origin_resin_org.copy()
+
+        # 地图设置齿轮
+        self.__icon_map_setting_gear_org = cv2.imread(os.path.join(template_path, "button_map_setting_gear.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_map_setting_gear = self.__icon_map_setting_gear_org.copy()
+
+        # 地图设置开关图标
+        self.__icon_map_setting_on_org = cv2.imread(os.path.join(template_path, "buton_map_setting_on.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_map_setting_on = self.__icon_map_setting_on_org.copy()
+        self.__icon_map_setting_off_org = cv2.imread(os.path.join(template_path, "button_map_setting_off.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_map_setting_off = self.__icon_map_setting_off_org.copy()
+
+        # 传送按钮
+        self.__icon_teleport_org = cv2.imread(os.path.join(template_path, "icon_button_teleport.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_button_teleport= self.__icon_teleport_org.copy()
 
 
         self.sift = cv2.SIFT.create()
@@ -79,6 +97,8 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__paimon_appear_delay_timer.start()
 
         self.__icon_fit_resolution()
+
+
 
     def __has_icon(self, image, icon, threshold=0.65):
         # 读取目标图片
@@ -128,19 +148,34 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_user_status_key_x = cv2.resize(self.__icon_user_status_key_x_org, None, fx=scale, fy=scale)
         self.icon_user_status_key_space = cv2.resize(self.__icon_user_status_key_space_org, None, fx=scale, fy=scale)
 
-        self.icon_close = cv2.resize(self.__icon_close_org, None, fx=scale, fy=scale)
+        self.icon_close_tob_bar = cv2.resize(self.__icon_close_top_bar_org, None, fx=scale, fy=scale)
         self.icon_close_side_map = cv2.resize(self.__icon_close_side_map_org, None, fx=scale, fy=scale)
 
         self.icon_team_current_triangle = cv2.resize(self.__icon_team_current_triangle_org, None, fx=scale, fy=scale)
 
         self.icon_eggs = cv2.resize(self.__icon_eggs_org, None, fx=scale, fy=scale)
         self.icon_reward = cv2.resize(self.__icon_reward_org, None, fx=scale, fy=scale)
-        self.icon_geer = cv2.resize(self.__icon_geer_org, None, fx=scale, fy=scale)
+        self.icon_gear = cv2.resize(self.__icon_gear_org, None, fx=scale, fy=scale)
         self.icon_key = cv2.resize(self.__icon_key_org, None, fx=scale, fy=scale)
 
         self.icon_dimai_exp= cv2.resize(self.__icon_dimai_exp_org, None, fx=scale, fy=scale)
         self.icon_dimai_money = cv2.resize(self.__icon_dimai_money_org, None, fx=scale, fy=scale)
 
+        self.icon_origin_resin = cv2.resize(self.__icon_origin_resin_org, None, fx=scale, fy=scale)
+
+        self.icon_map_setting_gear = cv2.resize(self.__icon_map_setting_gear_org, None, fx=scale, fy=scale)
+
+        self.icon_map_setting_on = cv2.resize(self.__icon_map_setting_on_org, None, fx=scale, fy=scale)
+        self.icon_map_setting_off = cv2.resize(self.__icon_map_setting_off_org, None, fx=scale, fy=scale)
+
+        self.icon_button_teleport = cv2.resize(self.__icon_teleport_org, None, fx=scale, fy=scale)
+
+    def has_origin_resin_in_top_bar(self):
+        self.update_screenshot_if_none()
+        top_bar = self.screenshot[0:102, int(self.w*0.5):self.w]
+        # cv2.imshow('top_bar', top_bar)
+        # cv2.waitKey(2)
+        return self.__has_icon(top_bar, self.icon_origin_resin)
 
     def is_swimming(self):
         return self.__has_icon(self.get_user_status_area(),self.icon_user_status_swim)
@@ -194,13 +229,57 @@ class RecognizableCapture(GenShinCaptureObj):
             self.__paimon_appear_delay_timer = None
         return False
 
+    def get_icon_position(self, icon):
+        self.update_screenshot_if_none()
+        gray_template = icon
+        original_image = self.screenshot.copy()
+        gray_original = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
+        # 获取模板图像的宽度和高度
+        w, h = gray_template.shape[::-1]
+        # 将小图作为模板，在大图上进行匹配
+        result = cv2.matchTemplate(gray_original, gray_template, cv2.TM_CCOEFF_NORMED)
+
+        # 设定阈值
+        threshold = 0.85
+        # 获取匹配位置
+        locations = np.where(result >= threshold)
+        t = time.time()
+        points = []
+        # 绘制匹配结果
+        prev_point = None
+        for pt in zip(*locations[::-1]):
+            pt = (int(pt[0]), int(pt[1]))  # 确保 pt 是整数
+            center_x = pt[0] + w // 2
+            center_y = pt[1] + h // 2
+            from myutils.executor_utils import euclidean_distance
+
+            if prev_point is None:  # 去掉重合的点
+                points.append((center_x, center_y))
+            elif euclidean_distance(prev_point, pt) > 20:
+                points.append((center_x, center_y))
+            prev_point = pt
+            # cv2.rectangle(original_image, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 2)
+            # cv2.circle(original_image, (center_x, center_y), 5, (0, 0, 255), -1)  # 在中心点绘制一个红色圆点
+
+        # cv2.imshow('icon_position', original_image)
+        # cv2.waitKey(2)
+        # print(time.time() - t)
+        return points
+
+
+    def has_map_setting_gear(self):
+        self.update_screenshot_if_none()
+        img = self.screenshot[self.h-130:self.h-10, 0:120]
+        # cv2.imshow('map_setting_gear', img)
+        # cv2.waitKey(2)
+        return self.__has_icon(img, self.icon_map_setting_gear,0.8)
 
     def notice_update_event(self):
         super().notice_update_event()
         self.__icon_fit_resolution()
 
     def has_ui_close_button(self): # 注意，Map侧边切换国家的关闭按钮不是同一个按钮
-        return self.__has_icon(self.get_icon_close_area(),self.icon_close) or self.__has_icon(self.get_icon_close_area(), self.icon_close_side_map)
+        return self.__has_icon(self.get_icon_close_area(), self.icon_close_tob_bar) or self.__has_icon(self.get_icon_close_area(), self.icon_close_side_map)
 
     def has_revive_eggs(self):
         """
@@ -216,9 +295,9 @@ class RecognizableCapture(GenShinCaptureObj):
         self.update_screenshot_if_none()
         return self.__has_icon(self.screenshot, self.icon_reward, threshold=0.8)
 
-    def has_geer(self):
+    def has_gear(self):
         self.update_screenshot_if_none()
-        return self.__has_icon(self.screenshot, self.icon_geer, threshold=0.8)
+        return self.__has_icon(self.screenshot, self.icon_gear, threshold=0.8)
 
     def has_key(self):
         self.update_screenshot_if_none()
@@ -247,6 +326,8 @@ if __name__ == '__main__':
     while True:
         # print(rc.has_revive_eggs())
         t = time.time()
+        pos = rc.get_icon_position(rc.icon_map_setting_on)
+        print(pos, time.time()-t)
         # rc.check_icon()
         # sc = rc.get_paimon_area()
         # flying = rc.is_flying()
@@ -261,7 +342,7 @@ if __name__ == '__main__':
         # print('close', rc.has_ui_close_button())
         # rc.check_icon()
 
-        print(rc.has_geer(), time.time()-t)
+        # print(rc.has_geer(), time.time()-t)
 
         # print(f'flying: {flying}, swimming: {swimming}, climbing: {climbing}, paimon, {hasp}, cost: {cost}')
         # cv2.imshow('screenshot', sc)
