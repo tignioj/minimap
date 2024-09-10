@@ -16,7 +16,7 @@ class DailyMissionController(ServerBaseController):
         socketio_instance = current_app.extensions['socketio']
         try:
             DailyMissionService.run(socketio_instance=socketio_instance)
-            return DailyMissionController.success('已运行回放脚本')
+            return DailyMissionController.success('正在准备执行每日战斗委托')
         except DailyMissionException as e:
             return DailyMissionController.error(message=e.args)
 
