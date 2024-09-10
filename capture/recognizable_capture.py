@@ -42,6 +42,30 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_team_current_triangle_org = cv2.imread(os.path.join(template_path,  "icon_team_current_triangle.png"), cv2.IMREAD_GRAYSCALE)
         self.icon_team_current_triangle = self.__icon_team_current_triangle_org.copy()
 
+        # 提瓦特煎蛋
+        self.__icon_eggs_org = cv2.imread(os.path.join(template_path, "icon_food_eggs.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_eggs = self.__icon_eggs_org.copy()
+
+        # 领取奖励-小宝箱图标
+        self.__icon_reward_org = cv2.imread(os.path.join(template_path, "icon_dimai_reward.jpg"), cv2.IMREAD_GRAYSCALE)
+        self.icon_reward = self.__icon_reward_org.copy()
+
+        # 齿轮
+        self.__icon_geer_org = cv2.imread(os.path.join(template_path, "icon_geer.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_geer = self.__icon_reward_org.copy()
+
+        # 领取奖励-钥匙
+        self.__icon_key_org = cv2.imread(os.path.join(template_path, "icon_key.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_key = self.__icon_key_org.copy()
+
+        # 地脉-经验
+        self.__icon_dimai_exp_org =  cv2.imread(os.path.join(template_path, "icon_dimai_exp.jpg"), cv2.IMREAD_GRAYSCALE)
+        self.icon_dimai_exp = self.__icon_dimai_exp_org.copy()
+        # 地脉-黄金
+        self.__icon_dimai_money_org =  cv2.imread(os.path.join(template_path, "icon_dimai_money.jpg"), cv2.IMREAD_GRAYSCALE)
+        self.icon_dimai_money = self.__icon_dimai_money_org.copy()
+
+
         self.sift = cv2.SIFT.create()
         # 匹配器
         self.bf_matcher = cv2.BFMatcher()
@@ -56,14 +80,13 @@ class RecognizableCapture(GenShinCaptureObj):
 
         self.__icon_fit_resolution()
 
-    def __has_icon(self, image, icon):
+    def __has_icon(self, image, icon, threshold=0.65):
         # 读取目标图片
         gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         # 模板匹配
         result = cv2.matchTemplate(gray_image, icon, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         # 设定阈值
-        threshold = 0.65
         return max_val >= threshold
 
     def __icon_fit_resolution(self):
@@ -91,11 +114,10 @@ class RecognizableCapture(GenShinCaptureObj):
 
             y_position = max_loc[1]
             section_number = y_position // section_height + 1
-            # print(f"图片像素{team_area.shape},最佳匹配位置: {max_loc}, 匹配度: {max_val}, 所在区域{section_number}")
+            logger.debug(f"图片像素{team_area.shape},最佳匹配位置: {max_loc}, 匹配度: {max_val}, 所在区域{section_number}")
             return section_number
-            # 判断y在图片中的那
-        # else:
-        #     print("没有找到匹配度超过阈值的结果")
+        else:
+            logger.debug("没有找到匹配度超过阈值的结果")
 
 
     def __resize_icon_to_fit_scale(self, scale):
@@ -110,6 +132,14 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_close_side_map = cv2.resize(self.__icon_close_side_map_org, None, fx=scale, fy=scale)
 
         self.icon_team_current_triangle = cv2.resize(self.__icon_team_current_triangle_org, None, fx=scale, fy=scale)
+
+        self.icon_eggs = cv2.resize(self.__icon_eggs_org, None, fx=scale, fy=scale)
+        self.icon_reward = cv2.resize(self.__icon_reward_org, None, fx=scale, fy=scale)
+        self.icon_geer = cv2.resize(self.__icon_geer_org, None, fx=scale, fy=scale)
+        self.icon_key = cv2.resize(self.__icon_key_org, None, fx=scale, fy=scale)
+
+        self.icon_dimai_exp= cv2.resize(self.__icon_dimai_exp_org, None, fx=scale, fy=scale)
+        self.icon_dimai_money = cv2.resize(self.__icon_dimai_money_org, None, fx=scale, fy=scale)
 
 
     def is_swimming(self):
@@ -137,7 +167,7 @@ class RecognizableCapture(GenShinCaptureObj):
             img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         except Exception as e:
             # raise e
-            logger.error(e)
+            logger.exception(e)
             return False
 
         # 检测和计算图像和模板的关键点和描述符
@@ -172,6 +202,28 @@ class RecognizableCapture(GenShinCaptureObj):
     def has_ui_close_button(self): # 注意，Map侧边切换国家的关闭按钮不是同一个按钮
         return self.__has_icon(self.get_icon_close_area(),self.icon_close) or self.__has_icon(self.get_icon_close_area(), self.icon_close_side_map)
 
+    def has_revive_eggs(self):
+        """
+        提瓦特煎蛋
+        :return:
+        """
+        # img_box = self.screenshot[int(self.w*0.25):int(self.w*0.75), int(self.h*0.25):int(self.h*0.75)]
+        self.update_screenshot_if_none()
+        img_box = self.screenshot[int(self.h*0.25):int(self.h*0.45), int(self.w*0.25):int(self.w*0.75)]
+        return self.__has_icon(img_box, self.icon_eggs)
+
+    def has_reward(self):
+        self.update_screenshot_if_none()
+        return self.__has_icon(self.screenshot, self.icon_reward, threshold=0.8)
+
+    def has_geer(self):
+        self.update_screenshot_if_none()
+        return self.__has_icon(self.screenshot, self.icon_geer, threshold=0.8)
+
+    def has_key(self):
+        self.update_screenshot_if_none()
+        return self.__has_icon(self.screenshot, self.icon_key, threshold=0.8)
+
     def check_icon(self):
         t = time.time()
         down = self.__has_icon(self.get_user_status_area(), self.icon_user_status_down)
@@ -193,9 +245,14 @@ class RecognizableCapture(GenShinCaptureObj):
 if __name__ == '__main__':
     rc = RecognizableCapture()
     while True:
+        # print(rc.has_revive_eggs())
+        t = time.time()
         # rc.check_icon()
         # sc = rc.get_paimon_area()
         # flying = rc.is_flying()
+        # cost = time.time() - t
+        # if cost > 1:
+        #     print(f'超时!{cost}')
         # climbing = rc.is_climbing()
         # swimming = rc.is_swimming()
         # start_time = time.time()
@@ -204,10 +261,11 @@ if __name__ == '__main__':
         # print('close', rc.has_ui_close_button())
         # rc.check_icon()
 
-        rc.get_team_current_number()
+        print(rc.has_geer(), time.time()-t)
+
         # print(f'flying: {flying}, swimming: {swimming}, climbing: {climbing}, paimon, {hasp}, cost: {cost}')
         # cv2.imshow('screenshot', sc)
         # key = cv2.waitKey(2)
         # if key == ord('q'):
         #     break
-    cv2.destroyAllWindows()
+    # cv2.destroyAllWindows()
