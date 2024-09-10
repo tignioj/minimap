@@ -102,9 +102,9 @@ daily_task_destroy_timeout: 20
 
 
 # 每日委托总计最长执行时间，允许范围(60~1200)秒
-dimai_task_execute_timeout: 500
+layline_outcrop_task_execute_timeout: 500
 # 每日委托单次战斗最长执行时间，允许范围(10~400)秒
-dimai_task_fight_timeout: 40
+leyline_outcrop_task_fight_timeout: 40
 
 
 
