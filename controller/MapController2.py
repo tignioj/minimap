@@ -3,6 +3,7 @@
 import math
 import sys
 import time
+
 from controller.BaseController import BaseController
 import random
 
@@ -26,6 +27,9 @@ class WorldCoordinateException(Exception): pass
 class MoveTimeoutException(Exception):
     pass
 
+class ScaleChangeException(Exception):
+    pass
+
 
 class MapController(BaseController):
 
@@ -42,7 +46,7 @@ class MapController(BaseController):
         self.tracker = tracker
         self.debug_enable = debug_enable
         self.ocr = ocr
-        self.target_anchor = None
+        self.target_waypoint = None
 
         scale = self.tracker.get_user_map_scale()
         if scale is not None:
@@ -51,11 +55,11 @@ class MapController(BaseController):
         else:
             self.log('无法获取大地图比例')
 
-    def click_anchor(self, anchor_name=None):
-        if anchor_name is None:
-            anchor_name = '传送锚点'
+    def click_waypoint(self, waypoint_name=None):
+        if waypoint_name is None:
+            waypoint_name = '传送锚点'
         self.mouse_left_click()  # 点击锚点
-        # TODO: 做成wait_for_screen_text(anchor_name)
+        # TODO: 做成wait_for_screen_text(waypoint_name)
         time.sleep(1)  # 等待这一步很重要
         # 尝试点击传送
         if self.ocr.find_text_and_click('传送', match_all=True):
@@ -63,13 +67,13 @@ class MapController(BaseController):
             return
             # 没有传送，说明可能出现了重合的锚点。
             # 如果是指定了名称锚点，则点击指定名称锚点, 否则点击默认名称'传送锚点'
-        elif self.ocr.find_text_and_click(anchor_name):
-            self.log(f"点击{anchor_name}")
+        elif self.ocr.find_text_and_click(waypoint_name):
+            self.log(f"点击{waypoint_name}")
             # 如果都没有，可能是重合了七天神像，点击七天神像
         elif self.ocr.find_text_and_click("七天神像"):
             self.log("点击七天神像")
         else:
-            self.log(f"未能点击'{anchor_name}'")
+            self.log(f"未能点击'{waypoint_name}'")
         # 最后点击传送
         time.sleep(1)
         self.ocr.find_text_and_click("传送", match_all=True)
@@ -109,7 +113,7 @@ class MapController(BaseController):
         open_ok = False
         self.log("按下m打开地图")
         for i in range(3):
-            if not self.ocr.is_text_in_screen("探索度"):
+            if not self.ocr.is_text_in_screen("探索度","洞天仙力"):
                 self.kb_press_and_release('m')
                 time.sleep(1)
             else:
@@ -122,35 +126,43 @@ class MapController(BaseController):
         self.log("正在关闭大地图")
         self.ui_close_button()
 
-    def zoom_out(self, delta=-1000):
-        for _ in range(20):
+    def zoom_out(self, delta=-80):
+        for _ in range(10):
             # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
             time.sleep(0.01)  # 短暂等待，防止事件过于密集
             self.ms_scroll(0, delta)
 
-    def zoom_in(self, delta=1000):
-        for _ in range(20):
+    def zoom_in(self, delta=80):
+        for _ in range(5):
             # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
             time.sleep(0.01)  # 短暂等待，防止事件过于密集
             self.ms_scroll(0, delta)
 
-    # 2. 切换到固定的缩放大小（依赖层岩巨源）
-    def scale_middle_map(self):
+    # 2. 切换到固定的缩放大小
+    def scales_adjust(self, min_scale=0.28, max_scale=0.7):
         scale = self.tracker.get_user_map_scale()
-        for i in range(10):
-            self.log(f"正在请求地图比例中，剩余{10 - i}秒")
-            if scale: break
+        start_time = time.time()
+        while not scale:
+            self.log(f"正在请求地图比例中，剩余{10 - (time.time()-start_time)}秒")
+            if time.time() - start_time > 10:
+                raise ScaleChangeException("无法请求缩放比例")
             scale = self.tracker.get_user_map_scale()
             time.sleep(1)
+
         self.log(f'请求比例结果为{scale}')
-        if scale[0] < 0.28 or scale[1] < 0.28:
+
+        if scale[0] < min_scale:
             self.log('地图缩放不合理，尝试放大')
             self.zoom_in()
-            self.scale_middle_map()
+            self.scales_adjust(min_scale, max_scale)
             return
-
-        (self.scale_x, self.scale_y) = scale
-        self.log("调整地图比例结束")
+        if scale[0] > max_scale:
+            self.log('地图缩放不合理，尝试缩小')
+            self.zoom_out()
+            self.scales_adjust(min_scale, max_scale)
+            return
+        self.scale_x,self.scale_y = scale[0], scale[1]
+        self.log(f"调整地图比例结束, 最终结果为{scale}")
 
     # 3. 匹配地图，得到地图的中心点位置。
     def get_middle_map_position(self):
@@ -183,23 +195,24 @@ class MapController(BaseController):
 
     def move_to_point(self, point):
         if self.stop_listen: return
+        self.scales_adjust()
 
         self.move(point)  # 移动
-        if not self.is_anchor_appear_in_screen(point=point):
+        if not self.is_waypoint_appear_in_screen(point=point):
             # 如果发现当前偏移太严重，则递归
             self.log("目标锚点没有出现在屏幕内，递归调用移动中！")
             self.move_to_point(point)
             return
 
-    def is_anchor_appear_in_screen(self, point):
+    def is_waypoint_appear_in_screen(self, point):
         """
         锚点是否出现在屏幕内
         :return:
         """
-        anchor_appear_threshold = min(self.gc.h, self.gc.w) // 2 - 20
+        waypoint_appear_threshold = min(self.gc.h, self.gc.w) // 2 - 20
         delta_x, delta_y = self.get_dx_dy_from_target_position(point)
         diff = math.sqrt(delta_x ** 2 + delta_y ** 2)
-        return diff < anchor_appear_threshold
+        return diff < waypoint_appear_threshold
 
     # 5. 根据偏差移动地图。 注意移动的时候鼠标的拖动位置不能点到锚点，否则会无法拖动，因此可以给鼠标加上一个随机偏差
     def move(self, point):  # 中心点与锚点的距离阈值, 超过这个阈值就一直移动
@@ -207,7 +220,7 @@ class MapController(BaseController):
         start_time = time.time()
 
         # 锚点不在屏幕内则一直执行
-        while not self.is_anchor_appear_in_screen(point):
+        while not self.is_waypoint_appear_in_screen(point):
             if self.stop_listen: return
             if time.time() - start_time > 15: raise MoveTimeoutException("移动地图超时！")
 
@@ -228,30 +241,24 @@ class MapController(BaseController):
             # 给起始拖拽位置添加随机数, 以防止拖动时点到标签无法拖动
             # 添加随机数，防止被标记挡住(但是添加随机数后有可能拖到屏幕外，暂时没啥异常，先不处理吧...)
             self.drag(self.random_point(), delta_screen_x, delta_screen_y)
-
-        self.move_mouse_to_anchor_position(point)
+        self.move_mouse_to_waypoint_position(point)
 
     def choose_country(self, country):
-        txts = self.ocr.find_match_text("探索度")
-        if txts and len(txts) > 1:
-            self.log('发现多个探索度，缩放不合理,尝试放大地图')
-            self.zoom_in()
-            time.sleep(0.5)
-        self.ocr.find_text_and_click("探索度")
+        self.ocr.click(self.gc.w - 80, self.gc.h-50)  # 打开选择器
         time.sleep(0.5)
         self.ocr.find_text_and_click(country, match_all=True)  # 全文字匹配避免点击到每日委托
 
-    def move_mouse_to_anchor_position(self, point):
+    def move_mouse_to_waypoint_position(self, point):
         dx, dy = self.get_dx_dy_from_target_position(point)
         center = self.gc.get_genshin_screen_center()
         self.log(f'当前游戏中心位置{center},距离目标锚点 dx = {dx}, dy = {dy}')
-        anchor_x = center[0] - dx * self.scale_x
-        anchor_y = center[1] - dy * self.scale_y
-        anchor_pos = (anchor_x, anchor_y)
-        self.log('移动鼠标到最终位置{}'.format(anchor_pos))
-        self.set_ms_position(anchor_pos)
+        waypoint_x = center[0] - dx * self.scale_x
+        waypoint_y = center[1] - dy * self.scale_y
+        waypoint_pos = (waypoint_x, waypoint_y)
+        self.log('移动鼠标到最终位置{}'.format(waypoint_pos))
+        self.set_ms_position(waypoint_pos)
 
-    def transform(self, position, country, anchor_name=None, create_local_map_cache=True):
+    def teleport(self, position, country, waypoint_name=None, create_local_map_cache=True):
         """
         传送到指定锚点
         :param point:
@@ -262,19 +269,18 @@ class MapController(BaseController):
         self.open_middle_map()  # 打开地图
         self.choose_country(country)
         time.sleep(0.5)
-        self.scale_middle_map()  # 缩放比例调整
-
         try:
+            # self.scales_adjust()  # 缩放比例调整
             self.move_to_point(position)  # 移动大地图直到目标锚点出现在可视范围内
             # 避免minimap全局匹配，直接指定区域缓存局部地图作为匹配
             self.tracker.create_cached_local_map(center=position)
-            self.click_anchor(anchor_name)  # 点击传送锚点
-        except (LocationException, MoveTimeoutException) as e:
+            self.click_waypoint(waypoint_name)  # 点击传送锚点
+        except (LocationException, MoveTimeoutException, ScaleChangeException) as e:
             self.logger.error(f'移动过程中出现异常，正在重试传送{e}')
             self.close_middle_map()
             time.sleep(1)
             self.close_middle_map()
-            self.transform(position, country, anchor_name, create_local_map_cache)
+            self.teleport(position, country, waypoint_name, create_local_map_cache)
             return
 
         # 判断是否成功传送
@@ -292,8 +298,8 @@ class MapController(BaseController):
             time.sleep(1)
             if wait_time < 0:
                 self.log("获取落地位置失败！递归传送中！")
-                self.transform(position, country=country, anchor_name=anchor_name,
-                               create_local_map_cache=create_local_map_cache)
+                self.teleport(position, country=country, waypoint_name=waypoint_name,
+                              create_local_map_cache=create_local_map_cache)
                 return  # 避免执行后面的语句
 
         if self.stop_listen: return
@@ -301,15 +307,19 @@ class MapController(BaseController):
         self.log(f"判断落地位置是否准确, 目标位置{position}, 当前位置{pos}, 计算距离{diff}")
         if diff > 200:
             self.log("落地误差太大！, 递归传送中！")
-            self.transform(position, country, create_local_map_cache)
+            self.teleport(position, country, create_local_map_cache)
         else:
             self.log("落地误差符合预期，传送成功!")
 
-    def go_to_seven_anemo(self):
+    def go_to_seven_anemo_for_review(self):
+        """
+        前往七天神像回血
+        :return:
+        """
         self.logger.debug("前往七天神像")
         x,y, country = 287.70, -3805.00, "璃月"
         # x,y, country = 1944.8270,-4954.61, "蒙德"
-        self.transform((x,y), country, "七天神像")
+        self.teleport((x, y), country, "七天神像")
 
 
 # 6. 重复移动过程直到目的位置在地图的视野内。
@@ -318,22 +328,28 @@ class MapController(BaseController):
 
 
 if __name__ == '__main__':
-    # x, y, country, anchor_name = -7087.9789375, -6178.1590937, '枫丹', '临瀑之城'
-    # x, y, country, anchor_name = -6333.766653971354, -7277.06206087, '枫丹', None
-    # x, y, country, anchor_name = 2552.0, -5804.0, '蒙德', '传送锚点'
-    # x, y, country, anchor_name = 1949.4441874999993, -4945.9832421875, '蒙德', '传送锚点'  # 蒙德清泉镇
-    # x, y, country, anchor_name = 3040.0, -5620.0, '蒙德', None  # 蒙德钓鱼点1
-    # x, y, country, anchor_name =256.94782031249997, 93.6250, '璃月', None  # 璃月港合成台
-    # x, y, country, anchor_name = 254.45453417968747, 86.87346, '璃月', None  # 璃月港合成台
-    # x, y, country, anchor_name = 8851, 7627, '稻妻', None  # 稻妻越石村
-    x, y, country, anchor_name = 1306.567, -6276.533, '蒙德', '塞西莉亚苗圃'  # 稻妻越石村
+    # x, y, country, waypoint_name = -7087.9789375, -6178.1590937, '枫丹', '临瀑之城'
+    # x, y, country, waypoint_name = -6333.766653971354, -7277.06206087, '枫丹', None
+    # x, y, country, waypoint_name = 2552.0, -5804.0, '蒙德', '传送锚点'
+    # x, y, country, waypoint_name = 1949.4441874999993, -4945.9832421875, '蒙德', '传送锚点'  # 蒙德清泉镇
+    # x, y, country, waypoint_name = 3040.0, -5620.0, '蒙德', None  # 蒙德钓鱼点1
+    # x, y, country, waypoint_name =256.94782031249997, 93.6250, '璃月', None  # 璃月港合成台
+    # x, y, country, waypoint_name = 254.45453417968747, 86.87346, '璃月', None  # 璃月港合成台
+    x, y, country, waypoint_name = 8851, 7627, '稻妻', None  # 稻妻越石村
+    # x, y, country, waypoint_name = 1306.567, -6276.533, '蒙德', '塞西莉亚苗圃'  # 稻妻越石村
     mpc = MapController(debug_enable=True)
-    mpc.go_to_seven_anemo()
+    # mpc.go_to_seven_anemo_for_review()
+    # while True:
+    #     from matchmap.minimap_interface import MinimapInterface
+    #     sc = MinimapInterface.get_user_map_scale()
+    #     print(sc)
+    #     time.sleep(1)
 
     # 传送锚点流程
     # 1. 按下M键打开大地图
-    # res = mpc.open_middle_map()
+    res = mpc.open_middle_map()
     # 2. 切换到指定地区（依赖尘歌壶）
+    mpc.scales_adjust(0.28,0.3)
     # mpc.scale_middle_map(country)
     # mpc.move((x,y))
     # 3. 计算缩放比例
@@ -343,7 +359,7 @@ if __name__ == '__main__':
 
     # 3. 将大地图移动到指定区域
     # mpc.move((x,y))
-    # mpc.click_anchor(anchor_name)
+    # mpc.click_waypoint(waypoint_name)
     # 960 -> 2019
     # 4. 使用模板匹配检测屏幕内所有的锚点
     # center = gc.get_genshin_screen_center()
@@ -351,9 +367,9 @@ if __name__ == '__main__':
     # mpc.ms.click(mpc.Button.left)
 
     # 5. 找到距离目标最近的锚点并点击
-    # mpc.click_center_anchor()
+    # mpc.click_center_waypoint()
 
     # 6. 筛选叠层锚点
     # 7. 选择筛选后的锚点并传送
-    # mpc.transform((x, y), country, anchor_name)
-    # mpc.transform((x,y),country)
+    # mpc.teleport((x, y), country, waypoint_name)
+    # mpc.teleport((x,y),country)
