@@ -356,7 +356,7 @@ class MiniMap:
         self.__cvshow('imgKp1', imgKp1)
 
         if not capture.has_paimon():
-            self.logger.debug('未找到派蒙，无法获取位置')
+            self.logger.debug('未找到左上角小地图旁边的派蒙，无法获取位置')
             return None
 
         if self.local_map_descriptors is None or self.local_map_keypoints is None or len(self.local_map_descriptors) == 0 or len(self.local_map_keypoints) == 0:
