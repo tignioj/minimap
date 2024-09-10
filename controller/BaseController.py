@@ -49,9 +49,8 @@ class KeyBoardController(keyboard.Controller):
         super().release(key)
 
 class MouseController(mouse.Controller):
-    def __init__(self, handler):
+    def __init__(self):
         super().__init__()
-        self.handler = handler
 
     def scroll(self, dx,dy):
         wait_for_window()
@@ -114,7 +113,7 @@ class BaseController:
 
         self.Button = Button
         self.__keyboard = KeyBoardController(self)
-        self.__ms = MouseController(self)
+        self.__ms = MouseController()
 
         self.debug_enable = debug_enable
         # self.kb_listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
@@ -158,6 +157,25 @@ class BaseController:
 
     def mouse_right_click(self):
         self.ms_click(self.Button.right)
+
+    def click_if_appear(self, icon, index=None):
+        positions = self.gc.get_icon_position(icon)
+        for (idx, position) in enumerate(positions):
+            if index is None:
+                self.click_screen(position)
+            elif idx == index:
+                self.click_screen(position)
+
+    def click_screen(self, pos, button:Button=Button.left):
+        """
+        点击游戏内坐标
+        :param pos:
+        :param button:
+        :return:
+        """
+        sc_pos = self.gc.get_screen_position(pos)
+        self.set_ms_position(sc_pos)
+        self.ms_click(button)
 
     def kb_press_and_release(self, key):
         self.kb_press(key)
@@ -287,8 +305,15 @@ if __name__ == '__main__':
     bc = BaseController()
     time.sleep(1)
     from random import randint
+    bc.click_if_appear(capture.icon_map_setting_gear)
+    time.sleep(0.5)
+    bc.click_if_appear(capture.icon_map_setting_on)
+    time.sleep(0.4)
+    bc.click_if_appear(capture.icon_close_side_map)
+    time.sleep(0.4)
+    bc.click_if_appear(capture.icon_close_tob_bar)
 
-    for i in range(1,10):
+    # for i in range(1,10):
         # 稍微动一下屏幕让模板匹配更容易成功
         # x = randint(-500,500)
         # y = randint(-500,500)
@@ -296,11 +321,11 @@ if __name__ == '__main__':
         # time.sleep(0.2)
 
         # bc.ms_middle_press()
-        time.sleep(1)
-        if i%2 == 0:
-            bc.to_degree(-170)
-        else:
-            bc.to_degree(170)
+        # time.sleep(1)
+        # if i%2 == 0:
+        #     bc.to_degree(-170)
+        # else:
+        #     bc.to_degree(170)
     #     time.sleep(2)
 
     # Logger.log("good", instance=BaseController)
