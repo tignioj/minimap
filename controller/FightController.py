@@ -16,6 +16,8 @@ from controller.BaseController import StopListenException
 
 class StopFightException(Exception): pass
 
+class SwitchCharacterTimeOutException(Exception): pass
+
 
 class FightController(BaseController):
 
@@ -36,6 +38,8 @@ class FightController(BaseController):
         self.characters_name = None
         self.fight_mapper = FightMapperImpl(character_name=None)
         self.load_characters_with_skills_from_file()
+        from controller.OCRController import OCRController
+        self.ocr = OCRController()
 
     def get_teamname_from_string(self, file_name):
         team_name = file_name[file_name.index("(") + 1:file_name.rindex(")")]
@@ -100,15 +104,22 @@ class FightController(BaseController):
         :return:
         """
         character_number = self.get_character_number(character_name)
-        success = True
-
         start_time = time.time()
         from random import randint
         while self.gc.get_team_current_number() != character_number:
             if time.time() - start_time > wait_time:
-                success = False
-                break
+                raise SwitchCharacterTimeOutException(f"切{character_name}超时！")
             # if self.stop_fight: raise StopFightException()
+            if self.gc.has_revive_eggs():
+                from myutils.configutils import get_config
+                # 自动复活
+                if get_config('enable_food_revive', True):
+                    self.ocr.find_text_and_click('确认')
+                    time.sleep(0.1)
+                else:
+                    self.ocr.find_text_and_click('取消')
+                    time.sleep(0.1)
+
             # 稍微动一下屏幕让模板匹配更容易成功
             x = randint(-100, 100)
             y = randint(-100, 100)
@@ -121,13 +132,7 @@ class FightController(BaseController):
             time.sleep(0.1)
             self.kb_press_and_release(str(character_number))
 
-        # self.logger.debug(f"切人{character_number} {'成功' if success else '失败'}")
-        if success:
-            self.logger.debug(f"切人{character_number}成功")
-        else:
-            self.logger.warning(f"切人{character_number}超时失败")
-
-        return success
+        self.logger.debug(f"切人{character_number}成功")
 
     def get_character_number(self, name):
         if name not in self.characters_name:
@@ -142,12 +147,15 @@ class FightController(BaseController):
         skills = character_with_skills['skills']
         # 释放技能
         self.logger.debug(f'character{character}, num {character_number}, skills {skills}')
-        while not self.switch_character(character): time.sleep(0.1)
-        self.current_character = character
-        self.fight_mapper.character_name = character
-        for skill in skills:
-            time.sleep(0.1)
-            self.do_skill(skill)
+        try:
+            self.switch_character(character)
+            self.current_character = character
+            self.fight_mapper.character_name = character
+            for skill in skills:
+                time.sleep(0.1)
+                self.do_skill(skill)
+        except SwitchCharacterTimeOutException as e:
+            self.logger.error(e)
 
     def parse_method_call(self, method_call_str):
         # 使用正则表达式提取方法名称和参数
@@ -232,7 +240,7 @@ class FightController(BaseController):
 
 
 if __name__ == '__main__':
-    from myutils.configutils import get_user_folder
+    from myutils.configutils import get_user_folder,get_config
 
     from pynput.keyboard import Listener, Key
 
