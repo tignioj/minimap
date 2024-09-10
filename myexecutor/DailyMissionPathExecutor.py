@@ -18,9 +18,10 @@ from capture.capture_factory import capture
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("daily_mission_executor")
 from controller.FightController import FightController
+from myutils.configutils import get_config
 
 # 递归超时异常
-class ExecuteRecursiveTimeOutException(Exception): pass
+class ExecuteTimeOutException(Exception): pass
 
 
 # 纯战斗
@@ -106,19 +107,6 @@ class DailyMissionPathExecutor(BasePathExecutor):
                 enable=json_dict.get('enable', True)  # 未记录完成的委托标记为False
             )
 
-    # @staticmethod
-    # def scale_down():
-    #     import win32api, win32con
-    #     import time
-    #     delta = -5000
-    #     for _ in range(20):
-    #         win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
-    #         time.sleep(0.02)  # 短暂等待，防止事件过于密集
-
-    # 1. 按下m，然后滚轮向下把视野放大。
-    # @staticmethod
-    # def scroll_down_for_looking_more_locations():
-    #     DailyMissionPathExecutor.scale_down()
 
     # 2. 模板匹配查找屏幕中的所有的任务的坐标
     @staticmethod
@@ -165,9 +153,9 @@ class DailyMissionPathExecutor(BasePathExecutor):
             cv2.rectangle(original_image, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 2)
 
         # 显示结果
-        original_image = cv2.resize(original_image, None, fx=0.5, fy=0.5)
-        # cv2.imshow('Matched Image', original_image)
-        # cv2.waitKey(20)
+        # original_image = cv2.resize(original_image, None, fx=0.5, fy=0.5)
+        # # cv2.imshow('Matched Image', original_image)
+        # cv2.waitKey(0)
         # if key == ord('q'):
         #     cv2.destroyAllWindows()
         return mission_screen_points
@@ -213,32 +201,36 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
 
     @staticmethod
-    def get_screen_world_mission_json(map_controller:MapController):
+    def get_screen_world_mission_json(map_controller:MapController, only_fight_mission=True):
         """
         获取委托json
         :param map_controller:
+        :param only_fight_mission: 仅获取战斗委托
         :return:
         """
         # 打开地图
         map_controller.open_middle_map()
-        time.sleep(0.8)
+        # time.sleep(0.8)
+        # 前往清泉镇的七天神像，因为在这里将地图缩放拉到最小后,可以看到蒙德的所有委托
+        # 必须要传送的原因：如果某个委托没打完，人物还站在原地，打开地图时，人物会遮挡当前未完成的委托
+        # map_controller.choose_country('蒙德')
         DailyMissionPathExecutor.go_to_seven_anemo(map_controller)
-        time.sleep(2)
-        map_controller.open_middle_map()
-        time.sleep(2)
-        map_controller.zoom_out(-5000)
+        map_controller.open_middle_map()  # 再次打开地图
+        map_controller.zoom_out(-5000)  # 缩放拉到最小
         map_controller.zoom_out(-5000)
         map_controller.zoom_out(-5000)
         time.sleep(1)
+        # 查找最近的委托
+        closet_missions = []
         # 模板匹配屏幕中出现的委托,得到他们的屏幕坐标
         missions_screen_points = DailyMissionPathExecutor.get_mission_template_matched_screen_position()
         # 计算得到世界坐标
         mission_world_points = map_controller.get_world_coordinate(missions_screen_points)
-        # 查找最近的委托
-        closet_missions = []
         for mission_world_point in mission_world_points:
-            closest = DailyMissionPathExecutor.get_specify_point_closest_mission_json(mission_world_point)
+            closest:str = DailyMissionPathExecutor.get_specify_point_closest_mission_json(mission_world_point)
             if closest is None: continue
+            if only_fight_mission:
+                if "未完成" in closest: continue  # 文件名称包含'未完成'的跳过
             closet_missions.append(closest)
 
         return closet_missions
@@ -248,65 +240,45 @@ class DailyMissionPathExecutor(BasePathExecutor):
     def go_to_seven_anemo(map_controller:MapController):
         x,y, country = 1944.8270,-4954.61, "蒙德"
         logger.debug("前往清泉镇七天神像")
-        map_controller.transform((x, y), country, "七天神像")
+        map_controller.teleport((x, y), country, "七天神像")
 
     # 5. 遍历实际坐标，遍历所有已存放的委托列表, 查找最近的一个委托
 
-    is_running = False
     @staticmethod
-    def execute_all_mission(emit=lambda val1,val2:None):
-        from server.service.DailyMissionService import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_EXCEPTION, SOCKET_EVENT_DAILY_MISSION_END
+    def execute_all_mission(emit=lambda val1,val2:None):  # 传一个空实现的方法，免去判断函数是否为空
+        from server.service.DailyMissionService import  SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END
         from controller.MapController2 import MapController
+        daily_task_execute_timeout:int = get_config('daily_task_execute_timeout', 500)
+        if daily_task_execute_timeout < 60: daily_task_execute_timeout = 60
+        elif daily_task_execute_timeout > 1200: daily_task_execute_timeout = 1200
+
         map_controller = MapController()
-        closet_missions = DailyMissionPathExecutor.get_screen_world_mission_json(map_controller)
+
+        start_time = time.time()
         try:
             # 递归执行委托，直到完成
-            start_time = time.time()
-            DailyMissionPathExecutor.execute_missions_recursive(start_time=start_time,
-                                                                map_controller=map_controller,
-                                                                closet_missions=closet_missions,
-                                                                emit=emit)
-        except ExecuteRecursiveTimeOutException as e:
+            closet_missions = DailyMissionPathExecutor.get_screen_world_mission_json(map_controller)
+            while len(closet_missions) > 0:  # 不断执行委托直到屏幕上查找到的战斗委托为空
+                msg = f"查找到战斗委托:{closet_missions}"
+                logger.debug(msg)
+                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, msg)
+                if time.time() - start_time > daily_task_execute_timeout: raise ExecuteTimeOutException("已超时!")
+                for closest in closet_missions:
+                    msg = f"开始执行战斗委托:{closest}"
+                    logger.debug(msg)
+                    emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, msg)
+                    DailyMissionPathExecutor(closest).execute()
+
+                closet_missions = DailyMissionPathExecutor.get_screen_world_mission_json(map_controller)
+
+        except ExecuteTimeOutException as e:
             emit(SOCKET_EVENT_DAILY_MISSION_END, f'{e.args}')
         except StopListenException:
             emit(SOCKET_EVENT_DAILY_MISSION_END, f'手动强制结束执行委托')
 
-        emit(SOCKET_EVENT_DAILY_MISSION_END, f'委托结束')
-
-    @staticmethod
-    def execute_missions_recursive(start_time, map_controller:MapController,closet_missions, emit):
-        if time.time() - start_time > 5*60:
-            # 递归超过5分钟，结束
-            raise ExecuteRecursiveTimeOutException("执行委托超时")
-        black_list_missions = set()
-
-        from server.service.DailyMissionService import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_EXCEPTION, SOCKET_EVENT_DAILY_MISSION_END
-        for closet_mission in closet_missions:
-            dp:DailyMissionPath = DailyMissionPathExecutor.load_basepath_from_json_file(closet_mission)
-            if not dp.enable:
-                black_list_missions.add(closet_mission)
-                continue
-
-            try:
-                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, f"执行委托{closet_mission}")
-                DailyMissionPathExecutor(closet_mission).execute()
-            except StopListenException as e:
-                logger.debug(f'{e.args}')
-                raise e
-            except Exception as e:
-                emit(SOCKET_EVENT_DAILY_MISSION_EXCEPTION, f"{e.args}")
-                logger.error(f'执行委托{closet_mission}出现错误：{e.args}')
-
-        # 重新匹配屏幕上的委托
-        new_closet_missions = set(DailyMissionPathExecutor.get_screen_world_mission_json(map_controller))
-        logger.debug(f'屏幕上的委托{new_closet_missions}')
-        logger.debug(f'黑名单委托{black_list_missions}')
-
-        left_missions = new_closet_missions.difference(black_list_missions)
-        logger.debug(f'减去黑名单委托后，剩余委托{left_missions}')
-        if len(left_missions) == 0:
-            return  # 递归结束
-        DailyMissionPathExecutor.execute_missions_recursive(start_time,map_controller,left_missions, emit)
+        msg = f"执行战斗委托结束, 总时长{time.time() - start_time}"
+        emit(SOCKET_EVENT_DAILY_MISSION_END, msg)
+        logger.debug(msg)
 
     def on_execute_before(self, from_index=None):
         self.base_path: DailyMissionPath
@@ -315,39 +287,39 @@ class DailyMissionPathExecutor(BasePathExecutor):
         super().on_execute_before(from_index=from_index)
 
     def start_fight(self):
-        """
-        进入战斗, 目前只能调用BGI的自动战斗, 这里我设置了快捷键
-        :return:
-        """
-        self.log('按下快捷键开始自动战斗')
+        self.log('开始自动战斗')
         self.fight_controller.start_fighting()
 
 
     def stop_fight(self):
-        """
-        进入战斗, 目前只能调用BGI的自动战斗, 这里我设置了快捷键
-        :return:
-        """
+        self.log('停止自动战斗')
         self.fight_controller.stop_fighting()
 
     def wait_until_fight_finished(self):
+        daily_task_fight_timeout = get_config('daily_task_fight_timeout', 20)
+        if daily_task_fight_timeout < 10: daily_task_fight_timeout = 10
+        elif daily_task_fight_timeout > 400: daily_task_fight_timeout = 400
+
         start_time = time.time()
         time.sleep(0.5)
         self.start_fight()
-        while time.time()-start_time < 40:
+        while time.time()-start_time < daily_task_fight_timeout:
             time.sleep(1)
-            self.log(f"正在检测委托是否完成, 剩余{40-(time.time()-start_time)}秒")
-            if self.ocr.find_match_text('委托完成'):
-                break
+            self.log(f"正在检测委托是否完成, 剩余{daily_task_fight_timeout-(time.time()-start_time)}秒")
+            if len(self.ocr.find_match_text('委托完成'))>0: break
         self.stop_fight()
+
     def wait_until_destroy(self):
+        daily_task_destroy_timeout = get_config('daily_task_destroy_timeout', 20)
+        if daily_task_destroy_timeout < 10: daily_task_destroy_timeout = 10
+        elif daily_task_destroy_timeout > 400: daily_task_destroy_timeout = 400
+
         self.start_fight()
         start_time = time.time()
-        while time.time()-start_time < 20:
+        while time.time()-start_time < daily_task_destroy_timeout:
             time.sleep(1)
-            self.log(f"正在检测委托是否完成, 剩余{20-(time.time()-start_time)}秒")
-            if self.ocr.find_match_text('委托完成'):
-                break
+            self.log(f"正在检测委托是否完成, 剩余{daily_task_destroy_timeout -(time.time()-start_time)}秒")
+            if len(self.ocr.find_match_text('委托完成'))>0: break
         self.stop_fight()
 
     def wait_until_ailin_destroy(self):
