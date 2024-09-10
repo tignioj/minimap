@@ -193,10 +193,14 @@ class DimaiPathExecutor(BasePathExecutor):
         # 必须要传送的原因：如果某个地脉没打完，人物还站在原地，打开地图时，人物会遮挡当前未完成的地脉
         # map_controller.choose_country('蒙德')
 
-
-        DimaiPathExecutor.go_to_seven_anemo(map_controller)
         map_controller.open_middle_map()  # 再次打开地图
-        time.sleep(1)
+        # 先查当前大地图有没有地脉，没有则回神像逐个检测
+        dimai_arr = DimaiPathExecutor.get_closet_dimai(map_controller)
+        if len(dimai_arr) == 0:
+            DimaiPathExecutor.go_to_seven_anemo(map_controller)
+            map_controller.open_middle_map()  # 再次打开地图
+            time.sleep(1)
+        else: return dimai_arr
 
         # 查找最近的地脉
         # 这里是蒙德清泉镇地脉
@@ -234,7 +238,7 @@ class DimaiPathExecutor(BasePathExecutor):
     def execute_all_mission(emit=lambda val1,val2:None):  # 传一个空实现的方法，免去判断函数是否为空
         from server.service.DailyMissionService import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END
         from controller.MapController2 import MapController
-        daily_task_execute_timeout:int = get_config('daily_task_execute_timeout', 500)
+        daily_task_execute_timeout:int = get_config('dimai_task_execute_timeout', 500)
         if daily_task_execute_timeout < 60: daily_task_execute_timeout = 60
         elif daily_task_execute_timeout > 1200: daily_task_execute_timeout = 1200
 
@@ -261,8 +265,10 @@ class DimaiPathExecutor(BasePathExecutor):
             logger.error('移动地图超时！')
             emit(SOCKET_EVENT_DAILY_MISSION_END, f'{e.args}')
         except ExecuteTimeOutException as e:
+            logger.error("超时结束")
             emit(SOCKET_EVENT_DAILY_MISSION_END, f'{e.args}')
         except StopListenException:
+            logger.debug('停止监听结束')
             emit(SOCKET_EVENT_DAILY_MISSION_END, f'手动强制结束执行地脉任务')
         except NoResinException as e:
             logger.debug("体力耗尽")
@@ -282,7 +288,7 @@ class DimaiPathExecutor(BasePathExecutor):
         self.fight_controller.stop_fighting()
 
     def wait_until_fight_finished(self):
-        daily_task_fight_timeout = get_config('daily_task_fight_timeout', 20)
+        daily_task_fight_timeout = get_config('dimai_task_fight_timeout', 20)
         if daily_task_fight_timeout < 10: daily_task_fight_timeout = 10
         elif daily_task_fight_timeout > 400: daily_task_fight_timeout = 400
 
