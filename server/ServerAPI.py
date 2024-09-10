@@ -28,7 +28,7 @@ from capture.capture_factory import capture
 gs = capture
 
 def get_ocr_result():
-    response = requests.get(f"{ocr_url}/ocr")
+    response = requests.get(f"{ocr_url}/ocr/screen")
     if response.status_code == 200:
         result = response.json()
         if result['success']:
@@ -38,6 +38,17 @@ def get_ocr_result():
             return None
     else:
         return None
+
+def get_ocr_fight_team():
+    response = requests.get(f"{ocr_url}/ocr/fight_team")
+    if response.status_code == 200:
+        result = response.json()
+        if result['success']:
+            return result['data']
+        else:
+            logger.error(result['message'])
+            return None
+    return None
 
 def position():
     resp = requests.get(f"{url}/minimap/get_position")
@@ -150,3 +161,4 @@ if __name__ == '__main__':
     # print("position", position())
     # print("rotation:", rotation(True))
     # print(f"cost: {time.time() - start}s")
+

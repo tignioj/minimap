@@ -13,6 +13,9 @@ class MiniMapInter:
     def create_cached_local_map(self,xy=None,use_middle_map=False): pass
 
     def get_ocr_result(self): pass
+    def get_ocr_fight_team(self): pass
+
+
 class MinimapServer(MiniMapInter):
 
     def get_position(self):
@@ -35,6 +38,9 @@ class MinimapServer(MiniMapInter):
 
     def get_ocr_result(self):
         return ServerAPI.get_ocr_result()
+
+    def get_ocr_fight_team(self):
+        return ServerAPI.get_ocr_fight_team()
 
 
 import cv2
@@ -124,6 +130,9 @@ class MinimapNative(MiniMapInter):
         return result
     def get_ocr_result(self):
         return self.ocr.ocr(capture.get_screenshot(), cls=False)
+
+    def get_ocr_fight_team(self):
+        return self.ocr.ocr(capture.get_team_area(), cls=False)
 
 if cfg.get('enable_serve_less_mode', 0):
     MinimapInterface = MinimapNative()
