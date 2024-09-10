@@ -1,3 +1,23 @@
+# 安装步骤
+## 准备环境
+conda
+```shell
+conda create -n minimap python==3.8
+```
+
+## 准备项目资源（群里下载resources目录）
+把resources复制到项目根目录
+
+## 准备web资源
+https://github.com/tignioj/minimap-gui
+
+## 运行
+```shell
+cd server
+python MinimapServer.py
+```
+
+# 环境说明
 # opencv环境
 ```
 pip install opencv opencv-contrib-python
