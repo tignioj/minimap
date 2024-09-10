@@ -56,11 +56,6 @@ class DailyMissionPathExecutorException(Exception): pass
 
 class DailyMissionPoint(Point):
     EVENT_DESTROY_AILIN = "destroy_ailin"  # 艾琳一次性破坏木桩
-    DAILY_MISSION_TYPE_SKIP_DIALOG = 'dialog'
-    DAILY_MISSION_TYPE_FIGHT = 'fight'
-    DAILY_MISSION_TYPE_FAST_MOVE = 'fast_move'  # 极速前进
-    DAILY_MISSION_TYPE_DESTROY_TOWER = 'destroy_tower'
-
     EVENT_FIGHT = 'fight'
     EVENT_STANDING_ON_PLATE = 'standing_on_plate'  # 极速前进, 要踩下机关
     EVENT_FAST_FIGHT = 'fast_fight'  # 极速前进，消灭怪物就可以加时长，要求尽快结束战斗，有各种元素类型史莱姆唯独没有风史莱姆，可以用散兵自动索敌平a
@@ -69,6 +64,8 @@ class DailyMissionPoint(Point):
     EVENT_FIND_NPC = 'find_npc'
     EVENT_COLLECT = 'collect'
     EVENT_CLIMB = 'climb'  # 爬神像，做不到
+    EVENT_DEFENSE = 'defense'  # 固若金汤，守护镇石
+    EVENT_GEER_START = 'geer_start'  # 开启齿轮机关
 
     def __init__(self, x, y, type=Point.TYPE_PATH, move_mode=Point.MOVE_MODE_NORMAL, action=None, events=None):
         super().__init__(x=x,y=y,type=type,move_mode=move_mode,action=action)
@@ -85,6 +82,7 @@ class DailyMissionPath(BasePath):
 
 class DailyMissionPathExecutor(BasePathExecutor):
     def __init__(self, json_file_path, debug_enable=None):
+        self.next_point: DailyMissionPoint = None
         super().__init__(json_file_path=json_file_path, debug_enable=debug_enable)
         # self.fight_controller = FightController('那维莱特_莱伊拉_迪希雅_行秋(龙莱迪行).txt')
         # self.fight_controller = FightController('那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt')
@@ -253,7 +251,6 @@ class DailyMissionPathExecutor(BasePathExecutor):
         elif daily_task_execute_timeout > 1200: daily_task_execute_timeout = 1200
 
         map_controller = MapController()
-
         start_time = time.time()
         try:
             # 递归执行委托，直到完成
@@ -304,6 +301,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
         time.sleep(0.5)
         self.start_fight()
         while time.time()-start_time < daily_task_fight_timeout:
+            if self.stop_listen: break
             time.sleep(1)
             self.log(f"正在检测委托是否完成, 剩余{daily_task_fight_timeout-(time.time()-start_time)}秒")
             if len(self.ocr.find_match_text('委托完成'))>0: break
@@ -317,10 +315,31 @@ class DailyMissionPathExecutor(BasePathExecutor):
         self.start_fight()
         start_time = time.time()
         while time.time()-start_time < daily_task_destroy_timeout:
+            if self.stop_listen: break
             time.sleep(1)
             self.log(f"正在检测委托是否完成, 剩余{daily_task_destroy_timeout -(time.time()-start_time)}秒")
             if len(self.ocr.find_match_text('委托完成'))>0: break
         self.stop_fight()
+
+    def on_nearby(self, coordinates):
+        if self.next_point.type == DailyMissionPoint.TYPE_TARGET:
+            for event in self.next_point.events:
+                if event == DailyMissionPoint.EVENT_GEER_START:
+                    if self.gc.has_gear():
+                        self.log('nearby:发现齿轮，疯狂f')
+                        self.crazy_f()
+
+    def wait_until_geer_start(self):
+        stat_time = time.time()
+        while self.gc.has_gear() and time.time() - stat_time < 5:
+            if self.stop_listen: break
+            self.logger.debug("wait:发现齿轮, 狂按f")
+            self.crazy_f()
+            time.sleep(0.02)
+
+    def wait_until_defense_done(self):
+        self.wait_until_fight_finished()
+
 
     def wait_until_ailin_destroy(self):
         """
@@ -359,6 +378,12 @@ class DailyMissionPathExecutor(BasePathExecutor):
                 elif event_type == DailyMissionPoint.EVENT_DESTROY:
                     self.log("破坏丘丘人柱子!")
                     self.wait_until_destroy()
+                elif event_type == DailyMissionPoint.EVENT_GEER_START:
+                    self.log("开启齿轮开关!")
+                    self.wait_until_geer_start()
+                elif event_type == DailyMissionPoint.EVENT_DEFENSE:
+                    self.log("守护镇石!")
+                    self.wait_until_defense_done()
                 elif event_type == DailyMissionPoint.EVENT_DESTROY_AILIN:
                     self.log("艾琳要求一次性破坏木桩")
                     self.wait_until_ailin_destroy()
@@ -383,6 +408,8 @@ class DailyMissionPathExecutor(BasePathExecutor):
                     self.wait_until_dialog_finished()
                 else:
                     self.log(f"暂时无法处理{event_type}类型的委托")
+
+
 
 # 1. 按下m，然后滚轮向下把视野放大。
 # 2. 模板匹配查找屏幕中的所有的任务相对于屏幕中心的坐标
