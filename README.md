@@ -5,6 +5,11 @@ conda
 conda create -n minimap python==3.8
 ```
 
+## 安装依赖
+```text
+pip install -r ./requirements
+```
+
 ## 准备项目资源（群里下载resources目录）
 把resources复制到项目根目录
 
