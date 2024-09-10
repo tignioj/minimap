@@ -35,12 +35,12 @@ socketio_instance = SocketIO(async_mode='threading', cors_allowed_origins=allow_
 def _on_press(key):
     try: c = key.char
     except AttributeError: c = key.name
-    socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
+    if socketio_instance: socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
 
 def _on_release(key):
     try: c = key.char
     except AttributeError: c = key.name
-    socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
+    if socketio_instance: socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
 
 
 # socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="http://localhost:63343")
