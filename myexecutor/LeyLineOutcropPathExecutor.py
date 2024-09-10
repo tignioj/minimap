@@ -63,6 +63,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                 enable=json_dict.get('enable', True)  # 未记录完成的委托标记为False
             )
 
+    leyline_type = None
 
     # 2. 模板匹配屏幕上的图标
     @staticmethod
@@ -76,7 +77,10 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         # 加载地图位置检测器
         # template_image = cv2.imread(os.path.join(resource_path, "template", "icon_mission.jpg"))
         # template_image = cv2.imread(os.path.join(resource_path, "template", "icon_dimai_money.jpg"))
-        gray_template = capture.icon_dimai_exp
+        if LeyLineOutcropPathExecutor.leyline_type == 'money':
+            gray_template = capture.icon_dimai_money
+        else:
+            gray_template = capture.icon_dimai_exp
 
         original_image = capture.get_screenshot().copy()
         gray_original = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
@@ -235,8 +239,10 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         map_controller.teleport((x, y), country, "七天神像")
 
     @staticmethod
-    def execute_all_mission(emit=lambda val1,val2:None):  # 传一个空实现的方法，免去判断函数是否为空
-        from server.service.DailyMissionService import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END
+    def execute_all_mission(leyline_type,emit=lambda val1,val2:None):  # 传一个空实现的方法，免去判断函数是否为空
+        logger.debug(f'地脉类型：{leyline_type}')
+        LeyLineOutcropPathExecutor.leyline_type = leyline_type
+        from server.service.LeyLineOutcropService import SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, SOCKET_EVENT_LEYLINE_OUTCROP_END
         from controller.MapController2 import MapController
         daily_task_execute_timeout:int = get_config('layline_outcrop_task_execute_timeout', 500)
         if daily_task_execute_timeout < 60: daily_task_execute_timeout = 60
@@ -252,30 +258,30 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
             while len(closet_missions) > 0:  # 不断执行委托直到屏幕上查找到的战斗委托为空
                 msg = f"查找到地脉:{closet_missions}"
                 logger.debug(msg)
-                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, msg)
+                emit(SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, msg)
                 if time.time() - start_time > daily_task_execute_timeout: raise ExecuteTimeOutException("已超时!")
                 for closest in closet_missions:
                     msg = f"开始执行地脉任务:{closest}"
                     logger.debug(msg)
-                    emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, msg)
+                    emit(SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, msg)
                     LeyLineOutcropPathExecutor(closest).execute()  # 可能会抛出体力耗尽异常
                 closet_missions = LeyLineOutcropPathExecutor.get_screen_world_mission_json(map_controller)
 
         except MoveToLocationTimeoutException as e:
             logger.error('移动地图超时！')
-            emit(SOCKET_EVENT_DAILY_MISSION_END, f'{e.args}')
+            emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, f'{e.args}')
         except ExecuteTimeOutException as e:
             logger.error("超时结束")
-            emit(SOCKET_EVENT_DAILY_MISSION_END, f'{e.args}')
+            emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, f'{e.args}')
         except StopListenException:
             logger.debug('停止监听结束')
-            emit(SOCKET_EVENT_DAILY_MISSION_END, f'手动强制结束执行地脉任务')
+            emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, f'手动强制结束执行地脉任务')
         except NoResinException as e:
             logger.debug("体力耗尽")
-            emit(SOCKET_EVENT_DAILY_MISSION_END, f'{e.args}')
+            emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, f'{e.args}')
 
         msg = f"执行地脉任务结束, 总时长{time.time() - start_time}"
-        emit(SOCKET_EVENT_DAILY_MISSION_END, msg)
+        emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, msg)
         logger.debug(msg)
 
     def start_fight(self):
