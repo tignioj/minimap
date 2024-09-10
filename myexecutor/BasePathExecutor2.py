@@ -298,9 +298,24 @@ class BasePathExecutor(BaseController):
             # self.debug('疯狂按下f')
             self.crazy_f()
 
+    def handle_text_in_screen(self):
+        """
+        非常耗性能的ocr判断异常方式
+        :return:
+        """
+        ocr_result = self.ocr.get_ocr_result()
+        self.logger.debug(f'屏幕中有文字{ocr_result}')
+        for result in ocr_result:
+            if '复苏' == result.text: self.ocr.click_ocr_result(result)   # 全军覆灭
+            elif '使用道具复苏角色' in result.text:  # 自动复活
+                if get_config('enable_food_revive'):
+                    self.ocr.find_text_and_click('确认')
+                else:
+                    self.ocr.find_text_and_click('取消')
+
     def do_action_if_moving_stuck(self):
         if self.gc.is_climbing(): self.kb_press('x')
-        time.sleep(0.1)
+        self.logger.debug('卡住了，尝试任意走一走然后跳一下')
         self.kb_press_and_release(random.choice('wsad'))  # 任意方向
         time.sleep(0.1)
         self.kb_press_and_release(self.Key.space)
@@ -311,8 +326,9 @@ class BasePathExecutor(BaseController):
             self.position_history.clear()
 
     def do_action_if_timeout(self):
-        self.logger.debug('点位执行超时, 跳过该点位')
+        self.logger.debug('点位执行超时, 跳过该点位, 并检测屏幕上的文字')
         if self.gc.is_climbing(): self.kb_press('x')
+        self.handle_text_in_screen()
         time.sleep(0.1)
         self.kb_press_and_release(random.choice('wsad'))  # 任意方向
         time.sleep(0.1)
@@ -337,14 +353,15 @@ class BasePathExecutor(BaseController):
             self.logger.debug(f'开技能与计算位移耗时{time.time() - td}')
         td = time.time()
 
-        if total_displacement < self.stuck_movement_threshold:
-            self.stuck_before_position = coordinates
-            raise MovingStuckException(f"8秒内位移总值为{total_displacement}, 判定为卡住了！")
-
         # 超时判断
         if time.time() - point_start_time > self.move_next_point_allow_max_time:
             self.stuck_before_position = coordinates
             raise MovingTimeOutException(f"执行点位超时, 跳过该点位！")
+
+        if total_displacement < self.stuck_movement_threshold:
+            self.stuck_before_position = coordinates
+            raise MovingStuckException(f"8秒内位移总值为{total_displacement}, 判定为卡住了！")
+
 
         # 转向: 注意，update_state()线程永远保证self.positions在首次赋值之后不再是空值,但是计算角度的函数可能会返回空值，因此还是要判断
         rot = self.get_next_point_rotation(coordinates)
@@ -562,11 +579,11 @@ class BasePathExecutor(BaseController):
         # 指定了点位，则不传送
         if from_index: return
         # 传送的时候可以顺便缓存局部地图，因此把传送放在第一行
-        self.map_controller.transform(position=(self.base_path.transmit_point.x,
-                                                self.base_path.transmit_point.y),
-                                      country=self.base_path.country,
-                                      anchor_name=self.base_path.anchor_name,
-                                      create_local_map_cache=True)
+        self.map_controller.teleport(position=(self.base_path.transmit_point.x,
+                                               self.base_path.transmit_point.y),
+                                     country=self.base_path.country,
+                                     waypoint_name=self.base_path.anchor_name,
+                                     create_local_map_cache=True)
     def on_move_before(self, point: Point):
         """
         在下一个点位开始行动之前
@@ -610,6 +627,7 @@ class BasePathExecutor(BaseController):
                 # 阻塞等待位置刷新
                 if not self.wait_for_position_update(10):
                     self.debug(f"由于超过10秒没有获取到位置,跳过点位{point}")
+                    self.handle_text_in_screen()
                     i += 1
                     continue  # 上面的while循环未能成功加载位置，跳到下一个点位
 
@@ -651,9 +669,10 @@ class BasePathExecutor(BaseController):
         except (EmptyPathException,ExecuteTerminateException) as e:
             self.logger.error(e)
             return False
-        except Exception as e:
-            self.logger.error(e)
-            return False
+        # 不要捕获所有异常，子类有些异常要自己捕获
+        # except Exception as e:
+        #     self.logger.error(e)
+        #     return False
         finally:
             self.log("文件{}执行完毕")
             self.is_path_end = True
@@ -726,7 +745,7 @@ if __name__ == '__main__':
     import os
     from myutils.fileutils import getjson_path_byname
 
-    # execute_one(getjson_path_byname('风车菊_蒙德_8个_20240814_101536.json'))
+    execute_one(getjson_path_byname('风车菊_蒙德_8个_20240814_101536.json'))
     # execute_one(getjson_path_byname('jiuguan_蒙德_wfsd_20240808.json'))
     # execute_one(getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json'))
     # execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json'))
@@ -737,4 +756,4 @@ if __name__ == '__main__':
     # execute_one(getjson_path_byname('月莲_茸蕈窟_须弥_4个.json'))
     # execute_one(getjson_path_byname('月莲_须弥_降魔山下_7个.json'))
     # execute_one(getjson_path_byname('月莲_桓那兰那_须弥_4个_20240814_114304.json'))
-    execute_all()
+    # execute_all()
