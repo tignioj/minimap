@@ -74,7 +74,11 @@ class FightPathExecutor(BasePathExecutor):
     def wanye_pickup(self):
         # 切万叶
         self.logger.debug("万叶拾取中")
-        self.fight_controller.switch_character('枫原万叶')
+        from controller.FightController import SwitchCharacterTimeOutException
+        try:
+            self.fight_controller.switch_character('枫原万叶')
+        except SwitchCharacterTimeOutException as e:
+            self.logger.error(e)  # 超时异常
         time.sleep(0.1)
         # 万叶长e
         self.logger.debug('万叶长e')
