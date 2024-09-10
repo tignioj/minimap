@@ -1,7 +1,7 @@
 import threading
 import time
 from controller.BaseController import StopListenException
-from controller.MapController2 import MapController
+from controller.MapController2 import MapController, LocationException
 
 from myexecutor.BasePathExecutor2 import BasePathExecutor,Point, BasePath
 import os,cv2
@@ -13,7 +13,7 @@ from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("daily_mission_executor")
 from controller.FightController import FightController
 from myutils.configutils import get_config
-
+class MoveToLocationTimeoutException(Exception): pass
 
 # TODO: 自定义标记会挡住图标，要先关掉自定义标记
 
@@ -59,6 +59,7 @@ class DimaiPathExecutor(BasePathExecutor):
                 points.append(p)
             return DimaiPath(
                 name=json_dict['name'], country=json_dict['country'], positions=points,
+                anchor_name=json_dict['anchor_name'],
                 enable=json_dict.get('enable', True)  # 未记录完成的委托标记为False
             )
 
@@ -153,6 +154,17 @@ class DimaiPathExecutor(BasePathExecutor):
         return closet_mission_json
 
     @staticmethod
+    def move_map_to(map_controller,point, start_time):
+        try:
+            map_controller.move_to_point(point)
+        except LocationException as e:
+            logger.error(f'移动过程中出现问题:{e.args}, 递归重试中')
+            map_controller.close_middle_map()
+            map_controller.open_middle_map()
+            map_controller.choose_country('蒙德')
+            if time.time() - start_time > 30: raise MoveToLocationTimeoutException("移动超时！")
+
+    @staticmethod
     def get_closet_dimai(map_controller):
         closet_missions = []
         # TODO: BUG: 缩放的值可能会随着地图版本更新而不同
@@ -180,6 +192,8 @@ class DimaiPathExecutor(BasePathExecutor):
         # 前往清泉镇的七天神像，将地图缩放拉到最小后,可以看到尽可能多的地脉任务
         # 必须要传送的原因：如果某个地脉没打完，人物还站在原地，打开地图时，人物会遮挡当前未完成的地脉
         # map_controller.choose_country('蒙德')
+
+
         DimaiPathExecutor.go_to_seven_anemo(map_controller)
         map_controller.open_middle_map()  # 再次打开地图
         time.sleep(1)
@@ -191,22 +205,21 @@ class DimaiPathExecutor(BasePathExecutor):
         if len(dimai_arr) == 0:
             # 星落湖七天神像查找
             x, y = 3451.571140, -6365.88
-            map_controller.move_to_point((x, y))
+            DimaiPathExecutor.move_map_to(map_controller, (x,y), time.time())
             dimai_arr = DimaiPathExecutor.get_closet_dimai(map_controller)
 
 
         if len(dimai_arr) == 0:
             # 风龙废墟七天神像查找
             x, y = 436.84067, -6526.89
-            map_controller.move_to_point((x, y))
+            DimaiPathExecutor.move_map_to(map_controller, (x,y), time.time())
             dimai_arr = DimaiPathExecutor.get_closet_dimai(map_controller)
 
         if len(dimai_arr) == 0:
             # 雪山七天神像查找
             x, y = 2840.573, -3591.75
-            map_controller.move_to_point((x, y))
+            DimaiPathExecutor.move_map_to(map_controller, (x,y), time.time())
             dimai_arr = DimaiPathExecutor.get_closet_dimai(map_controller)
-
 
         return dimai_arr
 
@@ -226,6 +239,8 @@ class DimaiPathExecutor(BasePathExecutor):
         elif daily_task_execute_timeout > 1200: daily_task_execute_timeout = 1200
 
         map_controller = MapController()
+        map_controller.open_middle_map()
+        map_controller.turn_off_custom_tag()
 
         start_time = time.time()
         try:
@@ -242,6 +257,9 @@ class DimaiPathExecutor(BasePathExecutor):
                     DimaiPathExecutor(closest).execute()  # 可能会抛出体力耗尽异常
                 closet_missions = DimaiPathExecutor.get_screen_world_mission_json(map_controller)
 
+        except MoveToLocationTimeoutException as e:
+            logger.error('移动地图超时！')
+            emit(SOCKET_EVENT_DAILY_MISSION_END, f'{e.args}')
         except ExecuteTimeOutException as e:
             emit(SOCKET_EVENT_DAILY_MISSION_END, f'{e.args}')
         except StopListenException:
@@ -286,19 +304,29 @@ class DimaiPathExecutor(BasePathExecutor):
     def on_nearby(self, coordinate):
         if self.next_point.type == DimaiPoint.TYPE_TARGET:
             if self.next_point.action == DimaiPoint.ACTION_FIGHT:
-                if self.gc.has_geer():
+                if self.gc.has_gear():
                     self.log("发现齿轮")
                     self.crazy_f()
-            # elif self.next_point.action == DimaiPoint.ACTION_REWARD:
-            #     if self.gc.has_key():
-            #         self.log("发现钥匙")
-            #         self.crazy_f()
-            #
-            #     match_texts = self.ocr.find_match_text("树脂")
-            #     if len(match_texts) > 0:
-            #         for ocr_result in match_texts:
-            #             if "使用浓缩树脂" in ocr_result.text or "使用原粹树脂" in ocr_result.text:
-            #                 self.ocr.click_ocr_result(ocr_result)
+            elif self.next_point.action == DimaiPoint.ACTION_REWARD:
+                # 怪物掉落材料太多可能会遮挡钥匙图标, 所以还不如直接判断reward图标
+                if self.gc.has_key() or self.gc.has_reward():
+                    self.log("发现钥匙或者奖励图标")
+                    self.crazy_f()
+
+                if self.gc.has_origin_resin_in_top_bar():
+                    # 顶栏出现原粹树脂，说明弹出对话框
+                    match_texts = self.ocr.find_match_text("树脂")
+                    if len(match_texts) > 0:
+                        reward_ok = False
+                        for ocr_result in match_texts:
+                            if "使用浓缩树脂" in ocr_result.text or "使用原粹树脂" in ocr_result.text:
+                                self.ocr.click_ocr_result(ocr_result)
+                                self.logger.debug(f'after:点击{ocr_result.text}')
+                                reward_ok = True
+                        for ocr_result in match_texts:
+                            if "补充原粹树脂" in ocr_result.text and not reward_ok:
+                                self.kb_press_and_release(self.Key.esc)  # 关闭对话框
+                                raise NoResinException("没有树脂了，结束地脉")
 
     def on_move_after(self, point: DimaiPoint):
         if point.type == DimaiPoint.TYPE_TARGET:
@@ -315,17 +343,26 @@ class DimaiPathExecutor(BasePathExecutor):
                 # 前往领取奖励的点(地脉开启位置未必和领取奖励的位置相同)
                 # 只拾取一次可能只拿到了怪物的掉落材料而无法领取奖励
                 start_pick_time = time.time()
-                while self.gc.has_key() and time.time()-start_pick_time < 5:
+                while self.gc.has_reward() and time.time()-start_pick_time < 5:
+                    self.log("疯狂f领取奖励")
                     self.crazy_f()
-                    time.sleep(0.05)
-                time.sleep(0.3)
+                    time.sleep(0.02)
+                time.sleep(0.5)
                 match_texts = self.ocr.find_match_text("树脂")
                 if len(match_texts) > 0:
+                    reward_ok = False
                     for ocr_result in match_texts:
                         if "使用浓缩树脂" in ocr_result.text or "使用原粹树脂" in ocr_result.text:
                             self.ocr.click_ocr_result(ocr_result)
-                        elif "补充原粹树脂" in ocr_result.text:
+                            self.logger.debug(f'after:点击{ocr_result.text}')
+                            reward_ok = True
+                    for ocr_result in match_texts:
+                        if "补充原粹树脂" in ocr_result.text and not reward_ok:
+                            self.kb_press_and_release(self.Key.esc)  # 关闭对话框
                             raise NoResinException("没有树脂了，结束地脉")
+
+                else:
+                    self.logger.debug("after:没有找到文字'树脂'")
 
 # 1. 按下m，然后滚轮向下把视野放大。
 # 2. 模板匹配查找屏幕中的所有的任务相对于屏幕中心的坐标
