@@ -14,7 +14,12 @@ from controller.BaseController import StopListenException
 # charge(10) 重击
 # , 等待10秒
 
-class StopFightException(Exception): pass
+class StopFightException(Exception):
+    ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE = 'go_to_seven_anemo_for_revive'
+    def __init__(self, message, action=None):
+        self.message = message
+        self.action = action
+        super().__init__(message, action)
 
 class SwitchCharacterTimeOutException(Exception): pass
 
@@ -110,16 +115,26 @@ class FightController(BaseController):
             if time.time() - start_time > wait_time:
                 raise SwitchCharacterTimeOutException(f"切{character_name}超时！")
             # if self.stop_fight: raise StopFightException()
-            if self.gc.has_revive_eggs():
-                from myutils.configutils import get_config
-                # 自动复活
-                if get_config('enable_food_revive', True):
-                    self.ocr.find_text_and_click('确认')
-                    time.sleep(0.1)
-                else:
-                    self.ocr.find_text_and_click('取消')
-                    time.sleep(0.1)
 
+            close_button_pos = self.gc.get_icon_position(self.gc.icon_close_while_arrow)
+            has_eggs = self.gc.has_revive_eggs()
+            if has_eggs:
+                from myutils.configutils import get_config
+                if get_config('enable_food_revive', True):
+                    # self.ocr.find_text_and_click('确认')
+                    self.click_if_appear(self.gc.icon_message_box_button_confirm)
+                else:
+                    msg = "由于没有开启使用道具复活，已无法继续战斗, 前往七天神像复活"
+                    # self.ocr.find_text_and_click('取消')
+                    self.click_if_appear(self.gc.icon_message_box_button_cancel)
+                    self.kb_press_and_release(self.Key.esc)
+                    raise StopFightException(msg, action=StopFightException.ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE)
+            elif len(close_button_pos) > 0 and not has_eggs:
+                # 检测到有关闭按钮, 但是没检测到鸡蛋，说明鸡蛋在倒计时，此时已经无法继续战斗
+                msg = "复活仍在倒计时, 已无法继续战斗, 前往七天神像复活"
+                self.logger.debug(msg)
+                self.click_screen(close_button_pos[0])
+                raise StopFightException( msg, action=StopFightException.ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE)
             # 稍微动一下屏幕让模板匹配更容易成功
             x = randint(-100, 100)
             y = randint(-100, 100)
@@ -197,20 +212,24 @@ class FightController(BaseController):
             while not self.stop_fight:
                 self.execute()
         except StopFightException as e:
-            self.logger.debug(e.args)
-            # 打断所有动作， 恢复状态
-            if self.current_character == '散兵' or self.current_character == '流浪者':
-                # 连续按2次e避免还在空中
-                self.gc.is_flying()
-                self.kb_press_and_release('e')
-                time.sleep(0.5)
-                self.kb_press_and_release('e')
-                time.sleep(0.1)
+            if e.action == StopFightException.ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE:
+                from controller.MapController2 import MapController
+                MapController().go_to_seven_anemo_for_revive()
+            else:
+                self.logger.debug(e.args)
+                # 打断所有动作， 恢复状态
+                if self.current_character == '散兵' or self.current_character == '流浪者':
+                    # 连续按2次e避免还在空中
+                    self.gc.is_flying()
+                    self.kb_press_and_release('e')
+                    time.sleep(0.5)
+                    self.kb_press_and_release('e')
+                    time.sleep(0.1)
 
-            # 跳跃打断所有动作
-            self.kb_press_and_release(self.Key.space)
-            self.current_character = None
-            self.team_name = None
+                # 跳跃打断所有动作
+                self.kb_press_and_release(self.Key.space)
+                self.current_character = None
+                self.team_name = None
         except StopListenException as e:
             self.logger.debug(e.args)
 
