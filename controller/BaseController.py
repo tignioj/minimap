@@ -158,13 +158,32 @@ class BaseController:
     def mouse_right_click(self):
         self.ms_click(self.Button.right)
 
-    def click_if_appear(self, icon, index=None):
+    def click_if_appear(self, icon, index=None, timeout:int=None):
+        """
+        点击图标
+        :param icon:
+        :param index:
+        :param timeout:
+        :return:
+        """
         positions = self.gc.get_icon_position(icon)
+        if timeout and type(timeout) is int:
+            start_time = time.time()
+            while len(positions) < 1:
+                if time.time() - start_time > timeout:
+                    raise TimeoutError()
+                positions = self.gc.get_icon_position(icon)
+
+        is_ok = False
         for (idx, position) in enumerate(positions):
             if index is None:
                 self.click_screen(position)
+                is_ok = True
             elif idx == index:
                 self.click_screen(position)
+                is_ok = True
+
+        return is_ok
 
     def click_screen(self, pos, button:Button=Button.left):
         """
@@ -300,18 +319,30 @@ class BaseController:
             # win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
             self.camera_chage(-direction*s, 0,0)
 
+    def crazy_f(self):
+        # 若是不小心点到烹饪界面，先关闭, 然后滚轮向下
+        if self.gc.has_tob_bar_close_button():
+            self.ui_close_button()
+            return
+        elif self.gc.has_cook_hat():  # 避免点击到烹饪图标
+            self.logger.debug('滚轮向上')
+            self.ms_scroll(0,1)
+        self.kb_press_and_release('f')
 
 if __name__ == '__main__':
     bc = BaseController()
-    time.sleep(1)
+    bc.crazy_f()
+
+        # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, 120, 0)
+    # bc.crazy_f()
     from random import randint
-    bc.click_if_appear(capture.icon_map_setting_gear)
-    time.sleep(0.5)
-    bc.click_if_appear(capture.icon_map_setting_on)
-    time.sleep(0.4)
-    bc.click_if_appear(capture.icon_close_while_arrow)
-    time.sleep(0.4)
-    bc.click_if_appear(capture.icon_close_tob_bar)
+    # bc.click_if_appear(capture.icon_message_box_button_confirm)
+    # time.sleep(0.5)
+    # bc.click_if_appear(capture.icon_map_setting_on)
+    # time.sleep(0.4)
+    # bc.click_if_appear(capture.icon_close_while_arrow)
+    # time.sleep(0.4)
+    # bc.click_if_appear(capture.icon_close_tob_bar)
 
     # for i in range(1,10):
         # 稍微动一下屏幕让模板匹配更容易成功
