@@ -16,7 +16,7 @@ from controller.BaseController import StopListenException
 
 class StopFightException(Exception):
     ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE = 'go_to_seven_anemo_for_revive'
-    def __init__(self, message, action=None):
+    def __init__(self, message=None, action=None):
         self.message = message
         self.action = action
         super().__init__(message, action)
