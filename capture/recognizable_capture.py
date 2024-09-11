@@ -32,11 +32,13 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_user_status_key_space_org = cv2.imread(os.path.join(template_path, 'key_space.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_user_status_key_space = self.__icon_user_status_key_space_org.copy()
 
+        # ui关闭按钮(黑色箭头)
         self.__icon_close_top_bar_org = cv2.imread(os.path.join(template_path, 'button_top_bar_close.png'), cv2.IMREAD_GRAYSCALE)  # 普通ui的关闭按钮
         self.icon_close_tob_bar = self.__icon_close_top_bar_org.copy()
 
-        self.__icon_close_side_map_org = cv2.imread(os.path.join(template_path, 'button_close_side_map.png'), cv2.IMREAD_GRAYSCALE)  # 切换国家时候的关闭按钮
-        self.icon_close_side_map = self.__icon_close_side_map_org.copy()
+        # 地图的关闭按钮(白色箭头)
+        self.__icon_close_while_arrow_org = cv2.imread(os.path.join(template_path, 'button_while_arrow.png'), cv2.IMREAD_GRAYSCALE)  # 切换国家时候的关闭按钮
+        self.icon_close_while_arrow = self.__icon_close_while_arrow_org.copy()
 
         # 队伍中, 有一个小三角对应当前的角色
         self.__icon_team_current_triangle_org = cv2.imread(os.path.join(template_path,  "icon_team_current_triangle.png"), cv2.IMREAD_GRAYSCALE)
@@ -82,6 +84,13 @@ class RecognizableCapture(GenShinCaptureObj):
         # 传送按钮
         self.__icon_teleport_org = cv2.imread(os.path.join(template_path, "icon_button_teleport.png"), cv2.IMREAD_GRAYSCALE)
         self.icon_button_teleport= self.__icon_teleport_org.copy()
+
+        # 确认与取消
+        self.__icon_message_box_button_confirm_org = cv2.imread(os.path.join(template_path, "icon_message_box_button_confirm.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_message_box_button_confirm = self.__icon_message_box_button_confirm_org.copy()
+        self.__icon_message_box_button_cancel_org = cv2.imread(os.path.join(template_path, "icon_message_box_button_cancel.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_message_box_button_cancel = self.__icon_message_box_button_confirm_org.copy()
+
 
 
         self.sift = cv2.SIFT.create()
@@ -149,7 +158,7 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_user_status_key_space = cv2.resize(self.__icon_user_status_key_space_org, None, fx=scale, fy=scale)
 
         self.icon_close_tob_bar = cv2.resize(self.__icon_close_top_bar_org, None, fx=scale, fy=scale)
-        self.icon_close_side_map = cv2.resize(self.__icon_close_side_map_org, None, fx=scale, fy=scale)
+        self.icon_close_while_arrow = cv2.resize(self.__icon_close_while_arrow_org, None, fx=scale, fy=scale)
 
         self.icon_team_current_triangle = cv2.resize(self.__icon_team_current_triangle_org, None, fx=scale, fy=scale)
 
@@ -169,6 +178,8 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_map_setting_off = cv2.resize(self.__icon_map_setting_off_org, None, fx=scale, fy=scale)
 
         self.icon_button_teleport = cv2.resize(self.__icon_teleport_org, None, fx=scale, fy=scale)
+        self.icon_message_box_button_confirm = cv2.resize(self.__icon_message_box_button_confirm_org, None, fx=scale, fy=scale)
+        self.icon_message_box_button_cancel = cv2.resize(self.__icon_message_box_button_cancel_org, None, fx=scale, fy=scale)
 
     def has_origin_resin_in_top_bar(self):
         self.update_screenshot_if_none()
@@ -258,11 +269,11 @@ class RecognizableCapture(GenShinCaptureObj):
             elif euclidean_distance(prev_point, pt) > 20:
                 points.append((center_x, center_y))
             prev_point = pt
-            # cv2.rectangle(original_image, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 2)
-            # cv2.circle(original_image, (center_x, center_y), 5, (0, 0, 255), -1)  # 在中心点绘制一个红色圆点
+            cv2.rectangle(original_image, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 2)
+            cv2.circle(original_image, (center_x, center_y), 5, (0, 0, 255), -1)  # 在中心点绘制一个红色圆点
 
-        # cv2.imshow('icon_position', original_image)
-        # cv2.waitKey(2)
+        cv2.imshow('icon_position', original_image)
+        cv2.waitKey(2)
         # print(time.time() - t)
         return points
 
@@ -278,8 +289,8 @@ class RecognizableCapture(GenShinCaptureObj):
         super().notice_update_event()
         self.__icon_fit_resolution()
 
-    def has_ui_close_button(self): # 注意，Map侧边切换国家的关闭按钮不是同一个按钮
-        return self.__has_icon(self.get_icon_close_area(), self.icon_close_tob_bar) or self.__has_icon(self.get_icon_close_area(), self.icon_close_side_map)
+    def has_tob_bar_close_button(self): # 注意，Map侧边切换国家的关闭按钮不是同一个按钮
+        return self.__has_icon(self.get_tobbar_area(), self.icon_close_tob_bar) or self.__has_icon(self.get_tobbar_area(), self.icon_close_while_arrow)
 
     def has_revive_eggs(self):
         """
@@ -326,8 +337,10 @@ if __name__ == '__main__':
     while True:
         # print(rc.has_revive_eggs())
         t = time.time()
-        pos = rc.get_icon_position(rc.icon_map_setting_on)
+        rc.update_screenshot_if_none()
+        pos = rc.get_icon_position(rc.icon_message_box_button_cancel)
         print(pos, time.time()-t)
+        # print(rc.has_tob_bar_close_button())
         # rc.check_icon()
         # sc = rc.get_paimon_area()
         # flying = rc.is_flying()
