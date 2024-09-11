@@ -309,7 +309,7 @@ if __name__ == '__main__':
     time.sleep(0.5)
     bc.click_if_appear(capture.icon_map_setting_on)
     time.sleep(0.4)
-    bc.click_if_appear(capture.icon_close_side_map)
+    bc.click_if_appear(capture.icon_close_while_arrow)
     time.sleep(0.4)
     bc.click_if_appear(capture.icon_close_tob_bar)
 
