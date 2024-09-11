@@ -91,8 +91,17 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_message_box_button_cancel_org = cv2.imread(os.path.join(template_path, "icon_message_box_button_cancel.png"), cv2.IMREAD_GRAYSCALE)
         self.icon_message_box_button_cancel = self.__icon_message_box_button_confirm_org.copy()
 
+        # 烹饪
         self.__icon_cook_hat_org = cv2.imread(os.path.join(template_path, 'icon_cook_hat.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_cook_hat = cv2.imread(os.path.join(template_path, 'icon_cook_hat.png'), cv2.IMREAD_GRAYSCALE)
+
+        # 地图切换栏菜单-星星按钮
+        self.__icon_map_star_org = cv2.imread(os.path.join(template_path, 'icon_map_star.png'), cv2.IMREAD_GRAYSCALE)
+        self.icon_map_star = self.__icon_map_star_org.copy()
+
+        # 地图切换栏菜单-尘歌壶按钮
+        self.__icon_map_tea_org = cv2.imread(os.path.join(template_path, 'icon_map_tea.png'), cv2.IMREAD_GRAYSCALE)
+        self.icon_map_tea = self.__icon_map_tea_org.copy()
 
         self.sift = cv2.SIFT.create()
         # 匹配器
@@ -184,6 +193,9 @@ class RecognizableCapture(GenShinCaptureObj):
 
         self.icon_cook_hat = cv2.resize(self.__icon_cook_hat_org, None, fx=scale, fy=scale)
 
+        self.icon_map_tea = cv2.resize(self.__icon_map_tea_org, None, fx=scale, fy=scale)
+        self.icon_map_star = cv2.resize(self.__icon_map_star_org, None, fx=scale, fy=scale)
+
     def has_origin_resin_in_top_bar(self):
         self.update_screenshot_if_none()
         top_bar = self.screenshot[0:102, int(self.w*0.5):self.w]
@@ -272,11 +284,11 @@ class RecognizableCapture(GenShinCaptureObj):
             elif euclidean_distance(prev_point, pt) > 20:
                 points.append((center_x, center_y))
             prev_point = pt
-            cv2.rectangle(original_image, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 2)
-            cv2.circle(original_image, (center_x, center_y), 5, (0, 0, 255), -1)  # 在中心点绘制一个红色圆点
+            # cv2.rectangle(original_image, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 2)
+            # cv2.circle(original_image, (center_x, center_y), 5, (0, 0, 255), -1)  # 在中心点绘制一个红色圆点
 
-        cv2.imshow('icon_position', original_image)
-        cv2.waitKey(2)
+        # cv2.imshow('icon_position', original_image)
+        # cv2.waitKey(2)
         # print(time.time() - t)
         return points
 
@@ -308,6 +320,11 @@ class RecognizableCapture(GenShinCaptureObj):
     def has_reward(self):
         self.update_screenshot_if_none()
         return self.__has_icon(self.screenshot, self.icon_reward, threshold=0.8)
+
+    def has_map_sidebar_toggle(self):
+        self.update_screenshot_if_none()
+        return (self.__has_icon(self.screenshot, self.icon_map_star, threshold=0.8)
+                or self.__has_icon(self.screenshot, self.icon_map_tea, threshold=0.8))
 
     def has_gear(self):
         self.update_screenshot_if_none()
@@ -345,9 +362,9 @@ if __name__ == '__main__':
         # print(rc.has_revive_eggs())
         t = time.time()
         # rc.update_screenshot_if_none()
-        # pos = rc.get_icon_position(rc.icon_message_box_button_confirm)
+        # pos = rc.get_icon_position(rc.icon_map_star)
         # print(pos, time.time()-t)
-        print(rc.has_cook_hat())
+        print(rc.has_map_sidebar_toggle(), time.time()-t)
         # rc.check_icon()
         # sc = rc.get_paimon_area()
         # flying = rc.is_flying()
