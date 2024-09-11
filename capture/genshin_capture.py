@@ -28,6 +28,8 @@ class GenShinCaptureObj(ObservableCapture):
         self.side_team_area = None  # 右边栏队伍区域
         self.team_area_offset = None
 
+        self.pick_up_area = None
+
 
         # self.map_star_menu_area = None  # 大地图菜单
         # self.map_star_menu_area_offset = None
@@ -72,6 +74,7 @@ class GenShinCaptureObj(ObservableCapture):
                               self.team_area_offset[2]:self.team_area_offset[3]]
 
         self.ui_tob_bar_area = screenshot[0:120, 0:self.w]
+        self.pick_up_area = screenshot[100:self.h-100, self.w//2+90:self.w - self.w//4]
 
     def get_user_status_area(self):
         self.update_screenshot_if_none()
@@ -217,9 +220,9 @@ if __name__ == '__main__':
     # cv2.imwrite('icon_map_setting_on.jpg', img_box)
 
     # img_box = gc.screenshot[int(gc.h-200):int(gc.h), int(gc.w-800):int(gc.w)]
-    img_box = gc.screenshot
-    cv2.imwrite('sc2.jpg', img_box)
-    sys.exit(0)
+    # img_box = gc.screenshot
+    # cv2.imwrite('sc2.jpg', img_box)
+    # sys.exit(0)
     import threading
     while True:
         # b, g, r, alpha = cv2.split(gc.get_screenshot())
@@ -227,8 +230,8 @@ if __name__ == '__main__':
         gc.update_screenshot_if_none()
         # img_box = gc.screenshot[int(gc.h * 0.45):int(gc.h * 0.55), int(gc.w * 0.50):int(gc.w * 0.75)]
         # img_box = gc.screenshot[int(gc.h * 0.45):int(gc.h * 0.55), int(gc.w * 0.50):int(gc.w * 0.75)]
-        img_box = gc.screenshot[int(gc.h * 0.45):int(gc.h * 0.55), int(gc.w * 0.50):int(gc.w * 0.75)]
-        cv2.imshow('img_box', img_box)
+        img_box = gc.pick_up_area
+        cv2.imshow('pickup', img_box)
         # cv2.imshow('minimap', gc.get_mini_map())
         # cv2.imshow('close', gc.close_button_area)
         # cv2.imwrite('icon_close.jpg', gc.close_button_area)

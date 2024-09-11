@@ -91,7 +91,8 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_message_box_button_cancel_org = cv2.imread(os.path.join(template_path, "icon_message_box_button_cancel.png"), cv2.IMREAD_GRAYSCALE)
         self.icon_message_box_button_cancel = self.__icon_message_box_button_confirm_org.copy()
 
-
+        self.__icon_cook_hat_org = cv2.imread(os.path.join(template_path, 'icon_cook_hat.png'), cv2.IMREAD_GRAYSCALE)
+        self.icon_cook_hat = cv2.imread(os.path.join(template_path, 'icon_cook_hat.png'), cv2.IMREAD_GRAYSCALE)
 
         self.sift = cv2.SIFT.create()
         # 匹配器
@@ -180,6 +181,8 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_button_teleport = cv2.resize(self.__icon_teleport_org, None, fx=scale, fy=scale)
         self.icon_message_box_button_confirm = cv2.resize(self.__icon_message_box_button_confirm_org, None, fx=scale, fy=scale)
         self.icon_message_box_button_cancel = cv2.resize(self.__icon_message_box_button_cancel_org, None, fx=scale, fy=scale)
+
+        self.icon_cook_hat = cv2.resize(self.__icon_cook_hat_org, None, fx=scale, fy=scale)
 
     def has_origin_resin_in_top_bar(self):
         self.update_screenshot_if_none()
@@ -308,11 +311,15 @@ class RecognizableCapture(GenShinCaptureObj):
 
     def has_gear(self):
         self.update_screenshot_if_none()
-        return self.__has_icon(self.screenshot, self.icon_gear, threshold=0.8)
+        return self.__has_icon(self.pick_up_area, self.icon_gear, threshold=0.8)
 
     def has_key(self):
         self.update_screenshot_if_none()
-        return self.__has_icon(self.screenshot, self.icon_key, threshold=0.8)
+        return self.__has_icon(self.pick_up_area, self.icon_key, threshold=0.8)
+
+    def has_cook_hat(self):
+        self.update_screenshot_if_none()
+        return self.__has_icon(self.pick_up_area, self.icon_cook_hat, threshold=0.8)
 
     def check_icon(self):
         t = time.time()
@@ -337,10 +344,10 @@ if __name__ == '__main__':
     while True:
         # print(rc.has_revive_eggs())
         t = time.time()
-        rc.update_screenshot_if_none()
-        pos = rc.get_icon_position(rc.icon_message_box_button_cancel)
-        print(pos, time.time()-t)
-        # print(rc.has_tob_bar_close_button())
+        # rc.update_screenshot_if_none()
+        # pos = rc.get_icon_position(rc.icon_message_box_button_confirm)
+        # print(pos, time.time()-t)
+        print(rc.has_cook_hat())
         # rc.check_icon()
         # sc = rc.get_paimon_area()
         # flying = rc.is_flying()
