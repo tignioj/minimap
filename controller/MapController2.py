@@ -228,7 +228,11 @@ class MapController(BaseController):
         delta_screen_x = delta_x * self.pix2world_scale_x
         delta_screen_y = delta_y * self.pix2world_scale_y
 
-        return abs(delta_screen_x) < self.gc.w //2 - 50 and abs(delta_screen_y) < self.gc.h //2 - 50
+        if delta_screen_x < 0:
+            return abs(delta_screen_x) < self.gc.w // 2 - 50 and abs(delta_screen_y) < self.gc.h // 2 - 50
+        else:
+            # 避免点击到左上角的文字
+            return abs(delta_screen_x) < self.gc.w // 3 and abs(delta_screen_y) < self.gc.h //2 - 50
 
         # delta_x, delta_y = self.get_dx_dy_from_target_position(point)
         # diff = math.sqrt(delta_x ** 2 + delta_y ** 2)
