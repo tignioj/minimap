@@ -112,29 +112,26 @@ class FightController(BaseController):
         start_time = time.time()
         from random import randint
         while self.gc.get_team_current_number() != character_number:
-            if time.time() - start_time > wait_time:
-                raise SwitchCharacterTimeOutException(f"切{character_name}超时！")
-            # if self.stop_fight: raise StopFightException()
+            if time.time() - start_time > wait_time: raise SwitchCharacterTimeOutException(f"切{character_name}超时！")
 
             close_button_pos = self.gc.get_icon_position(self.gc.icon_close_while_arrow)
-            has_eggs = self.gc.has_revive_eggs()
-            if has_eggs:
-                from myutils.configutils import get_config
-                if get_config('enable_food_revive', True):
-                    # self.ocr.find_text_and_click('确认')
-                    self.click_if_appear(self.gc.icon_message_box_button_confirm)
+            if len(close_button_pos) > 0:
+                has_eggs = self.gc.has_revive_eggs()
+                if has_eggs:
+                    from myutils.configutils import get_config
+                    if get_config('enable_food_revive', True):
+                        self.click_if_appear(self.gc.icon_message_box_button_confirm)
+                    else:
+                        msg = "由于没有开启使用道具复活，已无法继续战斗, 前往七天神像复活"
+                        self.click_if_appear(self.gc.icon_message_box_button_cancel)
+                        raise StopFightException(msg, action=StopFightException.ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE)
                 else:
-                    msg = "由于没有开启使用道具复活，已无法继续战斗, 前往七天神像复活"
-                    # self.ocr.find_text_and_click('取消')
-                    self.click_if_appear(self.gc.icon_message_box_button_cancel)
-                    self.kb_press_and_release(self.Key.esc)
+                    # 检测到有关闭按钮, 但是没检测到鸡蛋(被倒计时数字遮挡)，说明鸡蛋在倒计时，此时已经无法继续战斗
+                    msg = "复活仍在倒计时, 已无法继续战斗, 前往七天神像复活"
+                    self.logger.debug(msg)
+                    self.click_screen(close_button_pos[0])
                     raise StopFightException(msg, action=StopFightException.ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE)
-            elif len(close_button_pos) > 0 and not has_eggs:
-                # 检测到有关闭按钮, 但是没检测到鸡蛋，说明鸡蛋在倒计时，此时已经无法继续战斗
-                msg = "复活仍在倒计时, 已无法继续战斗, 前往七天神像复活"
-                self.logger.debug(msg)
-                self.click_screen(close_button_pos[0])
-                raise StopFightException( msg, action=StopFightException.ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE)
+
             # 稍微动一下屏幕让模板匹配更容易成功
             x = randint(-100, 100)
             y = randint(-100, 100)
