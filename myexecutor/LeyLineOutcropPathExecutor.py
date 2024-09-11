@@ -44,6 +44,8 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
     def __init__(self, json_file_path, debug_enable=None):
         super().__init__(json_file_path=json_file_path, debug_enable=debug_enable)
         self.fight_controller = FightController(None)
+    LEYLINE_TYPE_MONEY = 'money'
+    LEYLINE_TYPE_EXPERIENCE = 'experience'
 
     @staticmethod
     def load_basepath_from_json_file(json_file_path) -> LeyLineOutcropPath:
@@ -63,7 +65,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                 enable=json_dict.get('enable', True)  # 未记录完成的委托标记为False
             )
 
-    leyline_type = None
+    __leyline_type = None
 
     # 2. 模板匹配屏幕上的图标
     @staticmethod
@@ -77,7 +79,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         # 加载地图位置检测器
         # template_image = cv2.imread(os.path.join(resource_path, "template", "icon_mission.jpg"))
         # template_image = cv2.imread(os.path.join(resource_path, "template", "icon_dimai_money.jpg"))
-        if LeyLineOutcropPathExecutor.leyline_type == 'money':
+        if LeyLineOutcropPathExecutor.__leyline_type == 'money':
             gray_template = capture.icon_dimai_money
         else:
             gray_template = capture.icon_dimai_exp
@@ -111,10 +113,10 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                 mission_screen_points.append((center_x, center_y))
                 prev_point = pt
 
-            cv2.rectangle(original_image, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 2)
+            # cv2.rectangle(original_image, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 2)
 
         # 显示结果
-        original_image = cv2.resize(original_image, None, fx=0.5, fy=0.5)
+        # original_image = cv2.resize(original_image, None, fx=0.5, fy=0.5)
         # cv2.imshow('Matched Image', original_image)
         # cv2.waitKey(20)
         # if key == ord('q'):
@@ -134,8 +136,8 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
 
         from myutils.executor_utils import euclidean_distance
         from myutils.configutils import resource_path
-        # mission_path = os.path.join(resource_path, 'pathlist', '地脉黄金')
-        mission_path = os.path.join(resource_path, 'pathlist', '地脉经验')
+        # 经验和摩拉都是一样的路径，只是图标不一样
+        mission_path = os.path.join(resource_path, 'pathlist', '地脉')
 
         closet_mission_json = None
         min_distance = None
@@ -239,12 +241,12 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         map_controller.teleport((x, y), country, "七天神像")
 
     @staticmethod
-    def execute_all_mission(leyline_type,emit=lambda val1,val2:None):  # 传一个空实现的方法，免去判断函数是否为空
+    def execute_all_mission(leyline_type='money',emit=lambda val1,val2:None):  # 传一个空实现的方法，免去判断函数是否为空
         logger.debug(f'地脉类型：{leyline_type}')
-        LeyLineOutcropPathExecutor.leyline_type = leyline_type
+        LeyLineOutcropPathExecutor.__leyline_type = leyline_type
         from server.service.LeyLineOutcropService import SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, SOCKET_EVENT_LEYLINE_OUTCROP_END
         from controller.MapController2 import MapController
-        daily_task_execute_timeout:int = get_config('layline_outcrop_task_execute_timeout', 500)
+        daily_task_execute_timeout:int = get_config('leyline_outcrop_task_execute_timeout', 500)
         if daily_task_execute_timeout < 60: daily_task_execute_timeout = 60
         elif daily_task_execute_timeout > 1200: daily_task_execute_timeout = 1200
 
@@ -321,8 +323,8 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                     self.crazy_f()
             elif self.next_point.action == LeyLineOutcropPoint.ACTION_REWARD:
                 # 怪物掉落材料太多可能会遮挡钥匙图标, 所以还不如直接判断reward图标
-                if self.gc.has_key() or self.gc.has_reward():
-                    self.log("发现钥匙或者奖励图标")
+                if self.gc.has_reward():
+                    self.log("发现奖励图标")
                     self.crazy_f()
 
                 if self.gc.has_origin_resin_in_top_bar():
@@ -388,5 +390,5 @@ if __name__ == '__main__':
     # t = threading.Thread(target=BGIEventHandler.start_server)
     # t.setDaemon(True)
     # t.start()
-    LeyLineOutcropPathExecutor.execute_all_mission()
+    LeyLineOutcropPathExecutor.execute_all_mission(leyline_type=LeyLineOutcropPathExecutor.LEYLINE_TYPE_MONEY)
 
