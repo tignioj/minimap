@@ -281,7 +281,7 @@ class BasePathExecutor(BaseController):
 
     def crazy_f(self):
         # 若是不小心点到烹饪界面，先关闭, 然后滚轮向下
-        if self.gc.has_ui_close_button():
+        if self.gc.has_tob_bar_close_button():
             self.map_controller.ui_close_button()
             self.ms_scroll(0, -1000)
             return
