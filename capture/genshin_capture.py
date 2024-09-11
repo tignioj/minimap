@@ -23,8 +23,7 @@ class GenShinCaptureObj(ObservableCapture):
         self.user_status_area_offset = None
         self.user_status_key_area = None  # 技能space和x区域
 
-        self.close_button_area = None  # ui关闭按钮
-        self.close_button_area_offset = None
+        self.ui_tob_bar_area = None  # ui顶栏
 
         self.side_team_area = None  # 右边栏队伍区域
         self.team_area_offset = None
@@ -71,16 +70,16 @@ class GenShinCaptureObj(ObservableCapture):
                                     self.user_status_area_offset[2]:self.user_status_area_offset[3]]
         self.side_team_area = screenshot[self.team_area_offset[0]:self.team_area_offset[1],
                               self.team_area_offset[2]:self.team_area_offset[3]]
-        self.close_button_area = screenshot[self.close_button_area_offset[0]:self.close_button_area_offset[1],
-                                 self.close_button_area_offset[2]:self.close_button_area_offset[3]]
+
+        self.ui_tob_bar_area = screenshot[0:120, 0:self.w]
 
     def get_user_status_area(self):
         self.update_screenshot_if_none()
         return self.user_status_area
 
-    def get_icon_close_area(self):
+    def get_tobbar_area(self):
         self.update_screenshot_if_none()
-        return self.close_button_area
+        return self.ui_tob_bar_area
 
     def get_user_status_key_area(self):
         self.update_screenshot_if_none()
@@ -119,9 +118,6 @@ class GenShinCaptureObj(ObservableCapture):
             msg = 'Resolution error, current resolution is: {}x{}, support 16:9 only'.format(self.w, self.h)
             logger.error(msg)
             raise ResolutionException(msg)
-
-        # 非严格判定
-        self.close_button_area_offset = 0, 120, self.w - 180, self.w
 
         # 小地图掩码
         self.circle_mask = np.zeros((self.mini_map_width, self.mini_map_height), np.uint8)
@@ -214,14 +210,29 @@ if __name__ == '__main__':
     gc = GenShinCaptureObj()
     obs = __Observer()
     gc.add_observer(obs)
+    # ta = gc.get_team_area()
+    # img_box = gc.screenshot[int(gc.h * 0.85):int(gc.h), 0:int(gc.w * 0.1)]
+    # cv2.imwrite('icon_map_setting_gear.jpg', img_box)
+    # img_box = gc.screenshot[int(gc.h * 0.1):int(gc.h*0.5), int(gc.w-200):int(gc.w)]
+    # cv2.imwrite('icon_map_setting_on.jpg', img_box)
+
+    # img_box = gc.screenshot[int(gc.h-200):int(gc.h), int(gc.w-800):int(gc.w)]
+    img_box = gc.screenshot
+    cv2.imwrite('sc2.jpg', img_box)
+    sys.exit(0)
     import threading
     while True:
-        b, g, r, alpha = cv2.split(gc.get_screenshot())
+        # b, g, r, alpha = cv2.split(gc.get_screenshot())
         t = time.time()
-        cv2.imshow('minimap', gc.get_mini_map())
-        cv2.imshow('close', gc.close_button_area)
+        gc.update_screenshot_if_none()
+        # img_box = gc.screenshot[int(gc.h * 0.45):int(gc.h * 0.55), int(gc.w * 0.50):int(gc.w * 0.75)]
+        # img_box = gc.screenshot[int(gc.h * 0.45):int(gc.h * 0.55), int(gc.w * 0.50):int(gc.w * 0.75)]
+        img_box = gc.screenshot[int(gc.h * 0.45):int(gc.h * 0.55), int(gc.w * 0.50):int(gc.w * 0.75)]
+        cv2.imshow('img_box', img_box)
+        # cv2.imshow('minimap', gc.get_mini_map())
+        # cv2.imshow('close', gc.close_button_area)
         # cv2.imwrite('icon_close.jpg', gc.close_button_area)
-        cv2.imshow('sta', gc.get_user_status_area())
+        # cv2.imshow('sta', gc.get_user_status_area())
         # cv2.imshow('user key', gc.get_user_status_key_area())
         # cv2.imshow('screen', gc.get_screenshot())
         # cv2.imshow('paimon', gc.get_paimon_area())
