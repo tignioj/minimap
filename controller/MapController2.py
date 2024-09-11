@@ -311,7 +311,7 @@ class MapController(BaseController):
         else:
             self.log("落地误差符合预期，传送成功!")
 
-    def go_to_seven_anemo_for_review(self):
+    def go_to_seven_anemo_for_revive(self):
         """
         前往七天神像回血
         :return:
@@ -323,6 +323,7 @@ class MapController(BaseController):
 
 
     def turn_off_custom_tag(self):
+        self.logger.debug("关掉自定义标签")
         """
         关掉自定义标记,避免遮挡
         :return:
@@ -331,7 +332,7 @@ class MapController(BaseController):
         time.sleep(0.5)
         self.click_if_appear(self.gc.icon_map_setting_on)
         time.sleep(0.4)
-        self.click_if_appear(self.gc.icon_close_side_map)
+        self.click_if_appear(self.gc.icon_close_while_arrow)
 
 
 
