@@ -42,7 +42,7 @@ class LeyLineOutcropPath(BasePath):
 class LeyLineOutcropPathExecutor(BasePathExecutor):
     def __init__(self, json_file_path, debug_enable=None):
         super().__init__(json_file_path=json_file_path, debug_enable=debug_enable)
-        self.fight_controller = FightController(None)
+
     LEYLINE_TYPE_MONEY = 'money'
     LEYLINE_TYPE_EXPERIENCE = 'experience'
 
@@ -330,6 +330,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
 
                 if self.gc.has_origin_resin_in_top_bar():
                     # 顶栏出现原粹树脂，说明弹出对话框
+                    screenshot = self.gc.get_screenshot()
                     match_texts = self.ocr.find_match_text("树脂")
                     if len(match_texts) > 0:
                         reward_ok = False
@@ -338,12 +339,18 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                                 self.ocr.click_ocr_result(ocr_result)
                                 self.logger.debug(f'after:点击{ocr_result.text}')
                                 reward_ok = True
+                                cv2.imwrite('click_reward.png', screenshot)
                         for ocr_result in match_texts:
                             if "补充原粹树脂" in ocr_result.text and not reward_ok:
-                                self.kb_press_and_release(self.Key.esc)  # 关闭对话框
-                                raise NoResinException("没有树脂了，结束地脉")
+                                # self.kb_press_and_release(self.Key.esc)  # 关闭对话框
+                                self.click_if_appear(self.gc.icon_close_while_arrow)
+                                cv2.imwrite('no_resin.png', screenshot)
+                                raise NoResinException("nearby:没有树脂了，结束地脉")
 
     def on_move_after(self, point: LeyLineOutcropPoint):
+        if point.action == point.ACTION_SHIELD:
+            self.fight_controller.shield()
+
         if point.type == LeyLineOutcropPoint.TYPE_TARGET:
             if point.action == LeyLineOutcropPoint.ACTION_FIGHT:
                 self.crazy_f()
@@ -373,8 +380,9 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                             reward_ok = True
                     for ocr_result in match_texts:
                         if "补充原粹树脂" in ocr_result.text and not reward_ok:
-                            self.kb_press_and_release(self.Key.esc)  # 关闭对话框
-                            raise NoResinException("没有树脂了，结束地脉")
+                            # self.kb_press_and_release(self.Key.esc)  # 关闭对话框
+                            self.click_if_appear(self.gc.icon_close_while_arrow)
+                            raise NoResinException("after:没有树脂了，结束地脉")
 
                 else:
                     self.logger.debug("after:没有找到文字'树脂'")
