@@ -102,6 +102,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
                 points.append(p)
             return DailyMissionPath(
                 name=json_dict['name'], country=json_dict['country'], positions=points,
+                anchor_name=json_dict['anchor_name'],
                 enable=json_dict.get('enable', True)  # 未记录完成的委托标记为False
             )
 
