@@ -92,6 +92,7 @@ class FightPathExecutor(BasePathExecutor):
         self.logger.debug("万叶拾取结束")
 
     def on_move_after(self, point):
+        super().on_move_after(point)  # 父类有开盾方法，直接调用
         if point.type == point.TYPE_TARGET:
             self.start_fight()
             time.sleep(self.fight_duration)
