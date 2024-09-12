@@ -1,3 +1,5 @@
+import time
+
 from flask import Flask, request, jsonify, Blueprint
 import os
 from paddleocr import PaddleOCR
@@ -14,17 +16,19 @@ from server.controller.ServerBaseController import ServerBaseController
 
 host = get_config('ocr')['host']
 port = get_config('ocr')['port']
-logging.getLogger('ppocr').setLevel(logging.INFO)
+logging.getLogger('ppocr').setLevel(logging.WARNING)
 
 logger = MyLogger('OCRServer')
 your_det_model_dir = os.path.join(resource_path, 'ocr', 'ch_PP-OCRv4_det_infer')
 your_rec_model_dir = os.path.join(resource_path, 'ocr', 'ch_PP-OCRv4_rec_infer')
 # your_rec_char_dict_path=None
 your_cls_model_dir = os.path.join(resource_path, 'ocr', 'ch_ppocr_mobile_v2.0_cls_infer')
-ocr = PaddleOCR(det_model_dir=f'{your_det_model_dir}', lang="ch", rec_model_dir=f'{your_rec_model_dir}',
-                     cls_model_dir=f'{your_cls_model_dir}',
-                     use_angle_cls=False, use_gpu=False, show_log=False)
+ocr = PaddleOCR(det_model_dir=f'{your_det_model_dir}',
+                lang="ch", rec_model_dir=f'{your_rec_model_dir}',
+                cls_model_dir=f'{your_cls_model_dir}',
+               use_angle_cls=False, use_gpu=False, show_log=False )
 
+# 报错RuntimeError('could not execute a primitive'), 后续考虑尝试换成 https://gitee.com/raoyutian/paddleocrsharp/blob/master/Demo/python/PaddleOCRCppPython.py
 ocr_bp = Blueprint('ocrbp', __name__)
 
 class ServerOCRController(ServerBaseController):
