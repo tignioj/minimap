@@ -54,6 +54,11 @@ class DailyMissionPathExecutorException(Exception): pass
 #     shutdown_server()
 #     return 'Server shutting down...'
 
+class Event:
+    def __init__(self, event_type, targets=None):
+        self.type = event_type,
+        self.targets = targets
+
 class DailyMissionPoint(Point):
     EVENT_DESTROY_AILIN = "destroy_ailin"  # 艾琳一次性破坏木桩
     EVENT_FIGHT = 'fight'
@@ -65,16 +70,16 @@ class DailyMissionPoint(Point):
     EVENT_COLLECT = 'collect'
     EVENT_CLIMB = 'climb'  # 爬神像，做不到
     EVENT_DEFENSE = 'defense'  # 固若金汤，守护镇石
-    EVENT_GEER_START = 'geer_start'  # 开启齿轮机关
+    EVENT_GEAR_START = 'gear_start'  # 开启齿轮机关
 
-    def __init__(self, x, y, type=Point.TYPE_PATH, move_mode=Point.MOVE_MODE_NORMAL, action=None, events=None):
+    def __init__(self, x, y, type=Point.TYPE_PATH, move_mode=Point.MOVE_MODE_NORMAL, action=None, event=None):
         super().__init__(x=x,y=y,type=type,move_mode=move_mode,action=action)
-        self.events = events
+        self.event = event
 
 class DailyMissionPath(BasePath):
     def __init__(self, name, country, positions: List[DailyMissionPoint], anchor_name=None, enable=None):
         super().__init__(name=name, country=country, positions=positions, anchor_name=anchor_name)
-        self.enable=enable
+        self.enable = enable
         self.mission_position_index = -1  # 默认情况下取最后一个点位作为委托在地图上的位置
         self.note = None  # 自定义备注
         # TODO：指定委托所在的位置，用于搜索；对于战斗类型通常是最后一个点的位置，其他的不一定
@@ -95,16 +100,17 @@ class DailyMissionPathExecutor(BasePathExecutor):
             points: List[DailyMissionPoint] = []
             for point in json_dict.get('positions', []):
                 p = DailyMissionPoint(x=point.get('x'),
-                          y=point.get('y'),
-                          type=point.get('type', Point.TYPE_PATH),
-                          move_mode=point.get('move_mode', Point.MOVE_MODE_NORMAL),
-                          action=point.get('action'),events=point.get('events'))
+                                      y=point.get('y'),
+                                      type=point.get('type', Point.TYPE_PATH),
+                                      move_mode=point.get('move_mode', Point.MOVE_MODE_NORMAL),
+                                      action=point.get('action'),
+                                      event=point.get('event'))
                 points.append(p)
-            return DailyMissionPath(
-                name=json_dict['name'], country=json_dict['country'], positions=points,
-                anchor_name=json_dict['anchor_name'],
-                enable=json_dict.get('enable', True)  # 未记录完成的委托标记为False
-            )
+            return DailyMissionPath(name=json_dict.get('name', 'undefined'),
+                            country=json_dict.get('country','蒙德'),
+                            positions=points,
+                            anchor_name=json_dict.get('anchor_name', '传送锚点'),
+                            enable=json_dict.get('enable', True))
 
 
     # 2. 模板匹配查找屏幕中的所有的任务的坐标
@@ -324,18 +330,18 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
     def on_nearby(self, coordinates):
         if self.next_point.type == DailyMissionPoint.TYPE_TARGET:
-            for event in self.next_point.events:
-                if event == DailyMissionPoint.EVENT_GEER_START:
-                    if self.gc.has_gear():
-                        self.log('nearby:发现齿轮，疯狂f')
-                        self.crazy_f()
+            if (self.next_point.event == DailyMissionPoint.EVENT_GEAR_START or
+                    self.next_point.event == DailyMissionPoint.EVENT_DEFENSE):
+                if self.gc.has_gear():
+                    self.log('nearby:发现齿轮，疯狂f')
+                    self.kb_press_and_release('f')
 
-    def wait_until_geer_start(self):
+    def wait_until_gear_start(self):
         stat_time = time.time()
         while self.gc.has_gear() and time.time() - stat_time < 5:
             if self.stop_listen: break
             self.logger.debug("wait:发现齿轮, 狂按f")
-            self.crazy_f()
+            self.kb_press_and_release('f')
             time.sleep(0.02)
 
     def wait_until_defense_done(self):
@@ -370,45 +376,44 @@ class DailyMissionPathExecutor(BasePathExecutor):
     def on_move_after(self, point: DailyMissionPoint):
         super().on_move_after(point)
         if point.type == DailyMissionPoint.TYPE_TARGET:
-            if point.events is None: return
-            for event in point.events:
-                event_type = event.get("type")
-                if event_type == DailyMissionPoint.EVENT_FIGHT:
-                    self.log("战斗!")
-                    self.wait_until_fight_finished()
-                elif event_type == DailyMissionPoint.EVENT_DESTROY:
-                    self.log("破坏丘丘人柱子!")
-                    self.wait_until_destroy()
-                elif event_type == DailyMissionPoint.EVENT_GEER_START:
-                    self.log("开启齿轮开关!")
-                    self.wait_until_geer_start()
-                elif event_type == DailyMissionPoint.EVENT_DEFENSE:
-                    self.log("守护镇石!")
-                    self.wait_until_defense_done()
-                elif event_type == DailyMissionPoint.EVENT_DESTROY_AILIN:
-                    self.log("艾琳要求一次性破坏木桩")
-                    self.wait_until_ailin_destroy()
-                elif event_type == DailyMissionPoint.EVENT_STANDING_ON_PLATE:
-                    self.log("极速前进, 踩下使柱子")  # 目前做不到
-                    time.sleep(5)
-                elif event_type == DailyMissionPoint.EVENT_FAST_FIGHT:
-                    self.log("快速战斗")
-                    self.wait_until_fast_fight_finished()
-                elif event_type == DailyMissionPoint.EVENT_FIND_NPC:
-                    time.sleep(2)  # 等待2秒让人稳定下来，避免移动的时候对话框消失
-                    self.log("查找npc")
-                    time.sleep(0.5)
-                    self.kb_press_and_release('f')
-                    time.sleep(0.5)
-                    self.kb_press_and_release('f')
-                    time.sleep(0.5)
-                    self.kb_press_and_release('f')
-                elif event_type == DailyMissionPoint.EVENT_DIALOG:
-                    self.log("对话")
-                    time.sleep(1)
-                    self.wait_until_dialog_finished()
-                else:
-                    self.log(f"暂时无法处理{event_type}类型的委托")
+            event_type = self.next_point.event.get('type')
+            if event_type == DailyMissionPoint.EVENT_FIGHT:
+                self.log("战斗!")
+                self.wait_until_fight_finished()
+            elif event_type == DailyMissionPoint.EVENT_DESTROY:
+                self.log("破坏丘丘人柱子!")
+                self.wait_until_destroy()
+            elif event_type == DailyMissionPoint.EVENT_GEAR_START:
+                self.log("开启齿轮开关!")
+                self.wait_until_gear_start()
+            elif event_type == DailyMissionPoint.EVENT_DEFENSE:
+                self.log("守护镇石!")
+                self.wait_until_gear_start()  # 开启挑战
+                self.wait_until_defense_done()
+            elif event_type == DailyMissionPoint.EVENT_DESTROY_AILIN:
+                self.log("艾琳要求一次性破坏木桩")
+                self.wait_until_ailin_destroy()
+            elif event_type == DailyMissionPoint.EVENT_STANDING_ON_PLATE:
+                self.log("极速前进, 踩下使柱子")  # 目前做不到
+                time.sleep(5)
+            elif event_type == DailyMissionPoint.EVENT_FAST_FIGHT:
+                self.log("快速战斗")
+                self.wait_until_fast_fight_finished()
+            elif event_type == DailyMissionPoint.EVENT_FIND_NPC:
+                time.sleep(2)  # 等待2秒让人稳定下来，避免移动的时候对话框消失
+                self.log("查找npc")
+                time.sleep(0.5)
+                self.kb_press_and_release('f')
+                time.sleep(0.5)
+                self.kb_press_and_release('f')
+                time.sleep(0.5)
+                self.kb_press_and_release('f')
+            elif event_type == DailyMissionPoint.EVENT_DIALOG:
+                self.log("对话")
+                time.sleep(1)
+                self.wait_until_dialog_finished()
+            else:
+                self.log(f"暂时无法处理{event_type}类型的委托")
 
 
 
