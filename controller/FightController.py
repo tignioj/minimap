@@ -256,6 +256,28 @@ class FightController(BaseController):
             self.fighting_thread.join()
             self.fighting_thread = None
 
+    def shield(self):
+        try:
+            for character in self.characters_name:
+                if character == "钟离":
+                    self.switch_character('钟离')
+                    self.fight_mapper.s(0.1)
+                    self.fight_mapper.e(hold=True)
+                elif character == "迪奥娜":
+                    self.switch_character('迪奥娜')
+                    self.fight_mapper.e(hold=True)
+                elif character == '莱依拉':
+                    self.switch_character('莱依拉')
+                    self.fight_mapper.e()
+                elif character == '绮良良':
+                    self.switch_character('绮良良')
+                    self.fight_mapper.e()
+                elif character == '诺艾尔':
+                    self.switch_character('诺艾尔')
+                    self.fight_mapper.e()
+        except SwitchCharacterTimeOutException as e:
+            self.logger.error(e.args)
+
 
 if __name__ == '__main__':
     from myutils.configutils import get_user_folder,get_config
