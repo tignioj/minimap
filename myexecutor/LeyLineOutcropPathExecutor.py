@@ -2,7 +2,6 @@ import threading
 import time
 from controller.BaseController import StopListenException
 from controller.MapController2 import MapController, LocationException
-
 from myexecutor.BasePathExecutor2 import BasePathExecutor,Point, BasePath
 import os,cv2
 import numpy as np
@@ -10,7 +9,7 @@ from typing import List
 import json
 from capture.capture_factory import capture
 from mylogger.MyLogger3 import MyLogger
-logger = MyLogger("daily_mission_executor")
+logger = MyLogger("leyline_outcrop_executor")
 from controller.FightController import FightController
 from myutils.configutils import get_config
 class MoveToLocationTimeoutException(Exception): pass
@@ -173,8 +172,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
     @staticmethod
     def get_closet_leyline_outcrop(map_controller):
         closet_missions = []
-        # TODO: BUG: 缩放的值可能会随着地图版本更新而不同
-        map_controller.scales_adjust(0.3, 0.33)
+        map_controller.scales_adjust(0.38)
         # 模板匹配屏幕中出现的地脉图标,得到他们的屏幕坐标
         missions_screen_points = LeyLineOutcropPathExecutor.get_mission_template_matched_screen_position()
         # 计算得到世界坐标
@@ -213,21 +211,24 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         leyline_outcrop = LeyLineOutcropPathExecutor.get_closet_leyline_outcrop(map_controller)
 
         if len(leyline_outcrop) == 0:
-            # 星落湖七天神像查找
-            x, y = 3451.571140, -6365.88
+            # 星落湖像查找
+            x, y = 4046.090671875001,-6906.5086328
+            logger.debug("前往星落湖查找")
             LeyLineOutcropPathExecutor.move_map_to(map_controller, (x,y), time.time())
             leyline_outcrop = LeyLineOutcropPathExecutor.get_closet_leyline_outcrop(map_controller)
 
 
         if len(leyline_outcrop) == 0:
-            # 风龙废墟七天神像查找
-            x, y = 436.84067, -6526.89
+            # 风龙废墟查找
+            logger.debug("前往风龙废墟查找")
+            x, y = 253.69223437500114, -7079.59408203
             LeyLineOutcropPathExecutor.move_map_to(map_controller, (x,y), time.time())
             leyline_outcrop = LeyLineOutcropPathExecutor.get_closet_leyline_outcrop(map_controller)
 
         if len(leyline_outcrop) == 0:
-            # 雪山七天神像查找
-            x, y = 2840.573, -3591.75
+            # 雪山查找
+            x, y = 3460.412937500, -2891.8816
+            logger.debug("前往雪山查找")
             LeyLineOutcropPathExecutor.move_map_to(map_controller, (x,y), time.time())
             leyline_outcrop = LeyLineOutcropPathExecutor.get_closet_leyline_outcrop(map_controller)
 
@@ -245,10 +246,9 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         logger.debug(f'地脉类型：{leyline_type}')
         LeyLineOutcropPathExecutor.__leyline_type = leyline_type
         from server.service.LeyLineOutcropService import SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, SOCKET_EVENT_LEYLINE_OUTCROP_END
-        from controller.MapController2 import MapController
-        daily_task_execute_timeout:int = get_config('leyline_outcrop_task_execute_timeout', 500)
-        if daily_task_execute_timeout < 60: daily_task_execute_timeout = 60
-        elif daily_task_execute_timeout > 1200: daily_task_execute_timeout = 1200
+        leyline_execute_timeout:int = get_config('leyline_outcrop_task_execute_timeout', 500)
+        if leyline_execute_timeout < 60: leyline_execute_timeout = 60
+        elif leyline_execute_timeout > 1200: leyline_execute_timeout = 1200
 
         map_controller = MapController()
         map_controller.open_middle_map()
@@ -261,7 +261,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                 msg = f"查找到地脉:{closet_missions}"
                 logger.debug(msg)
                 emit(SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, msg)
-                if time.time() - start_time > daily_task_execute_timeout: raise ExecuteTimeOutException("已超时!")
+                if time.time() - start_time > leyline_execute_timeout: raise ExecuteTimeOutException("已超时!")
                 for closest in closet_missions:
                     msg = f"开始执行地脉任务:{closest}"
                     logger.debug(msg)
@@ -296,16 +296,17 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         self.fight_controller.stop_fighting()
 
     def wait_until_fight_finished(self):
-        daily_task_fight_timeout = get_config('leyline_outcrop_task_fight_timeout', 20)
-        if daily_task_fight_timeout < 10: daily_task_fight_timeout = 10
-        elif daily_task_fight_timeout > 400: daily_task_fight_timeout = 400
+        leyline_fight_timeout = get_config('leyline_outcrop_task_fight_timeout', 20)
+        if leyline_fight_timeout < 10: leyline_fight_timeout = 10
+        elif leyline_fight_timeout > 400: leyline_fight_timeout = 400
 
         start_time = time.time()
         time.sleep(0.5)
         self.start_fight()
-        while time.time()-start_time < daily_task_fight_timeout:
+        while time.time()-start_time < leyline_fight_timeout:
+            if self.stop_listen: return
             time.sleep(1)
-            self.log(f"正在检测委托是否完成, 剩余{daily_task_fight_timeout-(time.time()-start_time)}秒")
+            self.log(f"正在检测地脉任务是否完成, 剩余{leyline_fight_timeout-(time.time()-start_time)}秒")
             if self.gc.has_reward():
                 logger.debug('检测到地脉奖励图标, 停止战斗')
                 break
