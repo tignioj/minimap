@@ -138,13 +138,10 @@ class CollectPathExecutor(BasePathExecutor):
 
 
     def on_move_after(self, point: CollectPoint):
+        super().on_move_after(point)
         if point.action == CollectPoint.ACTION_NAHIDA_COLLECT:
             self.logger.info('草神转圈')
             self.nahida_collect()
-        elif self.enable_crazy_f:
-            self.logger.info('已经到达点位也要疯狂按f')
-            self.crazy_f()
-
         if self.next_point.move_mode == CollectPoint.MOVE_MODE_UP_DOWN_GRAB_LEAF and self.next_point.type == CollectPoint.TYPE_TARGET:
             time.sleep(0.3)  # 通过四叶印到达目的地会有一小段时间悬空，等待降下，否则无法拾取
 
