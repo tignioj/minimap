@@ -283,8 +283,9 @@ class BasePathExecutor(BaseController):
         # 若是不小心点到烹饪界面，先关闭, 然后滚轮向下
         if self.gc.has_tob_bar_close_button():
             self.map_controller.ui_close_button()
-            self.ms_scroll(0, -1000)
             return
+        elif self.gc.has_cook_hat():  # 避免点击到烹饪图标
+            self.ms_scroll(0, -1000)
         self.kb_press_and_release('f')
 
     def on_nearby(self, coordinates):
@@ -306,11 +307,16 @@ class BasePathExecutor(BaseController):
         ocr_result = self.ocr.get_ocr_result()
         self.logger.debug(f'屏幕中有文字{ocr_result}')
         for result in ocr_result:
-            if '复苏' == result.text: self.ocr.click_ocr_result(result)   # 全军覆灭
+            if '复苏' == result.text:
+                self.logger.debug('handle_text:检查到全队覆灭，点击复活')
+                self.ocr.click_ocr_result(result)   # 全军覆灭
             elif '使用道具复苏角色' in result.text:  # 自动复活
+                self.logger.debug('handle_text:检查到角色死亡')
                 if get_config('enable_food_revive'):
+                    self.logger.debug('handle_text:使用道具复苏角色')
                     self.ocr.find_text_and_click('确认')
                 else:
+                    self.logger.debug('handle_text:不使用道具')
                     self.ocr.find_text_and_click('取消')
 
     def do_action_if_moving_stuck(self):
@@ -719,7 +725,7 @@ def execute_all():
     kb_listener.start()
 
     all_start_time = time.time()
-    points_path = get_config('points_path', os.path.join(PROJECT_PATH, 'resources', 'pathlist'))
+    points_path = get_config('points_path', os.path.join(PROJECT_PATH, 'resources', 'pathlist', '月莲'))
     err_list = []
     if not os.path.exists(points_path):
         logger.error('路径不存在！')
@@ -745,7 +751,7 @@ if __name__ == '__main__':
     import os
     from myutils.fileutils import getjson_path_byname
 
-    execute_one(getjson_path_byname('风车菊_蒙德_8个_20240814_101536.json'))
+    # execute_one(getjson_path_byname('风车菊_蒙德_8个_20240814_101536.json'))
     # execute_one(getjson_path_byname('jiuguan_蒙德_wfsd_20240808.json'))
     # execute_one(getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json'))
     # execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json'))
@@ -756,4 +762,4 @@ if __name__ == '__main__':
     # execute_one(getjson_path_byname('月莲_茸蕈窟_须弥_4个.json'))
     # execute_one(getjson_path_byname('月莲_须弥_降魔山下_7个.json'))
     # execute_one(getjson_path_byname('月莲_桓那兰那_须弥_4个_20240814_114304.json'))
-    # execute_all()
+    execute_all()
