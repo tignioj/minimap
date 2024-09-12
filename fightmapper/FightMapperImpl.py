@@ -23,12 +23,31 @@ class FightMapperImpl(BaseFightMapper):
         super().__init__()
         self.character_name = character_name
 
+
     def __circle_loop(self, duration):
         # 转圈
         t = time.time()
+        y = 1000
+        i = 0
         while time.time() - t < float(duration):
-            self.camera_chage(dx=-500, dy=0)
+            i += 1
+            if i % 10 == 0: y = -y
+            self.camera_chage(dx=-500, dy=y)
             time.sleep(0.02)
+
+    # def up_down_grab_leaf(self):
+    #     time.sleep(0.5)
+    #     x, y = 0, -1000  # y代表垂直方向上的视角移动, x为水平方向
+    #     i = 40
+    #     # self.kb_press('w')  # 飞行
+    #     while i > 0 and not self.stop_listen:
+    #         if i % 10 == 0:
+    #             y = -y
+    #         i -= 1
+    #         self.logger.debug("上下晃动视角中")
+    #         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, y, 0, 0)
+    #         time.sleep(0.04)
+
 
     def charge(self, duration=None):
         """
@@ -60,7 +79,10 @@ class FightMapperImpl(BaseFightMapper):
 
 if __name__ == '__main__':
     # fm = FightMapperImpl(character_name='那维莱特')
-    fm = FightMapperImpl(character_name='纳西妲')
+    fm = FightMapperImpl(character_name='钟离')
+    fm.kb_press('w')
+    time.sleep(1)
+    fm.s(0.1)
     # fm = FightMapperImpl(character_name='芙宁娜')
     fm.e(hold=True)
-    # fm.charge()
+    # fm.charge(3)
