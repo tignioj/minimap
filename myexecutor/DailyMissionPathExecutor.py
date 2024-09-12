@@ -249,7 +249,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
         from controller.MapController2 import MapController
         daily_task_execute_timeout:int = get_config('daily_task_execute_timeout', 500)
         if daily_task_execute_timeout < 60: daily_task_execute_timeout = 60
-        elif daily_task_execute_timeout > 1200: daily_task_execute_timeout = 1200
+        elif daily_task_execute_timeout > 3600: daily_task_execute_timeout = 3600
 
         map_controller = MapController()
         start_time = time.time()

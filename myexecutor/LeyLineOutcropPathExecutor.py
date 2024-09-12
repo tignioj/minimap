@@ -248,7 +248,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         from server.service.LeyLineOutcropService import SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, SOCKET_EVENT_LEYLINE_OUTCROP_END
         leyline_execute_timeout:int = get_config('leyline_outcrop_task_execute_timeout', 500)
         if leyline_execute_timeout < 60: leyline_execute_timeout = 60
-        elif leyline_execute_timeout > 1200: leyline_execute_timeout = 1200
+        elif leyline_execute_timeout > 3600: leyline_execute_timeout = 3600
 
         map_controller = MapController()
         map_controller.open_middle_map()
