@@ -120,7 +120,9 @@ class FightController(BaseController):
                 if has_eggs:
                     from myutils.configutils import get_config
                     if get_config('enable_food_revive', True):
+                        self.logger.debug('复活道具-1')
                         self.click_if_appear(self.gc.icon_message_box_button_confirm)
+                        time.sleep(0.2)  # 等待对话框消失
                     else:
                         msg = "由于没有开启使用道具复活，已无法继续战斗, 前往七天神像复活"
                         self.click_if_appear(self.gc.icon_message_box_button_cancel)
