@@ -6,6 +6,8 @@ import cv2
 import sys
 from controller.BaseController import BaseController
 from collections import deque
+
+from controller.FightController import FightController
 from controller.MapController2 import MapController
 from controller.OCRController import OCRController
 from myutils.executor_utils import point1_near_by_point2, find_closest_point_index
@@ -53,6 +55,7 @@ class Point:
     MOVE_MODE_SWIM = 'swim'  # swim 模式下，会禁止小碎步，因为小碎步的实现是疯狂按下w和停止w，这会加速消耗体力
 
     ACTION_STOP_FLYING_ON_MOVE_DONE = 'stop_flying'  # 到达某个点的时候是否下落攻击以停止飞行
+    ACTION_SHIELD = 'shield'  # 开盾
 
     def __init__(self, x, y, type=TYPE_PATH, move_mode=MOVE_MODE_NORMAL, action=None):
         self.x = x
@@ -118,6 +121,8 @@ class BasePathExecutor(BaseController):
             return
         self.ocr = OCRController(debug_enable=debug_enable)
         self.map_controller = MapController(tracker=self.tracker, debug_enable=debug_enable)  # 传送
+        self.fight_controller = FightController(None)
+
         self.debug_enable = debug_enable
 
         ################## 参数 #########################
@@ -393,11 +398,11 @@ class BasePathExecutor(BaseController):
         # 小碎步实现方法：先按下w等待一小段时间再松开w，反复循环
         # 小碎步的条件：当和目标点差距8个像素时候，就认为符合最基本条件
         nearby = self.next_point.type == self.next_point.TYPE_TARGET and point1_near_by_point2(self.current_coordinate,
-                                                                                               coordinates, 8)
+                                                                                               coordinates, 12)
         # if nearby: self.logger.debug(f'接近下一个点位{self.next_point}, 当前在{coordinates}')
         # 接近上一个点位
         nearby_last_point = self.prev_point is not None and self.prev_point.type == self.prev_point.TYPE_TARGET and point1_near_by_point2(
-            self.current_coordinate, (self.prev_point.x, self.prev_point.y), 8)
+            self.current_coordinate, (self.prev_point.x, self.prev_point.y), 12)
         # if nearby_last_point: self.logger.debug(f'接近上一个点位{self.prev_point}, 当前在{coordinates}')
 
         if nearby or nearby_last_point: self.on_nearby(coordinates)
@@ -504,11 +509,13 @@ class BasePathExecutor(BaseController):
         self.logger.debug(f'跑点{next_point_coordinate}用时：{time.time() - point_start_time}')
         self.kb_release('w')
 
-    def on_move_after(self, point):
+    def on_move_after(self, point: Point):
         self.log(f'到达点位{point}了')
         if self.enable_crazy_f and point.type == point.TYPE_TARGET:
             self.debug('疯狂按下f')
             self.crazy_f()
+        if point.action == point.ACTION_SHIELD:
+            self.fight_controller.shield()
 
     def update_state(self):
         start = time.time()
