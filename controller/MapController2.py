@@ -332,10 +332,18 @@ class MapController(BaseController):
             self.move_mouse_to_waypoint_position(position)
             self.tracker.create_cached_local_map(center=position)
             self.click_waypoint(waypoint_name)  # 点击传送锚点
+            time.sleep(1)
+            if self.gc.has_tob_bar_close_button() or self.gc.has_origin_resin_in_top_bar():
+                self.logger.debug("仍然在地图界面, 重试中")
+                self.close_middle_map()
+                time.sleep(0.5)
+                self.close_middle_map()
+                self.teleport(position, country, waypoint_name, create_local_map_cache)
+                return
         except (LocationException, MoveTimeoutException, ScaleChangeException) as e:
             self.logger.error(f'移动过程中出现异常，正在重试传送{e}')
             self.close_middle_map()
-            time.sleep(1)
+            time.sleep(0.5)
             self.close_middle_map()
             self.teleport(position, country, waypoint_name, create_local_map_cache)
             return
