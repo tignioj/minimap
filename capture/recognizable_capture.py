@@ -36,9 +36,13 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_close_top_bar_org = cv2.imread(os.path.join(template_path, 'button_top_bar_close.png'), cv2.IMREAD_GRAYSCALE)  # 普通ui的关闭按钮
         self.icon_close_tob_bar = self.__icon_close_top_bar_org.copy()
 
-        # 地图的关闭按钮(白色箭头)
+        # 地图的关闭按钮(白色箭头,黑底)
         self.__icon_close_while_arrow_org = cv2.imread(os.path.join(template_path, 'button_while_arrow.png'), cv2.IMREAD_GRAYSCALE)  # 切换国家时候的关闭按钮
         self.icon_close_while_arrow = self.__icon_close_while_arrow_org.copy()
+
+        # 领取奖励的弹窗关闭按钮，包括秘境，boss，地脉。(灰色箭头，白底)
+        self.__button_close_gray_arrow_org = cv2.imread(os.path.join(template_path, "button_close_gray_arrow.png"), cv2.IMREAD_GRAYSCALE)
+        self.button_close_gray_arrow = self.__button_close_gray_arrow_org.copy()
 
         # 队伍中, 有一个小三角对应当前的角色
         self.__icon_team_current_triangle_org = cv2.imread(os.path.join(template_path,  "icon_team_current_triangle.png"), cv2.IMREAD_GRAYSCALE)
@@ -76,7 +80,7 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_map_setting_gear = self.__icon_map_setting_gear_org.copy()
 
         # 地图设置开关图标
-        self.__icon_map_setting_on_org = cv2.imread(os.path.join(template_path, "buton_map_setting_on.png"), cv2.IMREAD_GRAYSCALE)
+        self.__icon_map_setting_on_org = cv2.imread(os.path.join(template_path, "button_map_setting_on.png"), cv2.IMREAD_GRAYSCALE)
         self.icon_map_setting_on = self.__icon_map_setting_on_org.copy()
         self.__icon_map_setting_off_org = cv2.imread(os.path.join(template_path, "button_map_setting_off.png"), cv2.IMREAD_GRAYSCALE)
         self.icon_map_setting_off = self.__icon_map_setting_off_org.copy()
@@ -195,6 +199,8 @@ class RecognizableCapture(GenShinCaptureObj):
 
         self.icon_map_tea = cv2.resize(self.__icon_map_tea_org, None, fx=scale, fy=scale)
         self.icon_map_star = cv2.resize(self.__icon_map_star_org, None, fx=scale, fy=scale)
+
+        self.button_close_gray_arrow = cv2.resize(self.__button_close_gray_arrow_org, None, fx=scale, fy=scale)
 
     def has_origin_resin_in_top_bar(self):
         self.update_screenshot_if_none()
@@ -362,9 +368,9 @@ if __name__ == '__main__':
         # print(rc.has_revive_eggs())
         t = time.time()
         # rc.update_screenshot_if_none()
-        # pos = rc.get_icon_position(rc.icon_map_star)
-        # print(pos, time.time()-t)
-        print(rc.has_map_sidebar_toggle(), time.time()-t)
+        pos = rc.get_icon_position(rc.button_close_gray_arrow)
+        print(pos, time.time()-t)
+        # print(rc.has_paimon(), time.time()-t)
         # rc.check_icon()
         # sc = rc.get_paimon_area()
         # flying = rc.is_flying()
