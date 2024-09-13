@@ -42,6 +42,7 @@ class LeyLineOutcropPath(BasePath):
 class LeyLineOutcropPathExecutor(BasePathExecutor):
     def __init__(self, json_file_path, debug_enable=None):
         super().__init__(json_file_path=json_file_path, debug_enable=debug_enable)
+        self.reward_ok = False
 
     LEYLINE_TYPE_MONEY = 'money'
     LEYLINE_TYPE_EXPERIENCE = 'experience'
@@ -320,41 +321,54 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
 
     def on_nearby(self, coordinate):
         if self.next_point.type == LeyLineOutcropPoint.TYPE_TARGET:
-            if self.next_point.action == LeyLineOutcropPoint.ACTION_FIGHT:
-                if self.gc.has_gear():
-                    self.log("发现齿轮")
-                    self.crazy_f()
-            elif self.next_point.action == LeyLineOutcropPoint.ACTION_REWARD:
-                # 怪物掉落材料太多可能会遮挡钥匙图标, 所以还不如直接判断reward图标
-                if self.gc.has_reward():
-                    self.log("发现奖励图标")
-                    self.crazy_f()
+            # if self.next_point.action == LeyLineOutcropPoint.ACTION_FIGHT:
+            #     if self.gc.has_gear():
+            #         self.log("nearby:发现齿轮")
+            #         self.kb_press_and_release('f')  # 记录的路径没有篝火，直接f就行
+            # elif self.next_point.action == LeyLineOutcropPoint.ACTION_REWARD:
+            #     # 怪物掉落材料太多可能会遮挡钥匙图标, 所以还不如直接判断reward图标
+            #     # if self.gc.has_reward():
+            #     #     self.log("nearby:发现奖励图标")
+                self.log('nearby:疯狂f同时判断树脂图标')
+                self.kb_press_and_release('f')  # 记录的路径没有篝火，直接f就行
+                self.click_use_resin()
 
-                if self.gc.has_origin_resin_in_top_bar():
-                    # 顶栏出现原粹树脂，说明弹出对话框
-                    match_texts = self.ocr.find_match_text("树脂")
-                    if len(match_texts) > 0:
-                        reward_ok = False
-                        for ocr_result in match_texts:
-                            if "使用浓缩树脂" in ocr_result.text or "使用原粹树脂" in ocr_result.text:
-                                self.ocr.click_ocr_result(ocr_result)
-                                self.logger.debug(f'after:点击{ocr_result.text}')
-                                reward_ok = True
-                                # if get_config('leyline_enable_wanye_pickup_after_reward', 1) == 1:
-                                #     self.fight_controller.wanye_pickup()  # 万叶拾取
-                                # cv2.imwrite('click_reward.png', screenshot)
-                        for ocr_result in match_texts:
-                            if "补充原粹树脂" in ocr_result.text and not reward_ok:
-                                self.kb_press_and_release(self.Key.esc)  # 关闭对话框
-                                # self.click_if_appear(self.gc.button_close_gray_arrow)
-                                # cv2.imwrite('no_resin.png', screenshot)
-                                raise NoResinException("nearby:没有树脂了，结束地脉")
+
 
     def on_move_before(self, point: LeyLineOutcropPoint):
         # 战斗前自动开盾
         if point.action == point.ACTION_FIGHT:
             self.fight_controller.shield()
         super().on_move_before(point)
+
+    def click_use_resin(self):
+        if self.click_if_appear(self.gc.icon_button_condensed_resin):
+            self.logger.debug('成功点击浓缩树脂图标')
+            self.reward_ok = True
+        elif self.click_if_appear(self.gc.icon_button_original_resin):
+            self.logger.debug('成功点击原粹树脂图标, 判断是否需要补充树脂')
+            try:
+                if self.click_if_appear(self.gc.icon_message_box_button_cancel, timeout=1):
+                    self.logger.debug("成功点击取消按钮,说明树脂已经消耗完毕")
+                    raise NoResinException("树脂消耗完毕")
+                else:
+                    self.logger.debug("没有找到取消按钮,点击原粹树脂图标成功")
+                    self.reward_ok = True
+            except TimeoutError:
+                self.logger.debug("超时:没有找到取消按钮,使用原粹树脂领取成功")
+            # original_resin_positions = self.gc.get_icon_position(self.gc.icon_button_original_resin)
+            # if len(original_resin_positions) > 0:
+            #     self.logger.debug(f'发现原粹树脂图标，位置{original_resin_positions}')
+            #     original_resin_position = original_resin_positions[0]
+            #     if original_resin_position[0] < self.gc.w//2: # 按钮如果在左边则认为树脂完全消耗
+            #         self.logger.debug('原粹树脂图标的x坐标小于屏幕的一半')
+            #         raise NoResinException("树脂消耗完毕")
+            #     else:
+            #         self.click_screen(original_resin_position)
+            #         self.logger.debug('成功点击原粹树脂图标')
+            #         self.reward_ok = True
+
+
 
     def on_move_after(self, point: LeyLineOutcropPoint):
         if point.action == point.ACTION_SHIELD:
@@ -364,7 +378,6 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
             if point.action == LeyLineOutcropPoint.ACTION_FIGHT:
                 self.crazy_f()
                 # 开启地脉
-                # OCR检测文字：点击浓缩树脂
                 # 战斗
                 if not self.gc.has_reward() and not self.gc.has_key():
                     self.wait_until_fight_finished()
@@ -374,27 +387,13 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                 # 前往领取奖励的点(地脉开启位置未必和领取奖励的位置相同)
                 # 只拾取一次可能只拿到了怪物的掉落材料而无法领取奖励
                 start_pick_time = time.time()
-                while self.gc.has_reward() and time.time()-start_pick_time < 5:
-                    self.log("疯狂f领取奖励")
-                    self.crazy_f()
+                while not self.reward_ok and time.time()-start_pick_time < 5:
+                    self.log("after:疯狂f领取奖励")
+                    self.kb_press_and_release('f')
+                    self.click_use_resin()
                     time.sleep(0.02)
-                time.sleep(0.5)
-                match_texts = self.ocr.find_match_text("树脂")
-                reward_ok = False
-                if len(match_texts) > 0:
-                    for ocr_result in match_texts:
-                        if "使用浓缩树脂" in ocr_result.text or "使用原粹树脂" in ocr_result.text:
-                            self.ocr.click_ocr_result(ocr_result)
-                            self.logger.debug(f'after:点击{ocr_result.text}')
-                            reward_ok = True
-                    for ocr_result in match_texts:
-                        if "补充原粹树脂" in ocr_result.text and not reward_ok:
-                            self.kb_press_and_release(self.Key.esc)  # 关闭对话框
-                            # self.click_if_appear(self.gc.button_close_gray_arrow)
-                            raise NoResinException("after:没有树脂了，结束地脉")
-                else: self.logger.debug("after:没有找到文字'树脂'")
 
-                if get_config('leyline_enable_wanye_pickup_after_reward', 1) == 1:
+                if self.reward_ok and get_config('leyline_enable_wanye_pickup_after_reward', 1) == 1:
                     self.fight_controller.wanye_pickup()  # 万叶拾取
 
 
