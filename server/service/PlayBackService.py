@@ -3,7 +3,7 @@ import json, os
 import time
 from typing import Callable
 
-from controller.BaseController import BaseController
+from controller.BaseController import BaseController, StopListenException
 from mylogger.MyLogger3 import MyLogger
 
 SOCKET_EVENT_PLAYBACK_START = 'socket_event_playback_start'
@@ -45,6 +45,15 @@ class PlayBackService:
     }
 
     @staticmethod
+    def run_playback(jsondict, socketio_instance):
+        try:
+            PlayBackService.playback_runner(jsondict, socketio_instance)
+        except StopListenException as e:
+            logger.debug(e.args)
+            socketio_instance.emit(SOCKET_EVENT_PLAYBACK_END, e.args)
+
+
+    @staticmethod
     def playBack(jsondict, socketio_instance=None):
         if jsondict is None:
             raise PlayBackException(message='空json对象，无法回放')
@@ -52,7 +61,7 @@ class PlayBackService:
         BaseController.stop_listen = False
         if PlayBackService.playing_thread_running:
             raise PlayBackException( status=PlayBackService.PLAYBACK_STATUS_ALREADY_RUNNING, message='已经有脚本正在运行中，请退出该脚本后再重试!')
-        threading.Thread(target=PlayBackService.playback_runner, args=(jsondict,socketio_instance)).start()
+        threading.Thread(target=PlayBackService.run_playback, args=(jsondict,socketio_instance)).start()
         return True
 
     @staticmethod
@@ -88,6 +97,8 @@ class PlayBackService:
                     socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行{jsondict.get("name")}')
                 bp.execute(from_index=from_index)
                 if socketio_instance: socketio_instance.emit(SOCKET_EVENT_PLAYBACK_END, f"{jsondict.get('name')}执行结束，用时:{time.time() - start_time}")
+            except StopListenException as e:
+                raise e
             except Exception as e:
                 logger.exception(e, exc_info=True)
                 if socketio_instance: socketio_instance.emit(SOCKET_EVENT_PLAYBACK_EXCEPTION, str(e.args))

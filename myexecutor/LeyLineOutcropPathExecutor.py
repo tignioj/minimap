@@ -250,12 +250,14 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         if leyline_execute_timeout < 60: leyline_execute_timeout = 60
         elif leyline_execute_timeout > 3600: leyline_execute_timeout = 3600
 
-        map_controller = MapController()
-        map_controller.open_middle_map()
-        map_controller.turn_off_custom_tag()
 
         start_time = time.time()
         try:
+
+            map_controller = MapController()
+            map_controller.open_middle_map()
+            map_controller.turn_off_custom_tag()
+
             closet_missions = LeyLineOutcropPathExecutor.get_screen_world_mission_json(map_controller)
             while len(closet_missions) > 0:  # 不断执行委托直到屏幕上查找到的战斗委托为空
                 msg = f"查找到地脉:{closet_missions}"
