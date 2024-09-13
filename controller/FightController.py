@@ -23,6 +23,7 @@ class StopFightException(Exception):
 
 class SwitchCharacterTimeOutException(Exception): pass
 
+class CharacterNotFoundException(Exception): pass
 
 class FightController(BaseController):
 
@@ -151,7 +152,7 @@ class FightController(BaseController):
     def get_character_number(self, name):
         if name not in self.characters_name:
             # TODO： 子线程的异常如何捕捉？
-            raise StopFightException(f"你指定的角色{name}不在队伍${self.characters_name}中")
+            raise CharacterNotFoundException(f"你指定的角色{name}不在队伍${self.characters_name}中")
         return self.characters_name.index(name) + 1
 
     def character_fight(self, character_with_skills):
@@ -261,7 +262,7 @@ class FightController(BaseController):
             for character in self.characters_name:
                 if character == "钟离":
                     self.switch_character('钟离')
-                    self.fight_mapper.s(0.1)
+                    # self.fight_mapper.s(0.1)
                     self.fight_mapper.e(hold=True)
                 elif character == "迪奥娜":
                     self.switch_character('迪奥娜')
@@ -275,8 +276,34 @@ class FightController(BaseController):
                 elif character == '诺艾尔':
                     self.switch_character('诺艾尔')
                     self.fight_mapper.e()
-        except SwitchCharacterTimeOutException as e:
+        except (SwitchCharacterTimeOutException,CharacterNotFoundException) as e:
             self.logger.error(e.args)
+
+    def wanye_pickup(self):
+        # 切万叶
+        if not '枫原万叶' in self.characters_name:
+            self.logger.debug("万叶不在队伍中，停止聚材料")
+            return
+        self.logger.debug("万叶拾取中")
+        try:
+            self.switch_character('枫原万叶')
+        except SwitchCharacterTimeOutException as e:
+            self.logger.error(e)  # 超时异常
+            return
+        except CharacterNotFoundException as e:
+            self.logger.debug(e)
+            return
+        time.sleep(0.1)
+        # 万叶长e
+        self.logger.debug('万叶长e')
+        self.fight_mapper.e(hold=True)
+        # 下落攻击
+        # 不知道为什么有时候下落攻击失败，多a几次
+        self.fight_mapper.attack(0.4)
+        for i in range(25):  # 疯狂f
+            time.sleep(0.1)
+            self.crazy_f()
+        self.logger.debug("万叶拾取结束")
 
 
 if __name__ == '__main__':
