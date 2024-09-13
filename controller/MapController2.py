@@ -62,7 +62,7 @@ class MapController(BaseController):
             waypoint_name = '传送锚点'
         self.mouse_left_click()  # 点击锚点
         try:
-            time.sleep(0.1)
+            time.sleep(0.3)
             if self.click_if_appear(self.gc.icon_button_teleport, timeout=1):
                 return
         except TimeoutError:
@@ -386,7 +386,7 @@ class MapController(BaseController):
         self.click_if_appear(self.gc.icon_map_setting_gear)
         time.sleep(0.5)
         self.click_if_appear(self.gc.icon_map_setting_on)
-        time.sleep(0.4)
+        time.sleep(0.5)
         self.click_if_appear(self.gc.icon_close_while_arrow)
 
 
