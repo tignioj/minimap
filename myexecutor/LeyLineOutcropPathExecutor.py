@@ -330,7 +330,6 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
 
                 if self.gc.has_origin_resin_in_top_bar():
                     # 顶栏出现原粹树脂，说明弹出对话框
-                    screenshot = self.gc.get_screenshot()
                     match_texts = self.ocr.find_match_text("树脂")
                     if len(match_texts) > 0:
                         reward_ok = False
@@ -339,6 +338,8 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                                 self.ocr.click_ocr_result(ocr_result)
                                 self.logger.debug(f'after:点击{ocr_result.text}')
                                 reward_ok = True
+                                # if get_config('leyline_enable_wanye_pickup_after_reward', 1) == 1:
+                                #     self.fight_controller.wanye_pickup()  # 万叶拾取
                                 # cv2.imwrite('click_reward.png', screenshot)
                         for ocr_result in match_texts:
                             if "补充原粹树脂" in ocr_result.text and not reward_ok:
@@ -377,8 +378,8 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                     time.sleep(0.02)
                 time.sleep(0.5)
                 match_texts = self.ocr.find_match_text("树脂")
+                reward_ok = False
                 if len(match_texts) > 0:
-                    reward_ok = False
                     for ocr_result in match_texts:
                         if "使用浓缩树脂" in ocr_result.text or "使用原粹树脂" in ocr_result.text:
                             self.ocr.click_ocr_result(ocr_result)
@@ -389,9 +390,13 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                             self.kb_press_and_release(self.Key.esc)  # 关闭对话框
                             # self.click_if_appear(self.gc.button_close_gray_arrow)
                             raise NoResinException("after:没有树脂了，结束地脉")
+                else: self.logger.debug("after:没有找到文字'树脂'")
 
-                else:
-                    self.logger.debug("after:没有找到文字'树脂'")
+                if get_config('leyline_enable_wanye_pickup_after_reward', 1) == 1:
+                    self.fight_controller.wanye_pickup()  # 万叶拾取
+
+
+
 
 # 1. 按下m，然后滚轮向下把视野放大。
 # 2. 模板匹配查找屏幕中的所有的任务相对于屏幕中心的坐标
