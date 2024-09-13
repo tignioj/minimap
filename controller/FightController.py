@@ -257,12 +257,17 @@ class FightController(BaseController):
             self.fighting_thread.join()
             self.fighting_thread = None
 
-    def shield(self):
+    def shield(self, adjust_direction=True):
+        """
+        :param adjust_direction:  专门为钟离优化的参数。True表示向身后开盾，避免前进时候撞到柱子
+        :return:
+        """
         try:
             for character in self.characters_name:
                 if character == "钟离":
                     self.switch_character('钟离')
-                    # self.fight_mapper.s(0.1)
+                    if adjust_direction:
+                        self.fight_mapper.s(0.1)
                     self.fight_mapper.e(hold=True)
                 elif character == "迪奥娜":
                     self.switch_character('迪奥娜')
