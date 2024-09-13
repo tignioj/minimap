@@ -70,26 +70,26 @@ class FightPathExecutor(BasePathExecutor):
 
     def on_nearby(self, coordinates):
         pass  # 啥也不干，屏蔽掉父类的疯狂f
-
-    def wanye_pickup(self):
-        # 切万叶
-        self.logger.debug("万叶拾取中")
-        from controller.FightController import SwitchCharacterTimeOutException
-        try:
-            self.fight_controller.switch_character('枫原万叶')
-        except SwitchCharacterTimeOutException as e:
-            self.logger.error(e)  # 超时异常
-        time.sleep(0.1)
-        # 万叶长e
-        self.logger.debug('万叶长e')
-        self.fight_controller.fight_mapper.e(hold=True)
-        # 下落攻击
-        # 不知道为什么有时候下落攻击失败，多a几次
-        self.fight_controller.fight_mapper.attack(0.4)
-        for i in range(25):  # 疯狂f
-            time.sleep(0.1)
-            self.crazy_f()
-        self.logger.debug("万叶拾取结束")
+    #
+    # def wanye_pickup(self):
+    #     # 切万叶
+    #     self.logger.debug("万叶拾取中")
+    #     from controller.FightController import SwitchCharacterTimeOutException
+    #     try:
+    #         self.fight_controller.switch_character('枫原万叶')
+    #     except SwitchCharacterTimeOutException as e:
+    #         self.logger.error(e)  # 超时异常
+    #     time.sleep(0.1)
+    #     # 万叶长e
+    #     self.logger.debug('万叶长e')
+    #     self.fight_controller.fight_mapper.e(hold=True)
+    #     # 下落攻击
+    #     # 不知道为什么有时候下落攻击失败，多a几次
+    #     self.fight_controller.fight_mapper.attack(0.4)
+    #     for i in range(25):  # 疯狂f
+    #         time.sleep(0.1)
+    #         self.crazy_f()
+    #     self.logger.debug("万叶拾取结束")
 
     def on_move_before(self, point: FightPoint):
         # 战斗前自动开盾
@@ -104,7 +104,7 @@ class FightPathExecutor(BasePathExecutor):
             time.sleep(self.fight_duration)
             self.stop_fight()
             time.sleep(0.1)
-            self.wanye_pickup()
+            self.fight_controller.wanye_pickup()
 
     def on_execute_before(self, from_index=None):
         super().on_execute_before(from_index=from_index)
