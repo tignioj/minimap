@@ -75,6 +75,13 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_origin_resin_org = cv2.imread(os.path.join(template_path, "icon_origin_resin.png"), cv2.IMREAD_GRAYSCALE)
         self.icon_origin_resin = self.__icon_origin_resin_org.copy()
 
+        # 原粹树脂（对话框）
+        self.__icon_button_original_resin_org = cv2.imread(os.path.join(template_path, "button_original_resin_big.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_button_original_resin = self.__icon_button_original_resin_org.copy()
+        # 浓缩树脂（对话框）
+        self.__icon_button_condensed_resin_org = cv2.imread(os.path.join(template_path, "button_condensed_resin_big.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_button_condensed_resin = self.__icon_button_condensed_resin_org.copy()
+
         # 地图设置齿轮
         self.__icon_map_setting_gear_org = cv2.imread(os.path.join(template_path, "button_map_setting_gear.png"), cv2.IMREAD_GRAYSCALE)
         self.icon_map_setting_gear = self.__icon_map_setting_gear_org.copy()
@@ -202,12 +209,15 @@ class RecognizableCapture(GenShinCaptureObj):
 
         self.button_close_gray_arrow = cv2.resize(self.__button_close_gray_arrow_org, None, fx=scale, fy=scale)
 
+        self.icon_button_condensed_resin = cv2.resize(self.__icon_button_condensed_resin_org,None, fx=scale, fy=scale)
+        self.icon_button_original_resin = cv2.resize(self.__icon_button_original_resin_org, None, fx=scale, fy=scale)
+
     def has_origin_resin_in_top_bar(self):
         self.update_screenshot_if_none()
         top_bar = self.screenshot[0:102, int(self.w*0.5):self.w]
         # cv2.imshow('top_bar', top_bar)
         # cv2.waitKey(2)
-        return self.__has_icon(top_bar, self.icon_origin_resin)
+        return self.__has_icon(top_bar, self.icon_origin_resin, 0.75)
 
     def is_swimming(self):
         return self.__has_icon(self.get_user_status_area(),self.icon_user_status_swim)
@@ -368,7 +378,8 @@ if __name__ == '__main__':
         # print(rc.has_revive_eggs())
         t = time.time()
         # rc.update_screenshot_if_none()
-        pos = rc.get_icon_position(rc.button_close_gray_arrow)
+        # print(rc.has_origin_resin_in_top_bar(),time.time()-t)
+        pos = rc.get_icon_position(rc.icon_message_box_button_cancel)
         print(pos, time.time()-t)
         # print(rc.has_paimon(), time.time()-t)
         # rc.check_icon()
