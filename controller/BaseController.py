@@ -158,7 +158,7 @@ class BaseController:
     def mouse_right_click(self):
         self.ms_click(self.Button.right)
 
-    def click_if_appear(self, icon, index=None, timeout:int=None):
+    def click_if_appear(self, icon, index=None, timeout:float=None):
         """
         点击图标
         :param icon:
@@ -167,11 +167,11 @@ class BaseController:
         :return:
         """
         positions = self.gc.get_icon_position(icon)
-        if timeout and type(timeout) is int:
+        if timeout:
             start_time = time.time()
             while len(positions) < 1:
-                if time.time() - start_time > timeout:
-                    raise TimeoutError()
+                if time.time() - start_time > float(timeout):
+                    raise TimeoutError("超时未找到图标")
                 positions = self.gc.get_icon_position(icon)
 
         is_ok = False
