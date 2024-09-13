@@ -91,6 +91,12 @@ class FightPathExecutor(BasePathExecutor):
             self.crazy_f()
         self.logger.debug("万叶拾取结束")
 
+    def on_move_before(self, point: FightPoint):
+        # 战斗前自动开盾
+        if point.type == point.TYPE_TARGET:
+            self.fight_controller.shield()
+        super().on_move_before(point)
+
     def on_move_after(self, point):
         super().on_move_after(point)  # 父类有开盾方法，直接调用
         if point.type == point.TYPE_TARGET:

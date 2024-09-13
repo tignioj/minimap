@@ -279,7 +279,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
             logger.debug('停止监听结束')
             emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, f'手动强制结束执行地脉任务')
         except NoResinException as e:
-            logger.debug("体力耗尽")
+            logger.debug(e)
             emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, f'{e.args}')
 
         msg = f"执行地脉任务结束, 总时长{time.time() - start_time}"
@@ -339,13 +339,19 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                                 self.ocr.click_ocr_result(ocr_result)
                                 self.logger.debug(f'after:点击{ocr_result.text}')
                                 reward_ok = True
-                                cv2.imwrite('click_reward.png', screenshot)
+                                # cv2.imwrite('click_reward.png', screenshot)
                         for ocr_result in match_texts:
                             if "补充原粹树脂" in ocr_result.text and not reward_ok:
-                                # self.kb_press_and_release(self.Key.esc)  # 关闭对话框
-                                self.click_if_appear(self.gc.icon_close_while_arrow)
-                                cv2.imwrite('no_resin.png', screenshot)
+                                self.kb_press_and_release(self.Key.esc)  # 关闭对话框
+                                # self.click_if_appear(self.gc.button_close_gray_arrow)
+                                # cv2.imwrite('no_resin.png', screenshot)
                                 raise NoResinException("nearby:没有树脂了，结束地脉")
+
+    def on_move_before(self, point: LeyLineOutcropPoint):
+        # 战斗前自动开盾
+        if point.action == point.ACTION_FIGHT:
+            self.fight_controller.shield()
+        super().on_move_before(point)
 
     def on_move_after(self, point: LeyLineOutcropPoint):
         if point.action == point.ACTION_SHIELD:
@@ -380,8 +386,8 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                             reward_ok = True
                     for ocr_result in match_texts:
                         if "补充原粹树脂" in ocr_result.text and not reward_ok:
-                            # self.kb_press_and_release(self.Key.esc)  # 关闭对话框
-                            self.click_if_appear(self.gc.icon_close_while_arrow)
+                            self.kb_press_and_release(self.Key.esc)  # 关闭对话框
+                            # self.click_if_appear(self.gc.button_close_gray_arrow)
                             raise NoResinException("after:没有树脂了，结束地脉")
 
                 else:

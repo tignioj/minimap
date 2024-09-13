@@ -355,6 +355,13 @@ class DailyMissionPathExecutor(BasePathExecutor):
         """
         pass
 
+    def on_move_before(self, point: DailyMissionPoint):
+        # 战斗前自动开盾
+        if (point.event and point.event == DailyMissionPoint.EVENT_DEFENSE or
+                point.event == point.EVENT_FIGHT or
+                point.event == point.EVENT_DESTROY):
+            self.fight_controller.shield()
+        super().on_move_before(point)
 
     def wait_until_dialog_finished(self):
         start = time.time()
