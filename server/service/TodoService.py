@@ -2,7 +2,7 @@ import os,json
 import time
 from threading import Lock, Thread
 
-from controller.BaseController import BaseController
+from controller.BaseController import BaseController, StopListenException
 from server.service.PlayBackService import PlayBackService
 from myutils.configutils import get_user_folder
 from myutils.fileutils import getjson_path_byname
@@ -76,6 +76,10 @@ class TodoService:
                     with open(json_file_path, 'r', encoding='utf8') as f:
                         json_dict = json.load(f)
                     PlayBackService.playback_runner(json_dict, socketio_instance=socketio_instance)
+            except StopListenException as e:
+                TodoService._is_thread_todo_running = False
+                logger.debug('结束执行清单了')
+                socketio_instance.emit(SOCKET_EVENT_PLAYBACK_END, '结束执行清单了')
             finally:
                 TodoService._is_thread_todo_running = False
                 logger.debug('结束执行清单了')
