@@ -1,4 +1,5 @@
 import os.path
+import sys
 import time
 
 import cv2
@@ -114,6 +115,12 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_map_tea_org = cv2.imread(os.path.join(template_path, 'icon_map_tea.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_map_tea = self.__icon_map_tea_org.copy()
 
+        # 委托图标
+        self.__icon_daily_mission_org = cv2.imread(os.path.join(template_path, "icon_daily_mission.jpg"), cv2.IMREAD_GRAYSCALE)
+        self.icon_daily_mission = self.__icon_daily_mission_org.copy()
+        self.__icon_mission_ok_org = cv2.imread(os.path.join(template_path, "icon_mission_ok.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_mission_ok = self.__icon_mission_ok_org.copy()
+
         self.sift = cv2.SIFT.create()
         # 匹配器
         self.bf_matcher = cv2.BFMatcher()
@@ -212,6 +219,23 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_button_condensed_resin = cv2.resize(self.__icon_button_condensed_resin_org,None, fx=scale, fy=scale)
         self.icon_button_original_resin = cv2.resize(self.__icon_button_original_resin_org, None, fx=scale, fy=scale)
 
+        self.icon_daily_mission = cv2.resize(self.__icon_daily_mission_org, None, fx=scale, fy=scale)
+        self.icon_mission_ok = cv2.resize(self.__icon_mission_ok_org, None, fx=scale, fy=scale)
+
+    def has_mission_ok(self):
+        """
+        每日委托完成时，会有一个绿色的小箭头在小地图下面短暂停留
+        :return:
+        """
+        self.update_screenshot_if_none()
+        mission_area = self.screenshot[150:self.h//3+50, 20:110]
+        # cv2.imshow('mission_area', mission_area)
+        # key = cv2.waitKey(2)
+        # if key == ord('q'):
+        #     cv2.destroyAllWindows()
+        #     sys.exit(0)
+        return self.__has_icon(mission_area, self.icon_mission_ok, threshold=0.9)
+
     def has_origin_resin_in_top_bar(self):
         self.update_screenshot_if_none()
         top_bar = self.screenshot[0:102, int(self.w*0.5):self.w]
@@ -271,7 +295,7 @@ class RecognizableCapture(GenShinCaptureObj):
             self.__paimon_appear_delay_timer = None
         return False
 
-    def get_icon_position(self, icon):
+    def get_icon_position(self, icon, threshold=0.85):
         self.update_screenshot_if_none()
         gray_template = icon
         original_image = self.screenshot.copy()
@@ -282,7 +306,6 @@ class RecognizableCapture(GenShinCaptureObj):
         result = cv2.matchTemplate(gray_original, gray_template, cv2.TM_CCOEFF_NORMED)
 
         # 设定阈值
-        threshold = 0.85
         # 获取匹配位置
         locations = np.where(result >= threshold)
         t = time.time()
@@ -379,8 +402,9 @@ if __name__ == '__main__':
         t = time.time()
         # rc.update_screenshot_if_none()
         # print(rc.has_origin_resin_in_top_bar(),time.time()-t)
-        pos = rc.get_icon_position(rc.icon_message_box_button_cancel)
-        print(pos, time.time()-t)
+        # pos = rc.get_icon_position(rc.icon_daily_mission)
+        # print(pos, time.time()-t)
+        print(rc.has_origin_resin_in_top_bar(), time.time() - t)
         # print(rc.has_paimon(), time.time()-t)
         # rc.check_icon()
         # sc = rc.get_paimon_area()
