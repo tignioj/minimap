@@ -14,7 +14,7 @@ from myutils.executor_utils import point1_near_by_point2, find_closest_point_ind
 from typing import List
 import json
 from myutils.configutils import get_config, PROJECT_PATH
-from myutils.timerutils import RateLimiter
+from myutils.timerutils import RateLimiter, RateLimiterAsync
 from mylogger.MyLogger3 import MyLogger
 import logging
 
@@ -230,7 +230,7 @@ class BasePathExecutor(BaseController):
         self.rate_limiter_02_rotation = RateLimiter(0.2)  # 0.2秒内存放一次旋转方向
         self.rate_limiter5_debug_print = RateLimiter(5)  # 5秒内只能执行一次
 
-        self.rate_limiter_press_e = RateLimiter(self.loop_press_e_interval)
+        self.rate_limiter_press_e = RateLimiterAsync(self.loop_press_e_interval)
         self.rate_limiter_press_z = RateLimiter(1)
         self.rate_limiter_press_dash = RateLimiter(1)
         self.rate_limiter_press_jump = RateLimiter(1)
@@ -354,7 +354,8 @@ class BasePathExecutor(BaseController):
         # 开技能
         td = time.time()
         if self.enable_loop_press_z: self.rate_limiter_press_z.execute(self.kb_press_and_release, 'z')
-        if self.enable_loop_press_e: self.rate_limiter_press_e.execute(self.kb_press_and_release, 'e')
+        # if self.enable_loop_press_e: self.rate_limiter_press_e.execute(self.kb_press_and_release, 'e')
+        if self.enable_loop_press_e: self.rate_limiter_press_e.execute(self.fight_controller.shield)
 
         # 限制1秒钟只能执行1次，这样就能记录每一秒的位移
         self.rate_limiter1_history.execute(self.position_history.append, self.current_coordinate)

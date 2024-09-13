@@ -1,3 +1,4 @@
+import threading
 import time
 
 
@@ -48,6 +49,45 @@ class RateLimiter:
         else:
             return False
 
+class RateLimiterAsync:
+    def __init__(self, interval):
+        """
+        初始化RateLimiter实例
+        :param interval: 两次执行之间的最小间隔时间（以秒为单位）
+        """
+        self.interval = interval
+        self.last_executed = 0
+        self.lock = threading.Lock()
+        self.executing = False
+
+    def execute(self, func, *args, **kwargs):
+        if self.executing:
+            # print("拒绝执行")
+            return
+        self.executing = True
+        threading.Thread(target=self.run, args=(func, *args), kwargs=kwargs).start()
+
+    def run(self, func, *args, **kwargs):
+        """
+        尝试执行指定的函数
+
+        :param func: 要执行的函数
+        :param args: 传递给函数的参数
+        :param kwargs: 传递给函数的关键字参数
+        :return: 如果在指定时间内执行成功，则返回True；否则返回False
+        """
+        try:
+            current_time = time.time()
+            if current_time - self.last_executed >= self.interval:
+                self.last_executed = current_time
+                func(*args, **kwargs)
+        except Exception as e:
+            raise e
+        finally:
+            with self.lock:
+                self.executing = False
+
+
 
 def demo1():
     # 2秒钟输出一次
@@ -74,6 +114,7 @@ def demo2():
 def demo3():
     t = None
     while True:
+        print('checking')
         if t is None:
             t = Timer(3)
             t.start()
@@ -82,6 +123,12 @@ def demo3():
             t = None
 
 
+def buy_somthing():
+    time.sleep(1)
+    print('buy ok')
+
 if __name__ == '__main__':
-    demo3()
+    rl = RateLimiterAsync(3)
+    while True:
+        rl.execute(buy_somthing)
 
