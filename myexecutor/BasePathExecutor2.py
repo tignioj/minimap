@@ -1,7 +1,6 @@
 import random
 import threading
 import time
-import asyncio
 import cv2
 import sys
 from controller.BaseController import BaseController
@@ -26,6 +25,7 @@ logger = MyLogger('path_executor', level=logging.DEBUG, save_log=True)
 # 距离点位越进, 角度变化幅度越大
 # TODO 2: 目标点附近如果有npc，可能会导致进入对话
 # Todo 3: [紧急] 位置突变异常不要仅判断一个点，应该收集多个点后去掉最值求平均后判断
+# Todo 4: 开启冲刺，可能会爬不上山，需要做体力判定或者添加“原地休息”的动作
 
 class EmptyPathException(Exception): pass
 
@@ -355,7 +355,7 @@ class BasePathExecutor(BaseController):
         td = time.time()
         if self.enable_loop_press_z: self.rate_limiter_press_z.execute(self.kb_press_and_release, 'z')
         # if self.enable_loop_press_e: self.rate_limiter_press_e.execute(self.kb_press_and_release, 'e')
-        if self.enable_loop_press_e: self.rate_limiter_press_e.execute(self.fight_controller.shield)
+        if self.enable_loop_press_e: self.rate_limiter_press_e.execute(self.fight_controller.shield, False)
 
         # 限制1秒钟只能执行1次，这样就能记录每一秒的位移
         self.rate_limiter1_history.execute(self.position_history.append, self.current_coordinate)
@@ -688,7 +688,7 @@ class BasePathExecutor(BaseController):
         #     self.logger.error(e)
         #     return False
         finally:
-            self.log("文件{}执行完毕")
+            self.log(f"文件{self.base_path.name}执行完毕")
             self.is_path_end = True
             # 等待线程结束
             try:
