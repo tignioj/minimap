@@ -19,7 +19,7 @@ ocr_url = f'http://{cfg_ocr.get("host")}:{cfg_ocr.get("port")}/'
 # ocr_url = 'http://127.0.0.1:5001/'
 
 def __log(*args):
-    logger.info(args)
+    logger.debug(args)
 
 def __err(*args):
     logger.error(args)
@@ -66,7 +66,7 @@ def user_map_scale():
 def create_cached_local_map(center_pos=None, use_middle_map=False):
     jsondata = {'center_pos': center_pos, 'use_middle_map': use_middle_map}
     result = requests.post(f"{url}/usermap/create_cache", json=jsondata).json()
-    __log(result)
+    __log(f"创建缓存结果{result}")
 
 def rotation(use_alpha=False):
     if use_alpha:
