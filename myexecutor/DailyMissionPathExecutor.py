@@ -114,56 +114,6 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
 
     # 2. 模板匹配查找屏幕中的所有的任务的坐标
-    @staticmethod
-    def get_mission_template_matched_screen_position():
-        """
-        获取屏幕上的模板匹配
-        :return:
-        """
-        from myutils.configutils import resource_path
-        # 传送锚点流程
-        # 加载地图位置检测器
-        template_image = cv2.imread(os.path.join(resource_path, "template", "icon_mission.jpg"))
-        gray_template = cv2.cvtColor(template_image, cv2.COLOR_BGR2GRAY)
-
-        original_image = capture.get_screenshot().copy()
-        gray_original = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
-
-        # 获取模板图像的宽度和高度
-        w, h = gray_template.shape[::-1]
-
-        # 将小图作为模板，在大图上进行匹配
-        result = cv2.matchTemplate(gray_original, gray_template, cv2.TM_CCOEFF_NORMED)
-
-        # 设定阈值
-        threshold = 0.85
-        # 获取匹配位置
-        locations = np.where(result >= threshold)
-
-        mission_screen_points = []
-        prev_point = None
-        # 绘制匹配结果
-        from myutils.executor_utils import euclidean_distance
-        for pt in zip(*locations[::-1]):
-            center_x = pt[0] + w // 2
-            center_y = pt[1] + h // 2
-            if prev_point is None:
-                prev_point = pt
-                mission_screen_points.append((center_x, center_y))
-
-            elif euclidean_distance(prev_point, pt) > 10:
-                mission_screen_points.append((center_x, center_y))
-                prev_point = pt
-
-            cv2.rectangle(original_image, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 2)
-
-        # 显示结果
-        # original_image = cv2.resize(original_image, None, fx=0.5, fy=0.5)
-        # # cv2.imshow('Matched Image', original_image)
-        # cv2.waitKey(0)
-        # if key == ord('q'):
-        #     cv2.destroyAllWindows()
-        return mission_screen_points
     # 3. 请求一次屏幕中心的世界坐标，和当前缩放
     # 4. 2和3的结果做运算，得到实际坐标
 
@@ -228,7 +178,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
         # 查找最近的委托
         closet_missions = []
         # 模板匹配屏幕中出现的委托,得到他们的屏幕坐标
-        missions_screen_points = DailyMissionPathExecutor.get_mission_template_matched_screen_position()
+        missions_screen_points = capture.get_icon_position(capture.icon_daily_mission)
         # 计算得到世界坐标
         mission_world_points = map_controller.get_world_coordinate(missions_screen_points)
         for mission_world_point in mission_world_points:
@@ -299,6 +249,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
         self.log('停止自动战斗')
         self.fight_controller.stop_fighting()
 
+
     def wait_until_fight_finished(self):
         daily_task_fight_timeout = get_config('daily_task_fight_timeout', 20)
         if daily_task_fight_timeout < 10: daily_task_fight_timeout = 10
@@ -309,9 +260,14 @@ class DailyMissionPathExecutor(BasePathExecutor):
         self.start_fight()
         while time.time()-start_time < daily_task_fight_timeout:
             if self.stop_listen: break
-            time.sleep(1)
+            time.sleep(0.2)
             self.log(f"正在检测委托是否完成, 剩余{daily_task_fight_timeout-(time.time()-start_time)}秒")
-            if len(self.ocr.find_match_text('委托完成'))>0: break
+            if self.gc.has_mission_ok():
+                self.log("检测到绿色小箭头，委托已完成!")
+                break
+            # cv2.imwrite(f'mission{time.time()}.jpg', capture.screenshot)
+            # if len(self.ocr.find_match_text('委托完成'))>0:
+            #     cv2.imwrite('mission_ok.jpg', capture.screenshot)
         self.stop_fight()
 
     def wait_until_destroy(self):
