@@ -77,7 +77,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         from myutils.configutils import resource_path
         # 传送锚点流程
         # 加载地图位置检测器
-        # template_image = cv2.imread(os.path.join(resource_path, "template", "icon_mission.jpg"))
+        # template_image = cv2.imread(os.path.join(resource_path, "template", "icon_daily_mission.jpg"))
         # template_image = cv2.imread(os.path.join(resource_path, "template", "icon_dimai_money.jpg"))
         if LeyLineOutcropPathExecutor.__leyline_type == 'money':
             gray_template = capture.icon_dimai_money
@@ -356,6 +356,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                     self.reward_ok = True
             except TimeoutError:
                 self.logger.debug("超时:没有找到取消按钮,使用原粹树脂领取成功")
+                self.reward_ok = True
             # original_resin_positions = self.gc.get_icon_position(self.gc.icon_button_original_resin)
             # if len(original_resin_positions) > 0:
             #     self.logger.debug(f'发现原粹树脂图标，位置{original_resin_positions}')
@@ -411,5 +412,5 @@ if __name__ == '__main__':
     # t = threading.Thread(target=BGIEventHandler.start_server)
     # t.setDaemon(True)
     # t.start()
-    LeyLineOutcropPathExecutor.execute_all_mission(leyline_type=LeyLineOutcropPathExecutor.LEYLINE_TYPE_MONEY)
+    LeyLineOutcropPathExecutor.execute_all_mission(leyline_type=LeyLineOutcropPathExecutor.LEYLINE_TYPE_EXPERIENCE)
 
