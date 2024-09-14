@@ -199,8 +199,8 @@ class BasePathExecutor(BaseController):
         self.small_step_interval = get_config('small_step_interval', 0.1)  # 小碎步松开w频率
         if self.small_step_interval > 0.2:
             self.small_step_interval = 0.2
-        elif self.small_step_interval < 0.02:
-            self.small_step_interval = 0.02
+        elif self.small_step_interval < 0.05:
+            self.small_step_interval = 0.05
 
         # 0.05s更新一次位置, 值越小，请求位置信息越频繁
         # self.update_user_status_interval = get_config('update_user_status_interval', 0.2)
@@ -236,7 +236,9 @@ class BasePathExecutor(BaseController):
         self.rate_limiter_press_jump = RateLimiter(1)
 
         self.rate_limiter_fly = RateLimiter(0.1)
-        self.rate_limiter_small_step_release_w = RateLimiter(self.small_step_interval)
+        # self.rate_limiter_small_step_release_w = RateLimiter(self.small_step_interval)
+        self.rate_limiter_small_step_kb_press_release_w = RateLimiterAsync(self.small_step_interval)
+        self.rate_limiter_nearby_async = RateLimiterAsync(0.05)
 
     def _thread_object_detection(self):
         pass
@@ -388,7 +390,7 @@ class BasePathExecutor(BaseController):
             if history_avg_rotation_change > 25:
                 self.logger.error('你似乎打转了！')
                 # 强制小碎步
-                self.rate_limiter_small_step_release_w.execute(self.kb_press_and_release, 'w')
+                self.rate_limiter_small_step_kb_press_release_w.execute(self.kb_press_and_release, 'w')
             self.to_degree(self.get_next_point_rotation(coordinates))  # 可能会阻塞比较久(<5s)
         # 前进: 注意要先转向后再前进，否则可能会出错
 
@@ -406,7 +408,9 @@ class BasePathExecutor(BaseController):
             self.current_coordinate, (self.prev_point.x, self.prev_point.y), 12)
         # if nearby_last_point: self.logger.debug(f'接近上一个点位{self.prev_point}, 当前在{coordinates}')
 
-        if nearby or nearby_last_point: self.on_nearby(coordinates)
+        if nearby or nearby_last_point:
+            # self.rate_limiter_nearby_async.execute(self.on_nearby, coordinates)
+            self.on_nearby(coordinates)
 
         if time.time() - td > 1:
             self.logger.debug(f'onnearby耗时{time.time() - td}')
@@ -417,9 +421,15 @@ class BasePathExecutor(BaseController):
                              and (self.next_point.type == self.next_point.TYPE_TARGET)
                              and not swimming)
 
-        self.kb_press("w")
-        # 按照一定的频率松开w实现小碎步
-        if small_step_enable: self.rate_limiter_small_step_release_w.execute(self.kb_press_and_release, 'w')
+        def small_step_fun():
+            self.kb_press('w')
+            time.sleep(self.small_step_interval)
+            self.kb_release('w')
+
+        # 按照一定的频率按下w实现小碎步
+        if small_step_enable: self.rate_limiter_small_step_kb_press_release_w.execute(small_step_fun)
+        else:
+            self.kb_press("w")
         # self.logger.debug(f'小碎步耗时{td - point_start_time}')
 
     def is_nearby_path_point(self):
@@ -471,7 +481,7 @@ class BasePathExecutor(BaseController):
                         raise MovingPositionMutationException(msg)
 
                 self.__do_move(next_point_coordinate, point_start_time)  # 走一步，转向可能阻塞(<5s)
-                if time.time()-step_cost > 3:
+                if time.time()-step_cost > 1:
                     self.logger.debug(f'__do_move耗时{time.time()-step_cost}')
                 step_cost = time.time()
 
@@ -759,7 +769,7 @@ if __name__ == '__main__':
     import os
     from myutils.fileutils import getjson_path_byname
 
-    # execute_one(getjson_path_byname('风车菊_蒙德_8个_20240814_101536.json'))
+    execute_one(getjson_path_byname('风车菊_蒙德_8个_20240814_101536.json'))
     # execute_one(getjson_path_byname('jiuguan_蒙德_wfsd_20240808.json'))
     # execute_one(getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json'))
     # execute_one(getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json'))
@@ -770,4 +780,4 @@ if __name__ == '__main__':
     # execute_one(getjson_path_byname('月莲_茸蕈窟_须弥_4个.json'))
     # execute_one(getjson_path_byname('月莲_须弥_降魔山下_7个.json'))
     # execute_one(getjson_path_byname('月莲_桓那兰那_须弥_4个_20240814_114304.json'))
-    execute_all()
+    # execute_all()
