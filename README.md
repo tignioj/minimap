@@ -1,5 +1,8 @@
-# 安装步骤
-## 准备环境
+
+## 安装方式
+下载release, 解压后双击start.bat即可(需要管理员权限操作键盘鼠标)
+
+## 从源码安装
 conda
 ```shell
 conda create -n minimap python==3.8
@@ -10,11 +13,12 @@ conda create -n minimap python==3.8
 pip install -r ./requirements
 ```
 
-## 准备项目资源（群里下载resources目录）
-把resources复制到项目根目录
+## 准备项目资源
+- 把release中的`_internal/resources`复制到项目根目录
 
 ## 准备web资源
-https://github.com/tignioj/minimap-gui
+- 把release中的`_internal/static`和`_internal/templates`复制到项目根目录
+- 或者在这里下载 https://github.com/tignioj/minimap-gui
 
 ## 运行
 ```shell
@@ -78,6 +82,8 @@ pip install pywin32==301
 ```text
 pip install pywin32==306
 ```
+
+
 
 # 感谢
 - https://github.com/infstellar/genshin_impact_assistant: 抄了小地图方向识别
