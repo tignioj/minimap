@@ -51,7 +51,7 @@ enable_loop_press_e: 0
 enable_loop_press_z: 0
 enable_loop_jump: 0
 loop_press_interval: 12  # 循环按下e的时间间隔
-small_step_interval: 0.2 # 小碎步松开w的频率,允许范围(0.02~0.2)
+small_step_interval: 0.1 # 小碎步按下w的频率,允许范围(0.05~0.2)
 # 是否允许途径点冲刺
 enable_dash: 1
 
@@ -82,7 +82,7 @@ search_closet_point_max_distance: 200
 # 注意！文件名称必须按照游戏内队伍顺序书写否则无法切人，并且每个队员用下划线分割
 # 括号内容是游戏内队伍的自定义简称，以后切队伍可能用到。
 # default_fight_team: '那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt'
-default_fight_team: '钟离_芙宁娜_枫原万叶_流浪者_(钟芙万流).txt'
+default_fight_team: '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
 fight_duration: 20  # 战斗持续时长,允许范围1~1000秒
 
 
