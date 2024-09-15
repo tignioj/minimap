@@ -27,9 +27,19 @@ pip install -r ./requirements
 ### 准备项目资源
 - 把release中的`_internal/resources`复制到项目根目录
 
-### 准备web资源
-- 把release中的`_internal/static`和`_internal/templates`复制到项目根目录
-- 或者在这里下载 https://github.com/tignioj/minimap-gui
+### 准备web界面
+- 在这里下载 https://github.com/tignioj/minimap-gui
+- 把编译后的`index.html`放进后端的`server/templates`目录文件夹里面 
+- 把编译后的`assets`放进`sever/static`目录文件夹里面
+- 修改`index.html`, 让页面可以正确读取`js`和`css`等静态资源
+
+```html
+<!--    <script type="module" crossorigin src="/assets/index-C0LpkD3K.js"></script>-->
+<script type="module" src="{{ url_for('static', filename='assets/index-C0LpkD3K.js') }}"></script>
+
+<!--    <link rel="stylesheet" crossorigin href="/assets/index-Dub40aXx.css">-->
+<link rel="stylesheet" href="{{ url_for('static', filename='assets/index-Dub40aXx.css') }}">
+```
 
 ### 运行
 ```shell
