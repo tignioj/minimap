@@ -31,10 +31,10 @@ def get_ocr_result():
     response = requests.get(f"{ocr_url}/ocr/screen")
     if response.status_code == 200:
         result = response.json()
-        if result['success']:
-            return result['data']
+        if result.get('success') is True:
+            return result.get('data')
         else:
-            logger.error(result['message'])
+            logger.error(result.get('message'))
             return None
     else:
         return None
@@ -43,25 +43,36 @@ def get_ocr_fight_team():
     response = requests.get(f"{ocr_url}/ocr/fight_team")
     if response.status_code == 200:
         result = response.json()
-        if result['success']:
-            return result['data']
+        if result.get('success') is True:
+            return result.get('data')
         else:
-            logger.error(result['message'])
+            logger.error(result.get('message'))
             return None
     return None
 
 def position():
     resp = requests.get(f"{url}/minimap/get_position")
     if resp.status_code == 200:
-        return resp.json()
-    else:
-        return None
+        result = resp.json()
+        if result.get('success') is True:
+            return result.get('data')
+    return None
 
 def user_map_position():
-    return requests.get(f"{url}/usermap/get_position").json()
+    resp = requests.get(f"{url}/usermap/get_position")
+    if resp.status_code == 200:
+        result = resp.json()
+        if result.get('success') is True:
+            return result.get('data')
+    return None
 
 def user_map_scale():
-    return requests.get(f"{url}/usermap/get_scale").json()
+    resp = requests.get(f"{url}/usermap/get_scale")
+    if resp.status_code == 200:
+        result = resp.json()
+        if result.get('success') is True:
+            return result.get('data')
+    return None
 
 def create_cached_local_map(center_pos=None, use_middle_map=False):
     jsondata = {'center_pos': center_pos, 'use_middle_map': use_middle_map}
@@ -74,11 +85,10 @@ def rotation(use_alpha=False):
     else:
         req = requests.get(f"{url}/minimap/get_rotation")
     if req.status_code == 200:
-        try:
-            json = req.json()
-            return json
-        except requests.exceptions.JSONDecodeError as e:
-            __err(req.text, e)
+        result = req.json()
+        if result.get('success') is True:
+            return result.get('data')
+        else: return None
 
 
 
@@ -107,8 +117,8 @@ def get_local_map():
     if resp.status_code != 200: return None
     # 解析图片数据
     data = resp.json()
-    result = data.get('result')
-    if not result:
+    success = data.get('success')
+    if not success:
         __log("获取localmap失败")
         return None
     data = data.get('data')
@@ -143,12 +153,12 @@ if __name__ == '__main__':
     while True:
     #     time.sleep(0.05)
         start = time.time()
-    #     pos = position()
+        pos = position()
         rot = rotation()
     #     # get_ocr_result()
         cost = time.time() - start
-    #     print(f'pos {pos},rotation {rot}, time cost{cost}')
-        print(f'rotation is {rot},  cost: {cost}')
+        print(f'pos {pos},rotation {rot}, time cost{cost}')
+        # print(f'rotation is {rot},  cost: {cost}')
 
     # import threading
     # for i in range(10):
