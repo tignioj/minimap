@@ -11,7 +11,8 @@
 
 
 ## 直接运行
-下载release, 解压后双击start.bat即可(需要管理员权限操作键盘鼠标)
+- 游戏调整为1920*1080窗口分辨率, 帧率设置为60帧
+- 下载[release](https://github.com/tignioj/minimap/releases/latest), 解压后移动到英文路径下，双击start.bat即可(需要管理员权限操作键盘鼠标)
 
 ## 从源码安装
 ### conda
