@@ -124,6 +124,12 @@ class MapController(BaseController):
         self.log("按下m打开地图")
         start_time = time.time()
         while time.time() - start_time < 5:
+            # 出现按钮，可能是死亡复苏弹窗
+            confirm_buttons = self.gc.get_icon_position(self.gc.icon_message_box_button_confirm)
+            if len(confirm_buttons) > 0:
+                if self.ocr.find_text_and_click('复苏'):
+                    self.logger.error('角色死亡，点击复苏')
+
             if self.gc.has_map_sidebar_toggle():
                 open_ok = True
                 break
@@ -424,9 +430,9 @@ if __name__ == '__main__':
 
     # 传送锚点流程
     # 1. 按下M键打开大地图
-    # res = mpc.open_middle_map()
+    res = mpc.open_middle_map()
     # 2. 切换到指定地区
-    # mpc.scales_adjust(0.35)
+    time.sleep(0.2)
     # mpc.scale_middle_map(country)
     # mpc.move((x,y))
     # 3. 计算缩放比例
@@ -448,5 +454,5 @@ if __name__ == '__main__':
 
     # 6. 筛选叠层锚点
     # 7. 选择筛选后的锚点并传送
-    mpc.teleport((x, y), country, waypoint_name)
+    # mpc.teleport((x, y), country, waypoint_name)
     # mpc.teleport((x,y),country)
