@@ -1,5 +1,6 @@
 import logging
 import os.path
+import sys
 import time
 import cv2
 import numpy as np
@@ -48,6 +49,9 @@ class MiniMap:
         # 地图资源加载
         self.map_2048:SiftMap = None
         self.map_256:SiftMap = None
+        # 确定中心点
+        self.PIX_CENTER_AX = None
+        self.PIX_CENTER_AY = None
 
         self.choose_map(MiniMap.MAP_NAME_DAOQI)
 
@@ -72,9 +76,7 @@ class MiniMap:
         search_params = dict(checks=50)
         self.flann_matcher = cv2.FlannBasedMatcher(index_params, search_params)
 
-        # 确定中心点
-        self.PIX_CENTER_AX = self.map_2048.center[0]
-        self.PIX_CENTER_AY = self.map_2048.center[1]
+
 
         self.create_local_map_cache_thread()
 
@@ -165,6 +167,8 @@ class MiniMap:
     def choose_map(self, map_name):
         self.map_2048 = get_sift_map(map_name, 2048)
         self.map_256 = get_sift_map(map_name, 256)
+        self.PIX_CENTER_AX = self.map_2048.center[0]
+        self.PIX_CENTER_AY = self.map_2048.center[1]
 
     def __global_match(self):
         global_match_pos = None
@@ -187,7 +191,6 @@ class MiniMap:
                 MiniMap.MAP_NAME_XUMI,
                 MiniMap.MAP_NAME_FENGDAN,
                 MiniMap.MAP_NAME_MENGDE]
-            results = [None]*len(maps_name)
             threads = []
             self.good_match_count = 0  # 先清空匹配质量
             def match(map_name):
