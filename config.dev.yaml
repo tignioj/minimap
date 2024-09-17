@@ -10,6 +10,8 @@ points_path: 'G:\PyCharmProgram\minimap\minimap\resources\pathlist'
 
 ########################## 地图配置 #############################
 # 中心点设置璃月天衡山右边那个十字圆环
+#center_x: 19689.298
+#center_y: 13528.16
 center_x: 19689.298
 center_y: 13528.16
 window_name: '原神'  # 游戏窗口名称
@@ -22,6 +24,31 @@ window_name: '原神'  # 游戏窗口名称
 # 0.03,  0.04   0.07
 local_map_size: 1024 # 允许范围512 ~ 4096 # 越大越卡
 
+map_config:
+  liyue:
+    block_2048: liyue_2048.png
+    block_256: liyue_256.png
+    center: [5380, 7384]  # 禁止修改
+  mengde:
+    block_2048: mengde_2048.png
+    block_256: mengde_256.png
+    center: [427, 7359]  # 该图左上角坐标与璃月中心点坐标的偏差
+  daoqi:
+    block_2048: daoqi_2048.png
+    block_256: daoqi_256.png
+    center: [-1080, -2096]   # 该图左上角坐标与璃月中心点坐标的偏差
+  xumi:
+    block_2048: xumi_2048.png
+    block_256: xumi_256.png
+    center: [13797, 5174]   # 该图左上角坐标与璃月中心点坐标的偏差
+  fengdan:
+    block_2048: fengdan_2048.png
+    block_256: fengdan_256.png
+    center: [10802,12505]  # 该图左上角坐标与璃月中心点坐标的偏差
+  nata:
+    block_2048: nata_2048.png
+    block_256: nata_256.png
+    center: [17987, 68]  # 该图左上角坐标与璃月中心点坐标的偏差
 
 ##########################路径执行器配置#############################
 show_path_viewer: 1  # 跑点位的时候是否展示路径
@@ -82,7 +109,7 @@ search_closet_point_max_distance: 200
 # 注意！文件名称必须按照游戏内队伍顺序书写否则无法切人，并且每个队员用下划线分割
 # 括号内容是游戏内队伍的自定义简称，以后切队伍可能用到。
 # default_fight_team: '那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt'
-default_fight_team: '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
+default_fight_team: '那维莱特_莱依拉_纳西妲_枫原万叶_(龙莱草万).txt'
 fight_duration: 20  # 战斗持续时长,允许范围1~1000秒
 
 
