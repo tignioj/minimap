@@ -10,8 +10,6 @@ points_path: 'G:\PyCharmProgram\minimap\minimap\resources\pathlist'
 
 ########################## 地图配置 #############################
 # 中心点设置璃月天衡山右边那个十字圆环
-#center_x: 19689.298
-#center_y: 13528.16
 center_x: 19689.298
 center_y: 13528.16
 window_name: '原神'  # 游戏窗口名称
