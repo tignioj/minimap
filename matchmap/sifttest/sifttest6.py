@@ -20,13 +20,25 @@ import threading
 # 鼠标点击某个国家时，一定会有一个确定的中心点，往后记录的点位路径都以此为中心
 # 回放时，根据记录的
 
+# TODO: 越界时，得到的坐标异常？
+
 class MiniMap:
-    MAP_NAME_MENGDE = 'mengde'
-    MAP_NAME_LIYUE = 'liyue'
-    MAP_NAME_FENGDAN = 'fengdan'
-    MAP_NAME_XUMI = 'xumi'
-    MAP_NAME_DAOQI = 'daoqi'
-    MAP_NAME_NATA = 'nata'
+
+    MAP_NAME_MENGDE = '蒙德'
+    MAP_NAME_LIYUE = '璃月'
+    MAP_NAME_FENGDAN = '枫丹'
+    MAP_NAME_XUMI = '须弥'
+    MAP_NAME_DAOQI = '稻妻'
+    MAP_NAME_NATA = '纳塔'
+
+    # cn_text_map = {
+    #     '蒙德': 'mengde',
+    #     '璃月': 'liyue',
+    #     '须弥': 'xumi',
+    #     '稻妻': 'daoqi',
+    #     '枫丹': 'fengdan',
+    #     '纳塔': 'nata'
+    # }
 
     def __init__(self, debug_enable=None):
         """
@@ -53,7 +65,7 @@ class MiniMap:
         self.PIX_CENTER_AX = None
         self.PIX_CENTER_AY = None
 
-        self.choose_map(MiniMap.MAP_NAME_DAOQI)
+        self.choose_map(MiniMap.MAP_NAME_LIYUE)
 
         local_map_size = get_config('local_map_size', 1024)
         if local_map_size < 512: local_map_size = 512
@@ -202,6 +214,9 @@ class MiniMap:
                         if good_match_count > self.good_match_count:
                             self.logger.debug(f'有更好的匹配结果在{map_name}，替代旧的匹配结果{self.map_2048.map_name}')
                             self.good_match_count = good_match_count
+                            self.local_map_keypoints = None
+                            self.local_map_descriptors = None
+                            self.local_map_pos = None
                             self.choose_map(map_name)
                             scale = 2048 / sift_map.block_size
                             global_match_pos = (global_match_pos[0] * scale, global_match_pos[1] * scale)
@@ -291,13 +306,21 @@ class MiniMap:
         # TODO BUG: 有时候会出现剧烈抖动, 将本次请求结果与上次请求结果作比较，如果差距过大则丢弃
         #   或者说不应该丢弃？让调用者自己处理？
         t0 = time.time()
-        if self.local_map_descriptors is None or self.local_map_keypoints is None:
+
+        local_map_descriptors = self.local_map_descriptors
+        local_map_keypoints = self.local_map_keypoints
+        local_map_pos = self.local_map_pos
+        pix_centerx = self.PIX_CENTER_AX
+        pix_centery = self.PIX_CENTER_AY
+        map_2048 = self.map_2048
+
+        if local_map_keypoints is None or local_map_descriptors is None or map_2048 is None:
             self.logger.debug('当前尚未缓存局部地图的特征点，请稍后再进行局部匹配')
             return None
 
         # 虽然是局部匹配，但是坐标是算法在大地图匹配生成的，因此返回的坐标是全局坐标
-        pix_pos = get_match_position(small_image, keypoints_small, descriptors_small, self.local_map_keypoints,
-                                    self.local_map_descriptors, self.bf_matcher)
+        pix_pos = get_match_position(small_image, keypoints_small, descriptors_small, local_map_keypoints,
+                                    local_map_descriptors, self.bf_matcher)
         if pix_pos is None or pix_pos[0] < 0 or pix_pos[1] < 0:
             self.logger.error(f'局部匹配失败, 尝试全局匹配')
             self.create_local_map_cache_thread()
@@ -306,19 +329,18 @@ class MiniMap:
         # TODO: 优化：在地图边缘可以直接筛选附近的点位作为缓存而不是全局匹配
         # 如果处于地图边缘，则开始创建全局匹配
         # 计算当前位置在局部区域的相对位置
-        pix_pos_relative_to_local_map = (pix_pos[0] - self.local_map_pos[0] + self.local_map_size / 2,
-                        pix_pos[1] - self.local_map_pos[1] + self.local_map_size / 2)
+        pix_pos_relative_to_local_map = (pix_pos[0] - local_map_pos[0] + self.local_map_size / 2,
+                        pix_pos[1] - local_map_pos[1] + self.local_map_size / 2)
         if self.__position_out_of_local_map_range(pix_pos_relative_to_local_map):
             self.logger.debug(f'{pix_pos}越界了, 局部地图大小为{self.local_map_size}')
             self.create_local_map_cache_thread()
-        else:
-            pass
-            # self.logger.debug(f'小地图在局部地图的匹配位置{pix_pos_relative_to_local_map}')
+        # else: self.logger.debug(f'小地图在局部地图的匹配位置{pix_pos_relative_to_local_map}')
 
-        pix_pos_relative_to_local_map = (pix_pos[0] - self.local_map_pos[0] + self.local_map_size / 2, pix_pos[1] - self.local_map_pos[1] + self.local_map_size / 2)
-        pix_pos_relative_to_global_map = self.pix_axis_to_relative_axis(pix_pos)
+        pix_pos_relative_to_local_map = (pix_pos[0] - local_map_pos[0] + self.local_map_size / 2, pix_pos[1] - local_map_pos[1] + self.local_map_size / 2)
+        # pix_pos_relative_to_global_map = self.pix_axis_to_relative_axis(pix_pos)
+        pix_pos_relative_to_global_map = (pix_pos[0] + pix_centerx, pix_pos[1] + pix_centery)
         # self.logger.debug(f'局部匹配成功,结果为{pix_pos},转换坐标后为{pix_pos_relative_to_global_map}, 用时{time.time()-t0}')
-        if threading.currentThread().name == 'MainThread' and self.debug_enable and self.map_2048.img is not None:
+        if threading.currentThread().name == 'MainThread' and self.debug_enable and map_2048.img is not None:
             try:
                 match_result = crop_img(self.map_2048.img, pix_pos[0], pix_pos[1], capture.mini_map_width * 2).copy()
             except AttributeError as e:
@@ -357,8 +379,8 @@ class MiniMap:
         """
         small_image = gs.get_mini_map()
         keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
-        imgKp1 = cv2.drawKeypoints(small_image, keypoints_small, None, color=(0, 0, 255))
-        self.__cvshow('imgKp1', imgKp1)
+        # imgKp1 = cv2.drawKeypoints(small_image, keypoints_small, None, color=(0, 0, 255))
+        # self.__cvshow('imgKp1', imgKp1)
 
         if not capture.has_paimon():
             self.logger.debug('未找到左上角小地图旁边的派蒙，无法获取位置')
@@ -381,9 +403,10 @@ class MiniMap:
 
     def __cvshow(self, name, img):
         if self.debug_enable:
-            name = f'{name}-{threading.currentThread().name}'
-            cv2.imshow(name, img)
-            cv2.waitKey(2)
+            pass
+            # name = f'{name}-{threading.currentThread().name}'
+            # cv2.imshow(name, img)
+            # cv2.waitKey(2)
 
 
     def update(self, width, height):
@@ -402,7 +425,7 @@ if __name__ == '__main__':
     mp.logger.setLevel(logging.INFO)
     capture.add_observer(mp)
     while True:
-        time.sleep(0.05)
+        # time.sleep(0.05)
         t0 = time.time()
         pos = mp.get_position()
         # pos = mp.get_user_map_position()
