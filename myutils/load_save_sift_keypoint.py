@@ -9,43 +9,20 @@ import numpy
 
 from myutils.configutils import resource_path,get_config
 
-class SiftMap:
-    def __init__(self, map_name, block_size,img, des, kep, center):
-        self.map_name = map_name
-        self.block_size = block_size
-        self.img = img
-        self.des:numpy.ndarray = des
-        self.kep: List[cv2.KeyPoint] = kep
-        self.center = center
-
-
-__map_dict = {
-    'mengde_2048': None,
-    'mengde_256': None,
-
-    'liyue_2048': None,
-    'liyue_256': None,
-
-    'daoqi_2048': None,
-    'daoqi_256': None,
-
-    'fengdan_2048': None,
-    'fengdan_256': None,
-
-    'xumi_2048': None,
-    'xumi_256': None,
-
-    'nata_2048': None,
-    'nata_256': None,
-
-    'juyuan_2048': None,
-    'juyuan_256': None
-}
-
+# class SiftMap:
+#     def __init__(self, map_name, block_size,img, des, kep, center):
+#         self.map_name = map_name
+#         self.block_size = block_size
+#         self.img = img
+#         self.des:numpy.ndarray = des
+#         self.kep: List[cv2.KeyPoint] = kep
+#         self.center = center
+#
+__map_dict = {}
 
 def get_bigmap_path(block_size=2048,map_name='daoqi'):
-    map_file_name = get_config('map_config').get(map_name).get(f'block_{block_size}')
-    return os.path.join(resource_path, 'map', 'segments', map_file_name)
+    # return os.path.join(resource_path, 'map', 'segments', map_file_name)
+    return os.path.join(resource_path, 'map', 'segments', f'{map_name}_{block_size}.png')
 
 def get_keypoints_des_path(block_size,map_name):
     kp = os.path.join(resource_path, 'features', 'sift', f'segments', f'sift_keypoints_{block_size}_{map_name}.pkl')
@@ -53,37 +30,27 @@ def get_keypoints_des_path(block_size,map_name):
     return kp, des
 
 
-cn_text_map = {
-    '蒙德': 'mengde',
-    '璃月': 'liyue',
-    '须弥':'xumi',
-    '稻妻': 'daoqi',
-    '枫丹': 'fengdan',
-    '纳塔': 'nata',
-    '层岩巨渊': 'juyuan'
-}
-
-def get_sift_map(map_name,block_size) -> SiftMap:
-    global __map_dict
-    map_pinyin = cn_text_map.get(map_name)
-    key = f'{map_pinyin}_{block_size}'
-    map_obj = __map_dict.get(key)
-    if map_obj is None:
-        print(f"加载{map_name}图片中...........")
-        map_path = get_bigmap_path(block_size, map_name=map_pinyin)
-        center = get_config('map_config').get(map_pinyin).get('center')
-        img = cv2.imread(map_path, cv2.IMREAD_GRAYSCALE)
-        # cv2.imshow(map_pinyin, cv2.resize(img, None, fx=0.1,fy=0.1))
-        # cv2.waitKey(0)
-
-        kep, des = load(block_size=block_size, map_name=map_pinyin)
-        __map_dict[key] = SiftMap(map_name=map_name,block_size=block_size,img=img, des=des, kep=kep, center=center)
-    return __map_dict[key]
+# def get_sift_map(map_name,block_size) -> SiftMap:
+#     global __map_dict
+#     map_pinyin = cn_text_map.get(map_name)
+#     key = f'{map_pinyin}_{block_size}'
+#     map_obj = __map_dict.get(key)
+#     if map_obj is None:
+#         print(f"加载{map_name}图片中...........")
+#         map_path = get_bigmap_path(block_size, map_name=map_pinyin)
+#         center = get_config('map_config').get(map_pinyin).get('center')
+#         img = cv2.imread(map_path, cv2.IMREAD_GRAYSCALE)
+#         # cv2.imshow(map_pinyin, cv2.resize(img, None, fx=0.1,fy=0.1))
+#         # cv2.waitKey(0)
+#
+#         kep, des = load(block_size=block_size, map_name=map_pinyin)
+#         __map_dict[key] = SiftMap(map_name=map_name,block_size=block_size,img=img, des=des, kep=kep, center=center)
+#     return __map_dict[key]
 
 
 # 将关键点的数据转换为可以序列化的格式
 # 只能在google lab运行，需要运行内存至少100G
-def save(block_size, map_name):
+def __save(block_size, map_name):
     # 假设 'surf' 是已经初始化的cv2.xresources/features2d.SURF对象
     # 'bigmap' 是大图像的变量
     surf = cv2.SIFT.create()
@@ -119,16 +86,16 @@ def load(block_size, map_name):
 
 
 if __name__ == '__main__':
-    # block_size = 2048
-    block_size = 256
+    block_size = 2048
+    # block_size = 256
     # map_name = 'liyue'
     # map_name = 'fengdan'
     # map_name = 'nata'
     # map_name = 'xumi'
     # map_name = 'daoqi'
     # map_name = 'mengde'
-    map_name = 'juyuan'
-    save(block_size, map_name)
+    map_name = 'shachongsuidao-shangfangtonglu'
+    __save(block_size, map_name)
     kp, des = load(block_size, map_name)
     print(des.shape)
     # mapobj = get_sift_map(map_name='枫丹', block_size=block_size)
