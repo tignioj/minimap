@@ -31,6 +31,7 @@ class PlayBackService:
     from myexecutor.CollectPathExecutor import CollectPathExecutor
     from myexecutor.FightPathExecutor import FightPathExecutor
     from myexecutor.DailyMissionPathExecutor import DailyMissionPathExecutor
+    from myexecutor.LeyLineOutcropPathExecutor import LeyLineOutcropPathExecutor
     # from myexecutor.GouliangPathExecutor import GouLiangPathExecutor # 目前用BasePathExecutor2就行
 
     executor_map = {
@@ -39,6 +40,7 @@ class PlayBackService:
         "FightPathExecutor": FightPathExecutor,
         "DailyMissionPathExecutor": DailyMissionPathExecutor,
         # "GouLiangPathExecutor": GouLiangPathExecutor,
+        "LeyLineOutcropPathExecutor": LeyLineOutcropPathExecutor,
         "GouLiangPathExecutor": BasePathExecutor,  # 目前用BasePathExecutor就行
         None: BasePathExecutor,
         "": BasePathExecutor
