@@ -307,8 +307,8 @@ class MapController(BaseController):
         time.sleep(0.5)
         # 有些文字无法全文匹配，则用模糊匹配
         from matchmap.sifttest.sifttest6 import MiniMap
-        if country == MiniMap.MAP_NAME_JUYUAN:
-            self.ocr.find_text_and_click(country)  # 全文字匹配避免点击到每日委托
+        if country == '层岩巨渊':
+            self.ocr.find_text_and_click('层岩巨渊')  # 不使用全文匹配
         else:
             self.ocr.find_text_and_click(country, match_all=True)  # 全文字匹配避免点击到每日委托
         self.tracker.choose_map(country)
