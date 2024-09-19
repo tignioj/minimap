@@ -112,12 +112,12 @@ class MiniMapController(ServerBaseController):
         width = request.args.get('width')
         scale = request.args.get('scale')
         country = request.args.get('region')
-        from myutils.load_save_sift_keypoint import get_sift_map, SiftMap, cn_text_map
+        # from myutils.load_save_sift_keypoint import get_sift_map, SiftMap, cn_text_map
 
-        if cn_text_map.get(country) is None:
-            return ServerBaseController.error(f'{country}区域信息无法识别'), 400
+        # if cn_text_map.get(country) is None:
+        #     return ServerBaseController.error(f'{country}区域信息无法识别'), 400
 
-        sift_map:SiftMap = get_sift_map(block_size=2048, map_name=country)
+        sift_map = MiniMap.get_sift_map(block_size=2048, map_name=country)
         try:
             x = int(float(x))
             y = int(float(y))
