@@ -5,7 +5,7 @@ from flask import Blueprint, request, jsonify, send_file
 
 from controller.BaseController import BaseController
 from matchmap.gia_rotation import RotationGIA
-from matchmap.sifttest.sifttest5 import MiniMap
+from matchmap.sifttest.sifttest6 import MiniMap
 from capture.capture_factory import capture
 from myutils.imgutils import crop_img, cvimg_to_base64
 from server.controller.ServerBaseController import ServerBaseController
@@ -14,12 +14,11 @@ logger = MyLogger('minimap_controller')
 
 minimap_bp = Blueprint('minimap', __name__)
 minimap = MiniMap()
-large_map = minimap.map_2048['img']
 minimap.get_position()
 rotate = RotationGIA(False)
 capture.add_observer(rotate)
 capture.add_observer(minimap)
-# TODO 用BaseController封装？
+
 class MiniMapController(ServerBaseController):
     @staticmethod
     @minimap_bp.route('/usermap/get_position', methods=['GET'])
@@ -67,6 +66,32 @@ class MiniMapController(ServerBaseController):
         if pos:
             return MiniMapController.success(data=pos)
         else: return MiniMapController.error()
+    @staticmethod
+    @minimap_bp.route('/minimap/choose_map', methods=['GET'])
+    def choose_map():
+        map_name = request.args.get('map_name')
+        minimap.choose_map(map_name)
+        return MiniMapController.success()
+
+    @staticmethod
+    @minimap_bp.route('/minimap/get_insert_node', methods=['GET'])
+    def get_insert_node():
+        pos = minimap.get_position()
+        if pos is None or minimap.map_2048 is None:
+            return MiniMapController.error()
+
+        from myexecutor.BasePathExecutor2 import Point
+        if capture.is_flying(): move_mode = Point.MOVE_MODE_FLY
+        elif capture.is_swimming(): move_mode = Point.MOVE_MODE_SWIM
+        else: move_mode = Point.MOVE_MODE_NORMAL
+        map_name = minimap.map_2048.map_name
+
+        data = {
+            'position': pos,
+            'move_mode': move_mode,
+            'map_name': map_name
+        }
+        return MiniMapController.success(data=data)
 
     @staticmethod
     @minimap_bp.route('/minimap/get_rotation', methods=['GET'])
@@ -74,7 +99,7 @@ class MiniMapController(ServerBaseController):
         img = capture.get_mini_map()
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         rot = rotate.predict_rotation(img)
-        if rot: return ServerBaseController.success(data=rot)
+        if rot is not None: return ServerBaseController.success(data=rot)
         else: return ServerBaseController.error()
 
     from io import BytesIO
@@ -82,11 +107,17 @@ class MiniMapController(ServerBaseController):
     @staticmethod
     @minimap_bp.route('/minimap/get_region_map', methods=['GET'])
     def get_region_map():
-        global large_map
         x = request.args.get('x')
         y = request.args.get('y')
         width = request.args.get('width')
         scale = request.args.get('scale')
+        country = request.args.get('region')
+        from myutils.load_save_sift_keypoint import get_sift_map, SiftMap, cn_text_map
+
+        if cn_text_map.get(country) is None:
+            return ServerBaseController.error(f'{country}区域信息无法识别'), 400
+
+        sift_map:SiftMap = get_sift_map(block_size=2048, map_name=country)
         try:
             x = int(float(x))
             y = int(float(y))
@@ -95,25 +126,13 @@ class MiniMapController(ServerBaseController):
             else: scale = 1
         except ValueError as e:
             logger.error(e)
-            raise e
-            # width = int(float(width))
-            # x = int(float(x))
-            # y = int(float(y))
-            # if scale is None: scale = 1
-            # scale = float(scale)
+            return MiniMapController.error(message='解析坐标失败'), 500
 
-        pix_pos = minimap.relative_axis_to_pix_axis((x, y))
-
-        if large_map is None:
-            from myutils.configutils import get_bigmap_path
-            large_map = cv2.imread(get_bigmap_path(2048), cv2.IMREAD_GRAYSCALE)
-            if large_map is None:
-                raise Exception("无法加载大地图")
-
-        # tem_local_map = crop_img(app.large_map, pix_pos[0], pix_pos[1], crop_size=width, scale=scale)
-        tem_local_map = crop_img(large_map, pix_pos[0], pix_pos[1], crop_size=width, scale=scale)
+        pix_pos = (sift_map.center[0] + x, sift_map.center[1] + y)
+        tem_local_map = crop_img(sift_map.img, pix_pos[0], pix_pos[1], crop_size=width, scale=scale)
         if tem_local_map is None:
-            raise Exception("无法裁剪大地图")
+            logger.error('无法裁剪地图')
+            return MiniMapController.error(message='无法裁剪地图'), 500
 
         _, img_encoded = cv2.imencode('.jpg', tem_local_map)
         return send_file(BytesIO(img_encoded), mimetype='image/jpeg')
