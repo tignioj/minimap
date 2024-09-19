@@ -33,7 +33,7 @@ pip install -r ./requirements
 ### 准备web界面
 - 在这里下载 https://github.com/tignioj/minimap-gui
 - 把编译后的`index.html`放进后端的`server/templates`目录文件夹里面 
-- 把编译后的`assets`放进`sever/static`目录文件夹里面
+- 把编译后的`assets`放进`server/static`目录文件夹里面
 - 修改`index.html`, 让页面可以正确读取`js`和`css`等静态资源
 
 ```html
