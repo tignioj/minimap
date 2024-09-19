@@ -12,10 +12,7 @@ import random
 #   <del>已知点击侧边栏的时候会自动跳转到城镇中心，把这些中心坐标存起来，在传送的时候距离哪个近就点击哪个国家。<del/>
 #   未来会加入巨渊、渊下宫的支持，这些信息应当由记录的时候提供。
 # TODO 2. 如何解决移动地图时的漂移问题
-# TODO 3. 不同电脑缩放比例不同。
-# TODO 4. 缩放到最大时，点击不精准（换纳兰那点位，似乎是传送锚点本身坐标的问题）
-# TODO 5. 传送锚点名称如果不是副本，且同时存在其他标记，可能会无法点击
-# TODO 6. 稻妻地图缩放太大时，移动到海域无法继续移动
+# TODO 3. 未开启的锚点会一直循环传送
 
 class LocationException(Exception):
     pass
@@ -308,7 +305,13 @@ class MapController(BaseController):
     def choose_country(self, country):
         self.click_screen((self.gc.w - 80, self.gc.h-50))  # 打开选择器
         time.sleep(0.5)
-        self.ocr.find_text_and_click(country, match_all=True)  # 全文字匹配避免点击到每日委托
+        # 有些文字无法全文匹配，则用模糊匹配
+        from matchmap.sifttest.sifttest6 import MiniMap
+        if country == MiniMap.MAP_NAME_JUYUAN:
+            self.ocr.find_text_and_click(country)  # 全文字匹配避免点击到每日委托
+        else:
+            self.ocr.find_text_and_click(country, match_all=True)  # 全文字匹配避免点击到每日委托
+        self.tracker.choose_map(country)
 
     def move_mouse_to_waypoint_position(self, point):
         dx, dy = self.get_dx_dy_from_target_position(point)
@@ -417,8 +420,9 @@ if __name__ == '__main__':
     # x, y, country, waypoint_name = 3040.0, -5620.0, '蒙德', None  # 蒙德钓鱼点1
     # x, y, country, waypoint_name =256.94782031249997, 93.6250, '璃月', None  # 璃月港合成台
     # x, y, country, waypoint_name = 254.45453417968747, 86.87346, '璃月', None  # 璃月港合成台
-    x, y, country, waypoint_name = 8851, 7627, '稻妻', None  # 稻妻越石村
+    # x, y, country, waypoint_name = 8851, 7627, '稻妻', None  # 稻妻越石村
     # x, y, country, waypoint_name = 1306.567, -6276.533, '蒙德', '塞西莉亚苗圃'  # 稻妻越石村
+    x, y, country, waypoint_name = 1219.2486572265625, 516.2448, '层岩巨渊', '传送锚点'
     mpc = MapController(debug_enable=True)
     # mpc.turn_off_custom_tag()
     # mpc.go_to_seven_anemo_for_review()
@@ -454,5 +458,5 @@ if __name__ == '__main__':
 
     # 6. 筛选叠层锚点
     # 7. 选择筛选后的锚点并传送
-    # mpc.teleport((x, y), country, waypoint_name)
+    mpc.teleport((x, y), country, waypoint_name)
     # mpc.teleport((x,y),country)
