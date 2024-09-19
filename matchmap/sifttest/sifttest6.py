@@ -30,6 +30,7 @@ class MiniMap:
     MAP_NAME_XUMI = '须弥'
     MAP_NAME_DAOQI = '稻妻'
     MAP_NAME_NATA = '纳塔'
+    MAP_NAME_JUYUAN = '层岩巨渊'
 
     # cn_text_map = {
     #     '蒙德': 'mengde',
@@ -202,7 +203,9 @@ class MiniMap:
                 MiniMap.MAP_NAME_NATA,
                 MiniMap.MAP_NAME_XUMI,
                 MiniMap.MAP_NAME_FENGDAN,
-                MiniMap.MAP_NAME_MENGDE]
+                MiniMap.MAP_NAME_MENGDE,
+                MiniMap.MAP_NAME_JUYUAN,
+            ]
             threads = []
             self.good_match_count = 0  # 先清空匹配质量
             def match(map_name):
@@ -212,18 +215,16 @@ class MiniMap:
                 with self.set_good_count_lock:
                     if global_match_pos is not None:
                         if good_match_count > self.good_match_count:
-                            self.logger.debug(f'有更好的匹配结果在{map_name}，替代旧的匹配结果{self.map_2048.map_name}')
+                            self.logger.debug(f'有更好的匹配结果在{map_name}, good match数量为{good_match_count}，替代旧的匹配结果{self.map_2048.map_name}')
+                            # 如何减少错误匹配? 目前是增大good match阈值
                             self.good_match_count = good_match_count
-                            self.local_map_keypoints = None
-                            self.local_map_descriptors = None
-                            self.local_map_pos = None
                             self.choose_map(map_name)
                             scale = 2048 / sift_map.block_size
                             global_match_pos = (global_match_pos[0] * scale, global_match_pos[1] * scale)
                             self.global_match_cache(global_match_pos)
 
             for m in maps_name:
-                thread= threading.Thread(target=match, args=(m,))
+                thread = threading.Thread(target=match, args=(m,))
                 threads.append(thread)
                 thread.start()
 
@@ -379,8 +380,8 @@ class MiniMap:
         """
         small_image = gs.get_mini_map()
         keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
-        # imgKp1 = cv2.drawKeypoints(small_image, keypoints_small, None, color=(0, 0, 255))
-        # self.__cvshow('imgKp1', imgKp1)
+        imgKp1 = cv2.drawKeypoints(small_image, keypoints_small, None, color=(0, 0, 255))
+        self.__cvshow('imgKp1', imgKp1)
 
         if not capture.has_paimon():
             self.logger.debug('未找到左上角小地图旁边的派蒙，无法获取位置')
@@ -402,8 +403,7 @@ class MiniMap:
 
 
     def __cvshow(self, name, img):
-        if self.debug_enable:
-            pass
+        if self.debug_enable: pass
             # name = f'{name}-{threading.currentThread().name}'
             # cv2.imshow(name, img)
             # cv2.waitKey(2)
@@ -425,7 +425,7 @@ if __name__ == '__main__':
     mp.logger.setLevel(logging.INFO)
     capture.add_observer(mp)
     while True:
-        # time.sleep(0.05)
+        time.sleep(0.05)
         t0 = time.time()
         pos = mp.get_position()
         # pos = mp.get_user_map_position()
