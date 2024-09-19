@@ -90,6 +90,16 @@ def rotation(use_alpha=False):
             return result.get('data')
         else: return None
 
+def get_insert_node():
+    req = requests.get(f"{url}/minimap/get_insert_node")
+    if req.status_code == 200 and req.json().get('success') is True:
+        return req.json().get('data')
+    return None
+def choose_map(map_name):
+    req = requests.get(f"{url}/minimap/choose_map?map_name={map_name}")
+    if req.status_code == 200 and req.json().get('success') is True:
+        return True
+    return False
 
 
 def __cv_show(name, img):
@@ -100,8 +110,8 @@ def __cv_show(name, img):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-def get_region_map(x, y, width):
-    resp = requests.get(f"{url}/minimap/get_region_map?x={x}&y={y}&width={width}")
+def get_region_map(x, y, width, region=None):
+    resp = requests.get(f"{url}/minimap/get_region_map?region={region}&x={x}&y={y}&width={width}")
     if resp.status_code == 200:
         # 处理图片
         img_bytes = BytesIO(resp.content)
@@ -171,4 +181,5 @@ if __name__ == '__main__':
     # print("position", position())
     # print("rotation:", rotation(True))
     # print(f"cost: {time.time() - start}s")
+
 
