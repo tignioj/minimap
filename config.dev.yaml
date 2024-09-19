@@ -22,35 +22,56 @@ window_name: '原神'  # 游戏窗口名称
 # 0.03,  0.04   0.07
 local_map_size: 1024 # 允许范围512 ~ 4096 # 越大越卡
 
+
 map_config:
-  liyue:
-    block_2048: liyue_2048.png
-    block_256: liyue_256.png
-    center: [5380, 7384]  # 禁止修改
-  mengde:
-    block_2048: mengde_2048.png
-    block_256: mengde_256.png
+  '璃月':
+    img_name: 'liyue'
+    center: [5380, 7384]  # 禁止修改, 璃月天衡山右边那个十字圆环
+  '蒙德':
+    img_name: 'mengde'
     center: [427, 7359]  # 该图左上角坐标与璃月中心点坐标的偏差
-  daoqi:
-    block_2048: daoqi_2048.png
-    block_256: daoqi_256.png
+  '稻妻':
+    img_name: 'daoqi'
     center: [-1080, -2096]   # 该图左上角坐标与璃月中心点坐标的偏差
-  xumi:
-    block_2048: xumi_2048.png
-    block_256: xumi_256.png
+  '须弥':
+    img_name: 'xumi'
     center: [13797, 5174]   # 该图左上角坐标与璃月中心点坐标的偏差
-  fengdan:
-    block_2048: fengdan_2048.png
-    block_256: fengdan_256.png
+  '枫丹':
+    img_name: 'fengdan'
     center: [10802, 12505] # 该图左上角坐标与璃月中心点坐标的偏差
-  nata:
-    block_2048: nata_2048.png
-    block_256: nata_256.png
+  '纳塔':
+    img_name: 'nata'
     center: [17987, 68]  # 该图左上角坐标与璃月中心点坐标的偏差
-  juyuan:
-    block_2048: juyuan_2048.png # 其实是1024图片拼接的，但是直接当2048处理了
-    block_256: juyuan_256.png
+  '层岩巨渊':
+    img_name: 'juyuan'
     center: [0, 0]  # 独立地图
+  '沙虫隧道-上方通路':
+    img_name: 'shachongsuidao-shangfangtonglu'
+    scale: 2
+    center: [8404, -573]  # 该图左上角坐标与璃月中心点坐标的偏差
+
+#map_config:
+#  liyue:
+#    name: '璃月'
+#    center: [5380, 7384]  # 禁止修改, 璃月天衡山右边那个十字圆环
+#  mengde:
+#    name: '蒙德'
+#    center: [427, 7359]  # 该图左上角坐标与璃月中心点坐标的偏差
+#  daoqi:
+#    name: '稻妻'
+#    center: [-1080, -2096]   # 该图左上角坐标与璃月中心点坐标的偏差
+#  xumi:
+#    name: '须弥'
+#    center: [13797, 5174]   # 该图左上角坐标与璃月中心点坐标的偏差
+#  fengdan:
+#    name: '枫丹'
+#    center: [10802, 12505] # 该图左上角坐标与璃月中心点坐标的偏差
+#  nata:
+#    name: '纳塔'
+#    center: [17987, 68]  # 该图左上角坐标与璃月中心点坐标的偏差
+#  juyuan:
+#    name: '层岩巨渊'
+#    center: [0, 0]  # 独立地图
 
 ##########################路径执行器配置#############################
 show_path_viewer: 1  # 跑点位的时候是否展示路径

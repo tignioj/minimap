@@ -2,11 +2,14 @@ import logging
 import os.path
 import sys
 import time
+from typing import List
+
 import cv2
+import numpy
 import numpy as np
 from capture.capture_factory import capture
-from myutils.configutils import get_config
-from myutils.load_save_sift_keypoint import get_sift_map, SiftMap
+from myutils.configutils import get_config, resource_path
+from myutils.load_save_sift_keypoint import load
 from myutils.timerutils import Timer, RateLimiterAsync
 from myutils.imgutils import crop_img
 from myutils.sift_utils import get_match_position, get_match_position_with_good_match_count, get_match_corner
@@ -19,27 +22,50 @@ import threading
 # 记录：记录时，必须传入国家或者地区名称，然后匹配器根据名称加载对应的大地图进行全局匹配。
 # 鼠标点击某个国家时，一定会有一个确定的中心点，往后记录的点位路径都以此为中心
 # 回放时，根据记录的
+# TODO: 有没有办法不改动代码，只改动配置的情况下增加地图？
+
+
+class SiftMap:
+
+    def __init__(self, map_name, block_size,img, des, kep, center):
+        self.map_name = map_name
+        self.block_size = block_size
+        self.img = img
+        self.des:numpy.ndarray = des
+        self.kep: List[cv2.KeyPoint] = kep
+        self.center = center
+class SiftMapNotFoundException(Exception):
+    pass
 
 # TODO: 越界时，得到的坐标异常？
-
 class MiniMap:
+    __map_dict = dict()
 
-    MAP_NAME_MENGDE = '蒙德'
-    MAP_NAME_LIYUE = '璃月'
-    MAP_NAME_FENGDAN = '枫丹'
-    MAP_NAME_XUMI = '须弥'
-    MAP_NAME_DAOQI = '稻妻'
-    MAP_NAME_NATA = '纳塔'
-    MAP_NAME_JUYUAN = '层岩巨渊'
+    @staticmethod
+    def get_sift_map(map_name, block_size) -> SiftMap:
+        # map_pinyin = MiniMap.cn_text_map.get(map_name)
+        map_conf = get_config('map_config').get(map_name, None)
+        if map_conf is None:
+            raise SiftMapNotFoundException(f"指定的地图{map_name}未找到")
+        key = f'{map_conf.get("img_name")}_{block_size}'
+        map_obj = MiniMap.__map_dict.get(key)
+        if map_obj is None:
+            # logger.debug(f"加载{map_name}图片中...........")
+            img_name = map_conf.get('img_name')
+            center = map_conf.get('center')
+            map_path = os.path.join(resource_path, 'map', 'segments', f'{img_name}_{block_size}.png')
+            img = cv2.imread(map_path, cv2.IMREAD_GRAYSCALE)
+            # cv2.imshow(map_pinyin, cv2.resize(img, None, fx=0.1,fy=0.1))
+            # cv2.waitKey(0)
 
-    # cn_text_map = {
-    #     '蒙德': 'mengde',
-    #     '璃月': 'liyue',
-    #     '须弥': 'xumi',
-    #     '稻妻': 'daoqi',
-    #     '枫丹': 'fengdan',
-    #     '纳塔': 'nata'
-    # }
+            kep, des = load(block_size=block_size, map_name=img_name)
+            scale = map_conf.get('scale')
+            if scale is not None:
+                for k in kep:
+                    k.pt = (k.pt[0]*scale, k.pt[1]*scale)
+            MiniMap.__map_dict[key] = SiftMap(map_name=map_name, block_size=block_size, img=img, des=des, kep=kep,
+                                      center=center)
+        return MiniMap.__map_dict[key]
 
     def __init__(self, debug_enable=None):
         """
@@ -66,7 +92,7 @@ class MiniMap:
         self.PIX_CENTER_AX = None
         self.PIX_CENTER_AY = None
 
-        self.choose_map(MiniMap.MAP_NAME_LIYUE)
+        self.choose_map('璃月')
 
         local_map_size = get_config('local_map_size', 1024)
         if local_map_size < 512: local_map_size = 512
@@ -178,8 +204,11 @@ class MiniMap:
         return pos
 
     def choose_map(self, map_name):
-        self.map_2048 = get_sift_map(map_name, 2048)
-        self.map_256 = get_sift_map(map_name, 256)
+        self.map_2048 = self.get_sift_map(map_name, 2048)
+        try:  # TODO: 待测试：分层地图是否需要256的地图用于传送？
+            self.map_256 = self.get_sift_map(map_name, 256)
+        except Exception as e:
+            self.logger.error(e.args)
         self.PIX_CENTER_AX = self.map_2048.center[0]
         self.PIX_CENTER_AY = self.map_2048.center[1]
 
@@ -197,19 +226,11 @@ class MiniMap:
             t0 = time.time()
             # map = self.map_2048
             # TODO: 多线程匹配
-            maps_name = [
-                MiniMap.MAP_NAME_DAOQI,
-                MiniMap.MAP_NAME_LIYUE,
-                MiniMap.MAP_NAME_NATA,
-                MiniMap.MAP_NAME_XUMI,
-                MiniMap.MAP_NAME_FENGDAN,
-                MiniMap.MAP_NAME_MENGDE,
-                MiniMap.MAP_NAME_JUYUAN,
-            ]
+            maps_name = get_config('map_config').keys()
             threads = []
             self.good_match_count = 0  # 先清空匹配质量
             def match(map_name):
-                sift_map = get_sift_map(block_size=2048, map_name=map_name)
+                sift_map = self.get_sift_map(block_size=2048, map_name=map_name)
                 global_match_pos, good_match_count = get_match_position_with_good_match_count(small_image, keypoints_small, descriptors_small, sift_map.kep, sift_map.des,
                                                       self.flann_matcher)
                 with self.set_good_count_lock:
