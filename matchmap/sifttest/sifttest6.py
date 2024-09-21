@@ -27,13 +27,16 @@ import threading
 
 class SiftMap:
 
-    def __init__(self, map_name, block_size,img, des, kep, center):
+    def __init__(self, map_name, block_size,img, des, kep, center, scale=1, sift=None):
         self.map_name = map_name
         self.block_size = block_size
         self.img = img
         self.des:numpy.ndarray = des
         self.kep: List[cv2.KeyPoint] = kep
         self.center = center
+        self.scale = scale
+        self.sift = sift
+        if self.sift is None: self.sift = cv2.SIFT.create()
 class SiftMapNotFoundException(Exception):
     pass
 
@@ -61,10 +64,17 @@ class MiniMap:
             kep, des = load(block_size=block_size, map_name=img_name)
             scale = map_conf.get('scale')
             if scale is not None:
+                img = cv2.resize(img, None, fx=scale, fy=scale)
                 for k in kep:
                     k.pt = (k.pt[0]*scale, k.pt[1]*scale)
+            sigma = map_conf.get('sigma')
+            contrastThreshold = map_conf.get('contrastThreshold')
+            sift = cv2.SIFT.create()
+            if sigma is not None: sift.setSigma(sigma)
+            if contrastThreshold is not None: sift.setContrastThreshold(contrastThreshold)
+
             MiniMap.__map_dict[key] = SiftMap(map_name=map_name, block_size=block_size, img=img, des=des, kep=kep,
-                                      center=center)
+                                      center=center, sift=sift)
         return MiniMap.__map_dict[key]
 
     def __init__(self, debug_enable=None):
@@ -81,8 +91,6 @@ class MiniMap:
         self.cache_lock = threading.Lock()
         self.set_good_count_lock = threading.Lock()
         # https://docs.opencv.org/4.x/d7/d60/classcv_1_1SIFT.html
-        self.sift = cv2.SIFT.create(sigma=1.4)
-
         # from myutils.kp_gen import load
         t0 = time.time()
         # 地图资源加载
@@ -162,9 +170,9 @@ class MiniMap:
         screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
 
         screenshot_resized = cv2.resize(screenshot, None, fx=0.5, fy=0.5)
-        kp1, des1 = self.sift.detectAndCompute(screenshot_resized, None)
-        large_img_corners = get_match_corner(screenshot_resized, kp1, des1, self.map_256.kep, self.map_256.des,
-                                             self.flann_matcher)
+        kp1, des1 = self.map_256.sift.detectAndCompute(screenshot_resized, None)
+        large_img_corners = get_match_corner(screenshot_resized, kp1, des1, self.map_256.kep, self.map_256.des, self.flann_matcher)
+        # large_img_corners = get_match_corner(screenshot_resized, kp1, des1, self.map_2048.kep, self.map_2048.des, self.flann_matcher)
         if large_img_corners is None:
             self.logger.debug("无法获取m地图边角点")
             return None
@@ -190,8 +198,7 @@ class MiniMap:
         screenshot = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
         screenshot = cv2.resize(screenshot, None, fx=0.5, fy=0.5)
         # cv2.imshow('screenshot', screenshot)
-
-        kp1, des1 = self.sift.detectAndCompute(screenshot, None)
+        kp1, des1 = self.map_256.sift.detectAndCompute(screenshot, None)
         pos = get_match_position(screenshot, kp1, des1, self.map_256.kep, self.map_256.des, self.flann_matcher)  # 速度稍慢，但更节省性能, 且只有flann能匹配大图片
         # pos = get_match_position(screenshot, kp1, des1, self.map_256.kep, self.map_256.des, self.bf_matcher)  # 速度快，但更消耗CPU
 
@@ -206,9 +213,12 @@ class MiniMap:
     def choose_map(self, map_name):
         self.map_2048 = self.get_sift_map(map_name, 2048)
         try:  # TODO: 待测试：分层地图是否需要256的地图用于传送？
+            # if map_name == '渊下宫':
+            #     self.map_256 = self.map_2048
             self.map_256 = self.get_sift_map(map_name, 256)
         except Exception as e:
             self.logger.error(e.args)
+            self.map_256 = self.map_2048
         self.PIX_CENTER_AX = self.map_2048.center[0]
         self.PIX_CENTER_AY = self.map_2048.center[1]
 
@@ -219,9 +229,9 @@ class MiniMap:
         try:
             self.logger.debug('开始进行全局匹配')
             small_image = gs.get_mini_map()
-            keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
-            if keypoints_small is None or descriptors_small is None:
-                self.logger.error('计算小地图特征点失败, 无法创建全局缓存')
+            # keypoints_small, descriptors_small = self.map_2048.detectAndCompute(small_image, None)
+            # if keypoints_small is None or descriptors_small is None:
+            #     self.logger.error('计算小地图特征点失败, 无法创建全局缓存')
 
             t0 = time.time()
             # map = self.map_2048
@@ -229,8 +239,12 @@ class MiniMap:
             maps_name = get_config('map_config').keys()
             threads = []
             self.good_match_count = 0  # 先清空匹配质量
+
+            # TODO: 执行路线的时候，应当选择指定地图匹配，而非全部遍历。
             def match(map_name):
                 sift_map = self.get_sift_map(block_size=2048, map_name=map_name)
+                keypoints_small, descriptors_small = sift_map.sift.detectAndCompute(small_image, None)
+
                 global_match_pos, good_match_count = get_match_position_with_good_match_count(small_image, keypoints_small, descriptors_small, sift_map.kep, sift_map.des,
                                                       self.flann_matcher)
                 with self.set_good_count_lock:
@@ -400,7 +414,7 @@ class MiniMap:
         :return:
         """
         small_image = gs.get_mini_map()
-        keypoints_small, descriptors_small = self.sift.detectAndCompute(small_image, None)
+        keypoints_small, descriptors_small = self.map_2048.sift.detectAndCompute(small_image, None)
         imgKp1 = cv2.drawKeypoints(small_image, keypoints_small, None, color=(0, 0, 255))
         self.__cvshow('imgKp1', imgKp1)
 
@@ -424,7 +438,8 @@ class MiniMap:
 
 
     def __cvshow(self, name, img):
-        if self.debug_enable: pass
+        if self.debug_enable:
+            pass
             # name = f'{name}-{threading.currentThread().name}'
             # cv2.imshow(name, img)
             # cv2.waitKey(2)
@@ -444,13 +459,15 @@ if __name__ == '__main__':
     from myutils.configutils import get_config
     mp = MiniMap(debug_enable=True)
     mp.logger.setLevel(logging.INFO)
+    # mp.choose_map('层岩巨渊')
+    mp.choose_map('渊下宫')
     capture.add_observer(mp)
     while True:
         time.sleep(0.05)
         t0 = time.time()
-        pos = mp.get_position()
+        # pos = mp.get_position()
         # pos = mp.get_user_map_position()
-        # pos = mp.get_user_map_scale()
+        pos = mp.get_user_map_scale()
         print(pos,time.time() - t0)
 
 
