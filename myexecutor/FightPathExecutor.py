@@ -4,9 +4,9 @@
 import sys
 import time
 import json
-from myexecutor.BasePathExecutor2 import BasePathExecutor, BasePath, Point
+from myexecutor.BasePathExecutor2 import BasePathExecutor, BasePath, Point, ExecuteTerminateException
 from typing import List
-from controller.FightController import FightController
+from controller.FightController import FightController, CharacterDieException
 
 
 class FightPath(BasePath):
@@ -94,7 +94,13 @@ class FightPathExecutor(BasePathExecutor):
     def on_move_before(self, point: FightPoint):
         # 战斗前自动开盾
         if point.type == point.TYPE_TARGET:
-            self.fight_controller.shield()
+            try:
+                self.fight_controller.shield()
+            except CharacterDieException as e:
+                self.logger.error(e.args)
+                from controller.MapController2 import MapController
+                MapController().go_to_seven_anemo_for_revive()
+                raise ExecuteTerminateException()
         super().on_move_before(point)
 
     def on_move_after(self, point):
