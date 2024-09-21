@@ -290,6 +290,8 @@ class MapController(BaseController):
             drag = 1000
             count = total_displacement / drag
             count = int(count) + 1
+            if count > 25:
+                raise LocationException(f"移动次数为{count}, 过大!")
 
             if delta_screen_x != 0: drag_x = (delta_screen_x*drag) / total_displacement
             else: drag_x = 0
@@ -422,7 +424,9 @@ if __name__ == '__main__':
     # x, y, country, waypoint_name = 254.45453417968747, 86.87346, '璃月', None  # 璃月港合成台
     # x, y, country, waypoint_name = 8851, 7627, '稻妻', None  # 稻妻越石村
     # x, y, country, waypoint_name = 1306.567, -6276.533, '蒙德', '塞西莉亚苗圃'  # 稻妻越石村
-    x, y, country, waypoint_name = 1219.2486572265625, 516.2448, '层岩巨渊', '传送锚点'
+    # x, y, country, waypoint_name = 1219.2486572265625, 516.2448, '层岩巨渊', '传送锚点'
+    # x, y, country, waypoint_name = 1807.72, 1708.72, '渊下宫', '传送锚点'
+    x, y, country, waypoint_name = 2788,906, '渊下宫', '传送锚点'
     mpc = MapController(debug_enable=True)
     # mpc.turn_off_custom_tag()
     # mpc.go_to_seven_anemo_for_review()
@@ -434,9 +438,9 @@ if __name__ == '__main__':
 
     # 传送锚点流程
     # 1. 按下M键打开大地图
-    res = mpc.open_middle_map()
+    # res = mpc.open_middle_map()
     # 2. 切换到指定地区
-    time.sleep(0.2)
+    # time.sleep(0.2)
     # mpc.scale_middle_map(country)
     # mpc.move((x,y))
     # 3. 计算缩放比例
