@@ -2,7 +2,7 @@ import threading
 import time
 from controller.BaseController import StopListenException
 from controller.MapController2 import MapController, LocationException
-from myexecutor.BasePathExecutor2 import BasePathExecutor,Point, BasePath
+from myexecutor.BasePathExecutor2 import BasePathExecutor, Point, BasePath, ExecuteTerminateException
 import os,cv2
 import numpy as np
 from typing import List
@@ -10,12 +10,11 @@ import json
 from capture.capture_factory import capture
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("leyline_outcrop_executor")
-from controller.FightController import FightController
+from controller.FightController import FightController, CharacterDieException
 from myutils.configutils import get_config
 class MoveToLocationTimeoutException(Exception): pass
 
-# TODO: 自定义标记会挡住图标，要先关掉自定义标记
-
+# TODO: 委托会挡住图标, 只能放大
 
 class ExecuteTimeOutException(Exception): pass
 
@@ -68,60 +67,6 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
     __leyline_type = None
 
     # 2. 模板匹配屏幕上的图标
-    @staticmethod
-    def get_mission_template_matched_screen_position():
-        """
-        获取屏幕上的模板匹配
-        :return:
-        """
-        from myutils.configutils import resource_path
-        # 传送锚点流程
-        # 加载地图位置检测器
-        # template_image = cv2.imread(os.path.join(resource_path, "template", "icon_daily_mission.jpg"))
-        # template_image = cv2.imread(os.path.join(resource_path, "template", "icon_dimai_money.jpg"))
-        if LeyLineOutcropPathExecutor.__leyline_type == 'money':
-            gray_template = capture.icon_dimai_money
-        else:
-            gray_template = capture.icon_dimai_exp
-
-        original_image = capture.get_screenshot().copy()
-        gray_original = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
-
-        # 获取模板图像的宽度和高度
-        w, h = gray_template.shape[::-1]
-
-        # 将小图作为模板，在大图上进行匹配
-        result = cv2.matchTemplate(gray_original, gray_template, cv2.TM_CCOEFF_NORMED)
-
-        # 设定阈值
-        threshold = 0.85
-        # 获取匹配位置
-        locations = np.where(result >= threshold)
-
-        mission_screen_points = []
-        prev_point = None
-        # 绘制匹配结果
-        from myutils.executor_utils import euclidean_distance
-        for pt in zip(*locations[::-1]):
-            center_x = pt[0] + w // 2
-            center_y = pt[1] + h // 2
-            if prev_point is None:
-                prev_point = pt
-                mission_screen_points.append((center_x, center_y))
-
-            elif euclidean_distance(prev_point, pt) > 10:
-                mission_screen_points.append((center_x, center_y))
-                prev_point = pt
-
-            # cv2.rectangle(original_image, pt, (pt[0] + w, pt[1] + h), (0, 255, 0), 2)
-
-        # 显示结果
-        # original_image = cv2.resize(original_image, None, fx=0.5, fy=0.5)
-        # cv2.imshow('Matched Image', original_image)
-        # cv2.waitKey(20)
-        # if key == ord('q'):
-        #     cv2.destroyAllWindows()
-        return mission_screen_points
     # 3. 请求一次屏幕中心的世界坐标，和当前缩放
     # 4. 2和3的结果做运算，得到实际坐标
 
@@ -175,7 +120,10 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         closet_missions = []
         map_controller.scales_adjust(0.38)
         # 模板匹配屏幕中出现的地脉图标,得到他们的屏幕坐标
-        missions_screen_points = LeyLineOutcropPathExecutor.get_mission_template_matched_screen_position()
+
+        if LeyLineOutcropPathExecutor.__leyline_type == 'money': gray_template = capture.icon_dimai_money
+        else: gray_template = capture.icon_dimai_exp
+        missions_screen_points = capture.get_icon_position(gray_template)
         # 计算得到世界坐标
         mission_world_points = map_controller.get_world_coordinate(missions_screen_points)
         for mission_world_point in mission_world_points:
@@ -338,7 +286,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
     def on_move_before(self, point: LeyLineOutcropPoint):
         # 战斗前自动开盾
         if point.action == point.ACTION_FIGHT:
-            self.fight_controller.shield()
+            self.shield()
         super().on_move_before(point)
 
     def click_use_resin(self):

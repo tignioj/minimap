@@ -6,7 +6,7 @@ import sys
 from controller.BaseController import BaseController
 from collections import deque
 
-from controller.FightController import FightController
+from controller.FightController import FightController, CharacterDieException
 from controller.MapController2 import MapController
 from controller.OCRController import OCRController
 from myutils.executor_utils import point1_near_by_point2, find_closest_point_index
@@ -522,13 +522,22 @@ class BasePathExecutor(BaseController):
         self.logger.debug(f'跑点{next_point_coordinate}用时：{time.time() - point_start_time}')
         self.kb_release('w')
 
+    def shield(self):
+        try:
+            self.fight_controller.shield()
+        except CharacterDieException as e:
+            self.logger.error(e.args)
+            from controller.MapController2 import MapController
+            MapController().go_to_seven_anemo_for_revive()
+            raise ExecuteTerminateException()
+
     def on_move_after(self, point: Point):
         self.log(f'到达点位{point}了')
         if self.enable_crazy_f and point.type == point.TYPE_TARGET:
             self.debug('疯狂按下f')
             self.crazy_f()
         if point.action == point.ACTION_SHIELD:
-            self.fight_controller.shield()
+            self.shield()
 
     def update_state(self):
         start = time.time()

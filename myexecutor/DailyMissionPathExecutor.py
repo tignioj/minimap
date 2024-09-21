@@ -9,7 +9,7 @@ from controller.MapController2 import MapController
 # 保存委托
 # 把所有的委托全部存起来，用json文件存放
 
-from myexecutor.BasePathExecutor2 import BasePathExecutor,Point, BasePath
+from myexecutor.BasePathExecutor2 import BasePathExecutor, Point, BasePath, ExecuteTerminateException
 import os,cv2
 import numpy as np
 from typing import List
@@ -17,7 +17,7 @@ import json
 from capture.capture_factory import capture
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("daily_mission_executor")
-from controller.FightController import FightController
+from controller.FightController import FightController, CharacterDieException
 from myutils.configutils import get_config
 
 # 递归超时异常
@@ -224,7 +224,6 @@ class DailyMissionPathExecutor(BasePathExecutor):
                     DailyMissionPathExecutor(closest).execute()
 
                 closet_missions = DailyMissionPathExecutor.get_screen_world_mission_json(map_controller)
-
         except ExecuteTimeOutException as e:
             emit(SOCKET_EVENT_DAILY_MISSION_END, f'{e.args}')
         except StopListenException:
@@ -313,10 +312,16 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
     def on_move_before(self, point: DailyMissionPoint):
         # 战斗前自动开盾
-        if (point.event and point.event == DailyMissionPoint.EVENT_DEFENSE or
+        if (point.event == DailyMissionPoint.EVENT_DEFENSE or
                 point.event == point.EVENT_FIGHT or
                 point.event == point.EVENT_DESTROY):
-            self.fight_controller.shield()
+            try:
+                self.fight_controller.shield()
+            except CharacterDieException as e:
+                self.logger.error(e.args)
+                from controller.MapController2 import MapController
+                MapController().go_to_seven_anemo_for_revive()
+                raise ExecuteTerminateException()
         super().on_move_before(point)
 
     def wait_until_dialog_finished(self):
