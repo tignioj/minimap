@@ -35,18 +35,12 @@ class ServerOCRController(ServerBaseController):
     @staticmethod
     @ocr_bp.get('/ocr/screen')
     def ocr_result():
-        # sc = capture.get_screenshot()
-        sc = capture.get_screenshot(use_alpha=True)
+        sc = capture.get_screenshot()
         b,g,r,alpha = cv2.split(sc)
-        # sc = cv2.cvtColor(sc, cv2.COLOR_BGR2GRAY)
-        # sc = cv2.resize(sc, None, fx=1.5, fy=1.5)
-        # 由于做了缩放，客户端得到坐标后要x2
-        # 缩放后速度并没有变快，似乎快慢和图片上的文本数量有比较大的关系
         try:
             # RuntimeError: (PreconditionNotMet) Tensor holds no memory. Call Tensor::mutable_data firstly.
-            result = ocr.ocr(alpha, cls=False)
+            result = ocr.ocr(sc, cls=False)
             logger.info(result)
-            # return jsonify(result)
             return ServerOCRController.success(data=result)
         except Exception as e:
             logger.error(e)
