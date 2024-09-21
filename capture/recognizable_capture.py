@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 
 from capture.genshin_capture import GenShinCaptureObj
-from myutils.configutils import resource_path, get_paimon_icon_path
+from myutils.configutils import resource_path
 from myutils.timerutils import Timer
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger('recognizable_capture', save_log=True)
@@ -125,9 +125,8 @@ class RecognizableCapture(GenShinCaptureObj):
         # 匹配器
         self.bf_matcher = cv2.BFMatcher()
 
-        paimon_png = cv2.imread(get_paimon_icon_path(), cv2.IMREAD_GRAYSCALE)
-        kp, des = self.sift.detectAndCompute(paimon_png, None)  # 判断是否在大世界
-        self.map_paimon = { 'img': paimon_png, 'des': des, 'kp': kp }
+        kp, des = self.sift.detectAndCompute(self.icon_paimon, None)  # 判断是否在大世界
+        self.map_paimon = { 'img': self.icon_paimon, 'des': des, 'kp': kp }
         self.__paimon_appear_delay = 1  # 派蒙出现后，多少秒才可以进行匹配
         # 如果要求首次不进行计时器检查，则需要设置一个0的计时器
         self.__paimon_appear_delay_timer = Timer(0)  # 派蒙延迟计时器
