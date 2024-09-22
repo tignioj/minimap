@@ -10,6 +10,10 @@
 [![contributors](https://img.shields.io/github/contributors/tignioj/minimap?style=flat-square)](https://github.com/tignioj/minimap/graphs/contributors)
 
 
+# 关联仓库
+- GUI: https://github.com/tignioj/minimap-gui
+- 路线： https://github.com/tignioj/minimap-pathlist
+
 ## 直接运行
 - 游戏调整为1920*1080窗口分辨率(如果屏幕大小只有1080p则用1080p**无边框模式**，不要用独占全屏)
 - 帧率设置为60帧

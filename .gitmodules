@@ -1,0 +1,3 @@
+[submodule "resources/pathlist"]
+	path = resources/pathlist
+	url = https://github.com/tignioj/minimap-pathlist.git
