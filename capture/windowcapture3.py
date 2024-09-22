@@ -7,7 +7,7 @@ import numpy as np
 import win32gui, win32ui, win32con
 import win32api
 import math
-from myutils.configutils import cfg
+from myutils.configutils import get_config
 from ctypes import windll
 from mylogger.MyLogger3 import MyLogger
 
@@ -18,8 +18,8 @@ logging.getLogger('werkzeug').setLevel('INFO')
 # https://www.youtube.com/watch?v=WymCpVUPWQ4
 # https://github.com/learncodebygaming/opencv_tutorials/blob/master/004_window_capture/windowcapture.py
 class WindowsNotFoundException(Exception):
-    def __init__(self, window_name):
-        super(WindowsNotFoundException, self).__init__(f"window not found for '{windows_name}'")
+    def __init__(self, windows_name):
+        super(WindowsNotFoundException, self).__init__(f"没有找到名称为'{windows_name}'的窗口!")
 
 class WindowCapture:
     """
@@ -159,10 +159,12 @@ class WindowCapture:
                 dcObj = win32ui.CreateDCFromHandle(wDC)
                 cDC = dcObj.CreateCompatibleDC()
                 dataBitMap = win32ui.CreateBitmap()
-                dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
+                try:
+                    dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
+                except win32ui.error as e:
+                    raise RuntimeError(e)
                 cDC.SelectObject(dataBitMap)
                 cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (self.cropped_x, self.cropped_y), win32con.SRCCOPY)
-
                 # convert the raw data into a format opencv can read
                 # dataBitMap.SaveBitmapFile(cDC, 'debug.bmp')
                 signedIntsArray = dataBitMap.GetBitmapBits(True)
@@ -178,6 +180,9 @@ class WindowCapture:
                 self.last_screen = img
         except Exception as e:
             logger.error(e)
+            # 不知道如何解决
+            # dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
+            # win32ui.error: CreateCompatibleDC failed
             return self.last_screen
         return img
 
@@ -208,19 +213,22 @@ class WindowCapture:
         pass
 
 if __name__ == '__main__':
-    windows_name = cfg['window_name']
+    windows_name = get_config('window_name')
     wc = WindowCapture(windows_name)
     import time
     import cv2 as cv
 
     loop_time = time.time()
     while True:
+        t = time.time()
         sc = wc.get_screenshot()
+        print(win32gui.GetWindowText(wc.hwnd))
+        print(time.time()-t)
         # cv.namedWindow('window capture', cv.WINDOW_GUI_EXPANDED)
         cv.imshow('window capture', sc)
-        cost_time = time.time() - loop_time
-        print("fps:", 1 / cost_time, 'cost time:', cost_time)
-        loop_time = time.time()
+        # cost_time = time.time() - loop_time
+        # print("fps:", 1 / cost_time, 'cost time:', cost_time)
+        # loop_time = time.time()
         key = cv.waitKey(1)
         if key & 0xFF == ord('q'): break
     cv.destroyAllWindows()

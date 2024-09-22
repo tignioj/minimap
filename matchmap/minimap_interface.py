@@ -2,9 +2,14 @@ import logging
 import os
 import time
 from server import ServerAPI
-from myutils.configutils import cfg, resource_path
+from myutils.configutils import resource_path
 from myutils.imgutils import crop_img
 class MiniMapInter:
+
+    # 获取当前选择的地图
+    def get_chosen_country(self)->str: pass
+    def choose_map(self, map_name): pass
+
     def get_position(self): pass
     def get_local_map(self): pass
     def get_region_map(self,x, y, width): pass
@@ -25,8 +30,13 @@ class MinimapServer(MiniMapInter):
         """
         return ServerAPI.position()
 
-    def get_region_map(self, x, y, width):
-        return ServerAPI.get_region_map(x, y, width)
+    def get_region_map(self, x, y, width, region=None):
+        return ServerAPI.get_region_map(x, y, width, region=region)
+
+    def get_insert_node(self):
+        return ServerAPI.get_insert_node()
+    def choose_map(self, map_name):
+        return ServerAPI.choose_map(map_name)
 
     def get_rotation(self, use_alpha=False):
         return ServerAPI.rotation(use_alpha=use_alpha)
@@ -134,17 +144,20 @@ class MinimapNative(MiniMapInter):
     def get_ocr_fight_team(self):
         return self.ocr.ocr(capture.get_team_area(), cls=False)
 
-if cfg.get('enable_serve_less_mode', 0):
-    MinimapInterface = MinimapNative()
-else:
-    MinimapInterface = MinimapServer()
+# if get_config('enable_serve_less_mode', 0):
+#     MinimapInterface = MinimapNative()
+# else:
+MinimapInterface = MinimapServer()
 
 if __name__ == '__main__':
     mp = MinimapInterface
     while True:
         start = time.time()
         # pos = mp.get_position()
-        mpos = mp.get_user_map_position()
+        # mpos = mp.get_user_map_position()
         # rotation = mp.get_rotation(use_alpha=False)
         # print(pos, rotation)
-        print(mpos,"cost time:", time.time() - start)
+        # print(mpos,"cost time:", time.time() - start)
+        mp.get_ocr_result()
+        print(time.time() - start)
+

@@ -1,97 +1,48 @@
 import json
 import os
 import sys
-import cv2
-def shift_file_positions(json_path,dx, dy,scale=1, save=False):
-    with open(json_path, mode='r',encoding='utf8') as json_file:
-        data = json.load(json_file)
-        # 修改positions中的x和y值
-        for position in data['positions']:
-            position['x'] += dx
-            position['y'] += dy
 
-        modified_json_data = json.dumps(data, ensure_ascii=False, indent=4)
+from myutils.configutils import resource_path
+from myutils.fileutils import getjson_path_byname
 
-        # 将修改后的数据转换回JSON格式
+def bgi2minimap(bgi_json, save_path, save=False):
+    dx,dy = 790,1241
+    with open(bgi_json, 'r', encoding='utf8') as f:
+        data = json.load(f)
+        new_data = dict()
+        info = data.get('info')
+        print(info)
+        new_data['name'] = info.get('name')
+        new_data['anchor_name'] = '传送锚点'
+        new_data['country'] = '稻妻'
+        point_type = info.get('type')
+        if point_type == 'collect':
+            new_data['executor'] = 'CollectPathExecutor'
+        positions = data.get('positions', [])
+        for position in positions:
+            if position.get('move_mode') == 'walk':
+                position['move_mode'] = 'normal'
+            if position.get('type') == 'teleport':
+                position['type'] = 'path'
+            x = -position.get('x') + dx/2
+            y = -position.get('y') - dy/2
+            position['x'] = x*2
+            position['y'] = y*2
+
+        new_data['positions'] = positions
+    print(new_data)
+    # 如果 save 为 True，则保存修改后的 JSON 文件
     if save:
-        filename = json_path.split(".json")[0]
-        with open(f'{filename}_scale{scale}_.json', mode='w',encoding='utf8') as json_file:
-            json_file.write(modified_json_data)
+        with open(save_path, 'w', encoding='utf8') as f:
+            json.dump(new_data, f, ensure_ascii=False, indent=4)
+        print(f"修改后的 JSON 已保存到 {save_path}")
 
-    return modified_json_data
-
-def __getjson(filename):
-    # 获取当前脚本所在的目录
-    target = filename.split("_")[0]
-    relative_path = f"pathlist/{target}"
-    # 拼接资源目录的路径
-    file = os.path.join(relative_path, filename)
-    return file
-
-x2_known = 1695.16736
-y2_known = 2262.8335
-x1_known = 3339.6590312499993
-y1_known = -6682.49447265625
-
-# x2_known = -19
-# y2_known = -22
-# x1_known = 762.2859843749993
-# y1_known = -3251.8152734375
-
-# 计算坐标系2的原点在坐标系1中的位置
-scale = 1.5
-x0 = x1_known - scale * x2_known
-y0 = y1_known + scale * y2_known  # y轴反向
-print(x0,y0)
-# sys.exit(0)
-def convert_coordinates(x2, y2):
-    """
-    将坐标系2的坐标转换为坐标系1的坐标。
-    参数:
-    x2, y2 - 坐标系2中的坐标
-    返回:
-    x1, y1 - 坐标系1中的坐标
-    """
-    # 转换坐标系2到坐标系1的尺度
-    x1 = x0 + scale * x2
-    y1 = y0 - scale * y2  # y轴方向相反，所以需要取负值
-
-    return x1, y1
-def jiuguan2minimap(json_path,dx,dy,scale=1.0, save=False):
-    minimap_paths = []
-    with open(json_path, mode='r',encoding='utf8') as json_file:
-        data = json.load(json_file)
-        curve_list = data['curve_list']
-        for curve in curve_list:
-            # 保存一个线段
-            minimap_path = {
-                'name': curve['lineName'], 'country': "蒙德", 'positions': [] }
-            # 修改positions中的x和y值
-            for index,poi in enumerate(curve['curve_poi']):
-                x,y = convert_coordinates(poi['x'], poi['y'])
-                if index ==0 :
-                    print(x,y)
-                minimap_path['positions'].append({
-                    "x": x,
-                    "y": y,
-                    "type": "target"
-                })
-                minimap_paths.append(minimap_path)
-        if save:
-            filename = json_path.split(".json")[0]
-            from datetime import datetime
-            timestamp = datetime.now().strftime("%Y%m%d")
-            with open(f'{filename}_{timestamp}.json', mode='w',encoding='utf8') as json_file:
-                # 将修改后的数据转换回JSON格式
-                modified_json_data = json.dumps(minimap_path, ensure_ascii=False, indent=4)
-                json_file.write(modified_json_data)
-    return minimap_paths
 
 if __name__ == '__main__':
-    # jsonname = '甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json'
-    # jsonname = 'jiuguan_蒙德_test.json'
-    jsonname = 'jiuguan_蒙德_wfsd.json'
-    # jsonname = 'jiuguan_test3.json'
-    jsonfile = __getjson(jsonname)
-    # shiftjson = shift_file_positions(jsonfile, -1, 1.26, save=False)
-    p = jiuguan2minimap(jsonfile, 0, 0,1.5,True)
+    folder = os.path.join(resource_path, 'pathlist', '鸣草')
+    new_folder = os.path.join(resource_path, 'pathlist', '新鸣草')
+    files = os.listdir(folder)
+    for file in files:
+        file_path = os.path.join(folder, file)
+        save_path = os.path.join(new_folder, f'新{file.split(".json")[0]}_new.json')
+        bgi2minimap(bgi_json=file_path, save_path=save_path, save=True)

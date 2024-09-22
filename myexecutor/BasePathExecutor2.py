@@ -6,7 +6,7 @@ import sys
 from controller.BaseController import BaseController
 from collections import deque
 
-from controller.FightController import FightController
+from controller.FightController import FightController, CharacterDieException
 from controller.MapController2 import MapController
 from controller.OCRController import OCRController
 from myutils.executor_utils import point1_near_by_point2, find_closest_point_index
@@ -26,6 +26,7 @@ logger = MyLogger('path_executor', level=logging.DEBUG, save_log=True)
 # TODO 2: 目标点附近如果有npc，可能会导致进入对话
 # Todo 3: [紧急] 位置突变异常不要仅判断一个点，应该收集多个点后去掉最值求平均后判断
 # Todo 4: 开启冲刺，可能会爬不上山，需要做体力判定或者添加“原地休息”的动作
+# TODO 5: 连续多次超时异常可能彻底卡住，需要跳过当前脚本
 
 class EmptyPathException(Exception): pass
 
@@ -472,12 +473,13 @@ class BasePathExecutor(BaseController):
                 step_cost = time.time()
                 # 当前点位和历史点位差距过大, 可能死亡导致被传送
                 # 游戏特性: 死亡后可能传送到附近,也可能传送到最近一次传送的锚点(非距离最近锚点)
+                current_coordinate = self.current_coordinate
                 if len(self.position_history) > 1:
                     last_time_save_coordinate = self.position_history[-1]
-                    if not point1_near_by_point2(self.current_coordinate, last_time_save_coordinate,
+                    if not point1_near_by_point2(current_coordinate, last_time_save_coordinate,
                                                  self.position_mutation_threshold):
-                        msg = '当前记录与历史点位记录差距过大!可能由于死亡被传送!'
-                        self.debug(msg)
+                        msg = f'当前记录{current_coordinate}与历史点位记录{self.position_history}差距过大!可能由于死亡被传送!'
+                        self.logger.error(msg)
                         raise MovingPositionMutationException(msg)
 
                 self.__do_move(next_point_coordinate, point_start_time)  # 走一步，转向可能阻塞(<5s)
@@ -520,13 +522,22 @@ class BasePathExecutor(BaseController):
         self.logger.debug(f'跑点{next_point_coordinate}用时：{time.time() - point_start_time}')
         self.kb_release('w')
 
+    def shield(self):
+        try:
+            self.fight_controller.shield()
+        except CharacterDieException as e:
+            self.logger.error(e.args)
+            from controller.MapController2 import MapController
+            MapController().go_to_seven_anemo_for_revive()
+            raise ExecuteTerminateException()
+
     def on_move_after(self, point: Point):
         self.log(f'到达点位{point}了')
         if self.enable_crazy_f and point.type == point.TYPE_TARGET:
             self.debug('疯狂按下f')
             self.crazy_f()
         if point.action == point.ACTION_SHIELD:
-            self.fight_controller.shield()
+            self.shield()
 
     def update_state(self):
         start = time.time()
@@ -558,7 +569,7 @@ class BasePathExecutor(BaseController):
             time.sleep(0.3)
             if len(self.base_path.positions) > 0:
                 # win_name = 'path viewer'
-                img = get_points_img_live(self.base_path.positions, self.base_path.name, width=self.path_viewer_width, scale=2)
+                img = get_points_img_live(self.base_path.positions, self.base_path.name, width=self.path_viewer_width, scale=2, region=self.base_path.country)
                 if img is None: continue
                 cv2.imshow(win_name, img)
                 cv2.moveWindow(win_name, 10, 10)
@@ -588,7 +599,7 @@ class BasePathExecutor(BaseController):
         """
         start_time = time.time()
         while not self.current_coordinate:
-            self.current_coordinate = self.tracker.get_position()
+            # self.current_coordinate = self.tracker.get_position() # 已经有其他线程在获取，这里无需调用
             if self.stop_listen: return None
             self.logger.debug(f'正在等待位置中，已经等待{time.time() - start_time:}')
             if time.time() - start_time > wait_times:
@@ -666,17 +677,17 @@ class BasePathExecutor(BaseController):
                 try:
                     self.on_move_before(point)
                     self.move((point.x, point.y))
-                except MovingPositionMutationException:
+                except MovingPositionMutationException as e:
 
                     # 角色位置突变如何处理?(死亡被传送到了较远的锚点)
-                    self.logger.error('捕捉到了位置突变异常,尝试查找最近的点')
+                    self.logger.error(e.args)
                     moving_position_mutation_counter += 1
                     if moving_position_mutation_counter > self.position_mutation_max_time:
                         msg = f'位置突变次数{moving_position_mutation_counter}, 超过{self.position_mutation_max_time}, 执行结束'
                         raise ExecuteTerminateException(msg)
                     # 查找最近的一个执行点的下标
                     index = find_closest_point_index(coordinates=self.current_coordinate, points=self.base_path.positions,
-                                                     distance_threshold=self.position_mutation_threshold)
+                                                     distance_threshold=self.search_closet_point_max_distance)
                     if index is not None:
                         self.logger.debug(f'查找到距离当前坐标最近的点是{self.base_path.positions[index]},从这里开始执行任务')
                         i = index

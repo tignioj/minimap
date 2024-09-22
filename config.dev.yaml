@@ -23,6 +23,60 @@ window_name: '原神'  # 游戏窗口名称
 local_map_size: 1024 # 允许范围512 ~ 4096 # 越大越卡
 
 
+map_config:
+  '璃月':
+    img_name: 'liyue'
+    center: [5380, 7384]  # 禁止修改, 璃月天衡山右边那个十字圆环
+  '蒙德':
+    img_name: 'mengde'
+    sigma: 1.4
+    center: [427, 7359]  # 该图左上角坐标与璃月中心点坐标的偏差
+  '稻妻':
+    img_name: 'daoqi'
+    center: [-1080, -2096]   # 该图左上角坐标与璃月中心点坐标的偏差
+  '须弥':
+    img_name: 'xumi'
+    center: [13797, 5174]   # 该图左上角坐标与璃月中心点坐标的偏差
+  '枫丹':
+    img_name: 'fengdan'
+    center: [10802, 12505] # 该图左上角坐标与璃月中心点坐标的偏差
+  '纳塔':
+    img_name: 'nata'
+    center: [17987, 68]  # 该图左上角坐标与璃月中心点坐标的偏差
+  '层岩巨渊':
+    img_name: 'juyuan'
+    center: [0, 0]  # 独立地图
+  '渊下宫':
+    img_name: 'yuanxiagong'
+    center: [ 0, 0 ]  # 独立地图
+#  '沙虫隧道-上方通路':
+#    img_name: 'shachongsuidao-shangfangtonglu'
+#    scale: 2
+#    center: [8404, -573]  # 该图左上角坐标与璃月中心点坐标的偏差
+
+#map_config:
+#  liyue:
+#    name: '璃月'
+#    center: [5380, 7384]  # 禁止修改, 璃月天衡山右边那个十字圆环
+#  mengde:
+#    name: '蒙德'
+#    center: [427, 7359]  # 该图左上角坐标与璃月中心点坐标的偏差
+#  daoqi:
+#    name: '稻妻'
+#    center: [-1080, -2096]   # 该图左上角坐标与璃月中心点坐标的偏差
+#  xumi:
+#    name: '须弥'
+#    center: [13797, 5174]   # 该图左上角坐标与璃月中心点坐标的偏差
+#  fengdan:
+#    name: '枫丹'
+#    center: [10802, 12505] # 该图左上角坐标与璃月中心点坐标的偏差
+#  nata:
+#    name: '纳塔'
+#    center: [17987, 68]  # 该图左上角坐标与璃月中心点坐标的偏差
+#  juyuan:
+#    name: '层岩巨渊'
+#    center: [0, 0]  # 独立地图
+
 ##########################路径执行器配置#############################
 show_path_viewer: 1  # 跑点位的时候是否展示路径
 path_viewer_width: 500  # 路径展示的宽高，允许范围(50~4096
@@ -70,7 +124,7 @@ position_mutation_threshold: 50
 position_mutation_max_time: 8
 
 # 路径突变后,会执行搜索最近点位策略,最近点要求低于多少距离, 范围(80, 500)
-search_closet_point_max_distance: 200
+search_closet_point_max_distance: 100
 
 
 ############################ 传送配置 ##############################

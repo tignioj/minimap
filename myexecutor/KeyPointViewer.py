@@ -4,32 +4,33 @@ import time
 from typing import List
 import cv2
 from matchmap.minimap_interface import MinimapInterface
-from myutils.jsonutils import getjson_path_byname
+from myutils.fileutils import getjson_path_byname
 from myexecutor.BasePathExecutor2 import Point,BasePathExecutor
+from mylogger.MyLogger3 import MyLogger
+logger = MyLogger(__name__)
 
-def show_points(points, width=1024, scale=None):
+def show_points(points, width=1024, scale=None, region=None):
     if len(points) < 1:
         return
 
-    region_img = get_points_img(points,width,scale=scale)
+    region_img = get_points_img(points,width,scale=scale, region=region)
     # region_img = cv2.resize(region_img, None, fx=0.5, fy=0.5)
-    from PIL import Image
-    img = Image.fromarray(cv2.cvtColor(region_img, cv2.COLOR_BGR2RGB))
-    img.show()
-    # cv2.imshow('points', region_img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
+    # img = Image.fromarray(cv2.cvtColor(region_img, cv2.COLOR_BGR2RGB))
+    # img.show()
+    cv2.imshow('points', region_img)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-def get_points_img(points: List[Point], width=2048, user_position=None, scale=None):
+def get_points_img(points: List[Point], width=2048, user_position=None, scale=None, region=None):
     if points is None or len(points) < 1: return
 
     point_start = points[0]
     dx,dy = 0,0
-    region_img = MinimapInterface.get_region_map(point_start.x, point_start.y, width)
+    region_img = MinimapInterface.get_region_map(point_start.x, point_start.y, width, region=region)
     if user_position:
-        region_img = MinimapInterface.get_region_map(user_position[0], user_position[1], width)
+        region_img = MinimapInterface.get_region_map(user_position[0], user_position[1], width, region=region)
         if region_img is None:
-            print('局部地图为空')
+            logger.error('局部地图为空')
             return
         dx = user_position[0] - point_start.x
         dy = user_position[1] - point_start.y
@@ -94,11 +95,11 @@ def get_points_img(points: List[Point], width=2048, user_position=None, scale=No
     return region_img
 
 
-def get_points_img_live(points: [Point], object_to_detect=None, width=1024,scale=None):
+def get_points_img_live(points: [Point], object_to_detect=None, width=1024,scale=None, region=None):
     if points is None or len(points) == 0:
         return None
     pos = MinimapInterface.get_position()
-    region_img = get_points_img(points, width, pos, scale)
+    region_img = get_points_img(points, width, pos, scale, region=region)
     if pos is not None: cv2.circle(region_img, (width//2,width//2), 5, (0,255,255), 2)
     return region_img
 
@@ -135,7 +136,7 @@ if __name__ == '__main__':
     # jsonfile = getjson_path_byname('jiuguan_蒙德_wfsd_20240808.json')
     # jsonfile = getjson_path_byname('jiuguan_枫丹_tiantianhua_20240808.json')
     # jsonfile = getjson_path_byname('甜甜花_枫丹_中央实验室遗址_test_2024-08-08_12_37_05.json')
-    json_map = BasePathExecutor.load_json(jsonfile)
+    json_map = BasePathExecutor.load_basepath_from_json_file(jsonfile)
     show_points(json_map['positions'],  1024, scale=1)
     # show_points(json_map.get('positions'), json_map['name'],width=1200,scale=3)
     # while True:

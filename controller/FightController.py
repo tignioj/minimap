@@ -14,13 +14,9 @@ from controller.BaseController import StopListenException
 # charge(10) 重击
 # , 等待10秒
 
-class StopFightException(Exception):
-    ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE = 'go_to_seven_anemo_for_revive'
-    def __init__(self, message=None, action=None):
-        self.message = message
-        self.action = action
-        super().__init__(message, action)
+class StopFightException(Exception): pass
 
+class CharacterDieException(StopFightException): pass
 class SwitchCharacterTimeOutException(Exception): pass
 
 class CharacterNotFoundException(Exception): pass
@@ -114,7 +110,6 @@ class FightController(BaseController):
         from random import randint
         while self.gc.get_team_current_number() != character_number:
             if time.time() - start_time > wait_time: raise SwitchCharacterTimeOutException(f"切{character_name}超时！")
-
             close_button_pos = self.gc.get_icon_position(self.gc.icon_close_while_arrow)
             if len(close_button_pos) > 0:
                 has_eggs = self.gc.has_revive_eggs()
@@ -127,14 +122,13 @@ class FightController(BaseController):
                     else:
                         msg = "由于没有开启使用道具复活，已无法继续战斗, 前往七天神像复活"
                         self.click_if_appear(self.gc.icon_message_box_button_cancel)
-                        raise StopFightException(msg, action=StopFightException.ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE)
+                        raise CharacterDieException(msg)
                 else:
                     # 检测到有关闭按钮, 但是没检测到鸡蛋(被倒计时数字遮挡)，说明鸡蛋在倒计时，此时已经无法继续战斗
                     msg = "复活仍在倒计时, 已无法继续战斗, 前往七天神像复活"
                     self.logger.debug(msg)
                     self.click_screen(close_button_pos[0])
-                    raise StopFightException(msg, action=StopFightException.ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE)
-
+                    raise CharacterDieException(msg)
             # 稍微动一下屏幕让模板匹配更容易成功
             x = randint(-100, 100)
             y = randint(-100, 100)
@@ -211,25 +205,22 @@ class FightController(BaseController):
         try:
             while not self.stop_fight:
                 self.execute()
+        except CharacterDieException as e: pass
         except StopFightException as e:
-            if e.action == StopFightException.ACTION_GO_TO_SEVEN_ANEMO_FOR_REVIVE:
-                from controller.MapController2 import MapController
-                MapController().go_to_seven_anemo_for_revive()
-            else:
-                self.logger.debug(e.args)
-                # 打断所有动作， 恢复状态
-                if self.current_character == '散兵' or self.current_character == '流浪者':
-                    # 连续按2次e避免还在空中
-                    self.gc.is_flying()
-                    self.kb_press_and_release('e')
-                    time.sleep(0.5)
-                    self.kb_press_and_release('e')
-                    time.sleep(0.1)
+            self.logger.debug(e.args)
+            # 打断所有动作， 恢复状态
+            if self.current_character == '散兵' or self.current_character == '流浪者':
+                # 连续按2次e避免还在空中
+                self.gc.is_flying()
+                self.kb_press_and_release('e')
+                time.sleep(0.5)
+                self.kb_press_and_release('e')
+                time.sleep(0.1)
 
-                # 跳跃打断所有动作
-                self.kb_press_and_release(self.Key.space)
-                self.current_character = None
-                self.team_name = None
+            # 跳跃打断所有动作
+            self.kb_press_and_release(self.Key.space)
+            self.current_character = None
+            self.team_name = None
         except StopListenException as e:
             self.logger.debug(e.args)
 
@@ -320,20 +311,21 @@ if __name__ == '__main__':
     # file_name = '那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt'
     file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
     fc = FightController(file_name)
-    def _on_press(key):
-        try:
-            if key.char == '`':
-                fc.start_fighting()
-            elif key.char == '~':
-                fc.stop_fighting()
-        except AttributeError as e:
-            pass
+    # fc.switch_character('纳西妲')
+    # def _on_press(key):
+    #     try:
+    #         if key.char == '`':
+    #             fc.start_fighting()
+    #         elif key.char == '~':
+    #             fc.stop_fighting()
+    #     except AttributeError as e:
+    #         pass
+    #
+    # l = Listener(on_press=_on_press)
+    # l.start()
+    # l.join()
 
-    l = Listener(on_press=_on_press)
-    l.start()
-    l.join()
-
-    time.sleep(12)
-    print('等待结束中', time.time())
-    fc.stop_fighting()
-    print('结束了', time.time())
+    # time.sleep(12)
+    # print('等待结束中', time.time())
+    # fc.stop_fighting()
+    # print('结束了', time.time())

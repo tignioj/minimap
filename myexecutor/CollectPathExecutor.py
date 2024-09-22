@@ -8,7 +8,9 @@ import json
 import cv2
 import win32api, win32con
 import numpy as np
-from myexecutor.BasePathExecutor2 import BasePathExecutor, Point, BasePath
+
+from controller.FightController import CharacterDieException
+from myexecutor.BasePathExecutor2 import BasePathExecutor, Point, BasePath, ExecuteTerminateException
 from myutils.fileutils import getjson_path_byname
 from typing import List
 
@@ -65,6 +67,19 @@ class CollectPathExecutor(BasePathExecutor):
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, 20000, 0, 0)
 
     def nahida_collect(self):
+        from controller.FightController import SwitchCharacterTimeOutException, CharacterNotFoundException
+        try:
+            self.fight_controller.switch_character('纳西妲')
+        except CharacterDieException as e:
+            self.logger.error(e.args)
+            self.logger.debug("纳西妲死亡，无法继续采集，回七天神像")
+            from controller.MapController2 import MapController
+            MapController().go_to_seven_anemo_for_revive()
+            raise ExecuteTerminateException()
+        except (SwitchCharacterTimeOutException, CharacterNotFoundException) as e:
+            self.logger.error(e.args)
+            return
+
         # 等待e技能冷却
         cd = time.time() - self.nahida_collect_last_time
         if cd < 6:  # 纳西妲长e冷却时长
@@ -135,6 +150,13 @@ class CollectPathExecutor(BasePathExecutor):
         if point.move_mode == CollectPoint.MOVE_MODE_UP_DOWN_GRAB_LEAF:
             self.logger.debug("上下晃动视角抓四叶印！")
             self.up_down_grab_leaf()
+
+    def shield(self):
+        try:
+            self.fight_controller.shield()
+        except CharacterDieException as e:
+            # self.logger.error(e.args)
+            self.logger.debug("虽然盾辅角色死亡了，但是不需要战斗，不影响采集, 继续行动")
 
 
     def on_move_after(self, point: CollectPoint):
