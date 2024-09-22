@@ -59,6 +59,8 @@ class FileManagerController(ServerBaseController):
         try:
             dirs = os.listdir(p)
             for d in dirs:
+                if d.startswith("."):  # 跳过隐藏目录
+                    continue
                 subdir = os.path.join(p, d)
                 files = os.listdir(subdir)
                 folders.append({
