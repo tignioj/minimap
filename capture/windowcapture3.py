@@ -1,6 +1,7 @@
 import sys
 import threading
 
+import numpy
 import numpy as np
 # ModuleNotFoundError: No module named 'win32.distutils.command'
 # pip install pywin32 instead win32gui
@@ -63,6 +64,7 @@ class WindowCapture:
             self.h = window_h - titlebar_pixels - border_pixels
             self.cropped_x = border_pixels
             self.cropped_y = titlebar_pixels
+            self.last_screen = None
 
             # set the cropped coordinates offset so we can translate screenshot
             # images into actual screen positions
@@ -98,7 +100,9 @@ class WindowCapture:
         判断窗口是否处于前台
         :return:
         """
-        return win32gui.GetForegroundWindow() == self.hwnd
+        current_win_name = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+        # logger.debug(f'当前窗口名称：{current_win_name}')
+        return current_win_name == self.window_name
 
     def __update_rect(self):
         # find the handle for the window we want to capture
@@ -213,17 +217,20 @@ class WindowCapture:
         pass
 
 if __name__ == '__main__':
-    windows_name = get_config('window_name')
-    wc = WindowCapture(windows_name)
+    # windows_name = get_config('window_name')
+    wc = WindowCapture()
     import time
     import cv2 as cv
+
+    if not wc.is_active():
+        wc.activate_window()
 
     loop_time = time.time()
     while True:
         t = time.time()
         sc = wc.get_screenshot()
-        print(win32gui.GetWindowText(wc.hwnd))
-        print(time.time()-t)
+        # print(win32gui.GetWindowText(wc.hwnd))
+        print(wc.is_active(),time.time()-t)
         # cv.namedWindow('window capture', cv.WINDOW_GUI_EXPANDED)
         cv.imshow('window capture', sc)
         # cost_time = time.time() - loop_time
