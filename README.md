@@ -1,5 +1,6 @@
 # minimap
 - 纯视觉、基于小地图识别实现的部分原神自动化操作：采集-怪物材料-战斗委托-地脉
+- 欢迎加入minimap唯一指定QQ交流群: 132608315, 分享你制作的路线
 
 [![GitHub Star](https://img.shields.io/github/stars/tignioj/minimap?style=flat-square)](https://github.com/tignioj/minimap/stargazers)
 [![Release Download](https://img.shields.io/github/downloads/tignioj/minimap/total?style=flat-square)](https://github.com/tignioj/minimap/releases/latest)
@@ -12,7 +13,7 @@
 
 # 关联仓库
 - GUI: https://github.com/tignioj/minimap-gui
-- 路线： https://github.com/tignioj/minimap-pathlist
+- 路线： https://github.com/tignioj/minimap-pathlist 
 
 ## 直接运行
 - 游戏调整为1920*1080窗口分辨率(如果屏幕大小只有1080p则用1080p**无边框模式**，不要用独占全屏)
@@ -112,7 +113,7 @@ pip install pywin32==301
 pip install pywin32==306
 ```
 
-# 声明
+# 免责声明
 - 本软件开源、免费，仅供学习交流使用。开发者团队拥有本项目的最终解释权。
 - 不得将本软件或其任何部分用于任何形式的商业活动、商业产品或商业服务中。
 - 使用本软件产生的所有问题与本项目与开发者团队无关。
