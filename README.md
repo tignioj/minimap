@@ -39,15 +39,6 @@ pip install -r ./requirements
 - 在这里下载 https://github.com/tignioj/minimap-gui
 - 把编译后的`index.html`放进后端的`server/templates`目录文件夹里面 
 - 把编译后的`assets`放进`server/static`目录文件夹里面
-- 修改`index.html`, 让页面可以正确读取`js`和`css`等静态资源
-
-```html
-<!--    <script type="module" crossorigin src="/assets/index-C0LpkD3K.js"></script>-->
-<script type="module" src="{{ url_for('static', filename='assets/index-C0LpkD3K.js') }}"></script>
-
-<!--    <link rel="stylesheet" crossorigin href="/assets/index-Dub40aXx.css">-->
-<link rel="stylesheet" href="{{ url_for('static', filename='assets/index-Dub40aXx.css') }}">
-```
 
 ### 运行
 ```shell
