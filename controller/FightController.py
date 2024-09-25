@@ -32,8 +32,8 @@ class FightController(BaseController):
         self.stop_fight = False
         self.lastmod: float = None
         if not filename:
-            from myutils.configutils import get_config, YAML_KEY_DEFAULT_FIGHT_TEAM
-            filename = get_config(YAML_KEY_DEFAULT_FIGHT_TEAM)
+            from myutils.configutils import FightConfig
+            filename = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
 
         self.filename = filename
         self.team_name = None
@@ -114,8 +114,9 @@ class FightController(BaseController):
             if len(close_button_pos) > 0:
                 has_eggs = self.gc.has_revive_eggs()
                 if has_eggs:
-                    from myutils.configutils import get_config
-                    if get_config('enable_food_revive', True):
+                    from myutils.configutils import PathExecutorConfig
+                    if PathExecutorConfig.get(
+                            PathExecutorConfig.KEY_ENABLE_FOOD_REVIVE, True):
                         self.logger.debug('复活道具-1')
                         self.click_if_appear(self.gc.icon_message_box_button_confirm)
                         time.sleep(0.2)  # 等待对话框消失
@@ -303,7 +304,7 @@ class FightController(BaseController):
 
 
 if __name__ == '__main__':
-    from myutils.configutils import get_user_folder,get_config
+    # from myutils.configutils import get_user_folder, PathExecutorConfig
 
     from pynput.keyboard import Listener, Key
 

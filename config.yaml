@@ -1,18 +1,8 @@
-# 1表示开启调试，会加载大地图用于展示，速度稍慢
-debug_enable: 1
-
-# 地图资源路径
-#resource_path: 'G:\PyCharmProgram\minimap\minimap\resources'
-
-# 点位资源路径
-#points_path: 'G:\PyCharmProgram\minimap\minimap\resources\pathlist'
-
-########################## 地图配置 #############################
-# 中心点设置璃月天衡山右边那个十字圆环
-center_x: 19689.298
-center_y: 13528.16
+# true表示开启调试，会加载大地图用于展示，速度稍慢
+debug_enable: true
 window_name: '原神'  # 游戏窗口名称
 
+##########################路径执行器配置#############################
 # [重要选项] 建议1024或者2048
 # 指的是小地图在多大的局部区域内搜索，区域越大，单次请求的性能开销越大，但是在一定范围内可以减少全局匹配的次数
 # 如果你需要在大范围内移动，为了减少全局匹配次数，可以设置稍微大一点的值
@@ -21,12 +11,10 @@ window_name: '原神'  # 游戏窗口名称
 # 0.03,  0.04   0.07
 local_map_size: 1024 # 允许范围512 ~ 4096 # 越大越卡
 
-
-##########################路径执行器配置#############################
-show_path_viewer: 1  # 跑点位的时候是否展示路径
+show_path_viewer: true  # 跑点位的时候是否展示路径
 path_viewer_width: 500  # 路径展示的宽高，允许范围(50~4096
 # 自动拾取开关(没有做ocr，仅是在接近点位的时候疯狂按下f)
-enable_crazy_f: 1
+enable_crazy_f: true
 # 移动到下一个点位最大允许时间（秒），超过该时间则跳过该点位, 允许范围(5~60)
 # 注意游泳模式下产生的位移距离较小，可能更容易触发超时异常
 move_next_point_allow_max_time: 20
@@ -40,21 +28,21 @@ path_point_nearby_threshold: 5  # 对于途径点精确度奥多少个像素认�
 
 # 是否允许小碎步接近目标：注意此选项对Point.type=='path'的途径点以及游泳模式下无效
 # 人物原地打转时，会强制临时启用小碎步
-allow_small_steps: 1
+allow_small_steps: true
 
 # 死亡后，是否允许使用道具复苏角色
-enable_food_revive: 1
+enable_food_revive: true
 
-# 跑路的时候不断按下按键（例如e技能开盾，z也可以装砍树的道具) 0表示关闭,1表示开启
-enable_loop_press_e: 0
-enable_loop_press_z: 0
-enable_loop_jump: 0
-loop_press_interval: 12  # 循环按下e的时间间隔
+# 跑路的时候不断按下按键（例如e技能开盾，z也可以装砍树的道具) false表示关闭,true表示开启
+enable_loop_press_e: false
+enable_loop_press_z: false
+enable_loop_jump: false
+loop_press_e_interval: 12  # 循环按下e的时间间隔(允许范围1~20)
 small_step_interval: 0.1 # 小碎步按下w的频率,允许范围(0.05~0.2)
 # 是否允许途径点冲刺
-enable_dash: 1
+enable_dash: true
 
-# 转向速度,允许范围200~800, 值越大转向越快
+# 转向速度,允许范围200~1000, 值越大转向越快
 change_rotation_max_speed: 1000
 
 # 多少秒更新一次位置(允许值0.01~0.2)
@@ -69,11 +57,8 @@ position_mutation_threshold: 50
 position_mutation_max_time: 8
 
 # 路径突变后,会执行搜索最近点位策略,最近点要求低于多少距离, 范围(80, 500)
-search_closet_point_max_distance: 200
-
-
+search_closet_point_max_distance: 100
 ############################ 传送配置 ##############################
-
 
 
 ############################ 战斗配置 ##############################
@@ -81,7 +66,7 @@ search_closet_point_max_distance: 200
 # 注意！文件名称必须按照游戏内队伍顺序书写否则无法切人，并且每个队员用下划线分割
 # 括号内容是游戏内队伍的自定义简称，以后切队伍可能用到。
 # default_fight_team: '那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt'
-default_fight_team: '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
+default_fight_team: '那维莱特_莱依拉_纳西妲_枫原万叶_(龙莱草万).txt'
 fight_duration: 20  # 战斗持续时长,允许范围1~1000秒
 
 
@@ -102,15 +87,11 @@ daily_task_destroy_timeout: 20
 leyline_outcrop_task_execute_timeout: 1000
 # 地脉单次战斗最长执行时间，允许范围(10~400)秒
 leyline_outcrop_task_fight_timeout: 40
-# 领取地脉奖励后，是否使用万叶拾取材料（需要队伍中有万叶）1表示开启，0表示关闭
-leyline_enable_wanye_pickup_after_reward: 1
+# 领取地脉奖励后，是否使用万叶拾取材料（需要队伍中有万叶）true表示开启，false表示关闭
+leyline_enable_wanye_pickup_after_reward: true
 
-
+host: 127.0.0.1
+port: 5000
 ############################ 服务器配置 #############################
-minimap:
-  # 一定要设置为127.0.0.1而不是localhost，否则速度可能会很慢
-  host: 127.0.0.1
-  port: 5000
-ocr:
-  host: 127.0.0.1
-  port: 5000
+# 一定要设置为127.0.0.1而不是localhost，否则速度可能会很慢
+

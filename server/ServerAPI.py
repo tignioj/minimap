@@ -7,16 +7,14 @@ import numpy as np
 from mylogger.MyLogger3 import MyLogger
 from io import BytesIO
 import logging
-from myutils.configutils import get_config
+from myutils.configutils import ServerConfig
 logger = MyLogger('server_api', logging.INFO)
 logging.getLogger('urllib3.connectionpool').setLevel(logging.INFO)
 
-# gc = GenShinCapture()
-cfg_minimap = get_config('minimap')
-cfg_ocr = get_config('ocr')
-url = f'http://{cfg_minimap.get("host")}:{cfg_minimap.get("port")}/'
-ocr_url = f'http://{cfg_ocr.get("host")}:{cfg_ocr.get("port")}/'
-# ocr_url = 'http://127.0.0.1:5001/'
+host = ServerConfig.get(ServerConfig.KEY_HOST)
+port = ServerConfig.get(ServerConfig.KEY_PORT)
+url = f'http://{host}:{port}/'
+ocr_url = f'http://{host}:{port}/'
 
 def __log(*args):
     logger.debug(args)

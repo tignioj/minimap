@@ -18,8 +18,9 @@ class FightPath(BasePath):
 class FightPoint(Point): pass
 
 
-from myutils.configutils import get_config, YAML_KEY_DEFAULT_FIGHT_TEAM, YAML_KEY_DEFAULT_FIGHT_DURATION
-
+from myutils.configutils import FightConfig
+def get_config(key, default=None, min_val=None, max_val=None):
+    return FightConfig.get(key, default=default, min_val=min_val, max_val=max_val)
 
 class FightPathExecutorException(Exception): pass
 
@@ -29,11 +30,7 @@ class FightPathExecutor(BasePathExecutor):
         self.base_path: FightPath = None
         super().__init__(json_file_path=json_file_path, debug_enable=debug_enabled)
         self.fight_controller = FightController(self.base_path.fight_team)
-        self.fight_duration = get_config(YAML_KEY_DEFAULT_FIGHT_DURATION, 12)
-        if self.fight_duration < 1:
-            self.fight_duration = 1
-        elif self.fight_duration > 1000:
-            self.fight_duration = 1000
+        self.fight_duration = get_config(FightConfig.KEY_FIGHT_DURATION, 12, min_val=1, max_val=1000)
 
     @staticmethod
     def load_basepath_from_json_file(json_file_path) -> FightPath:
@@ -48,7 +45,7 @@ class FightPathExecutor(BasePathExecutor):
                           action=point.get('action'))
                 points.append(p)
                 fight_team = json_dict.get('fight_team')
-                if fight_team is None: fight_team = get_config(YAML_KEY_DEFAULT_FIGHT_TEAM)
+                if fight_team is None: fight_team = get_config(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
                 if fight_team is None: raise FightPathExecutorException("请先配置队伍!")
             return FightPath(name=json_dict.get('name', 'undefined'),
                              country=json_dict.get('country', '蒙德'),

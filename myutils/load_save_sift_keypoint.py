@@ -7,7 +7,7 @@ import os
 
 import numpy
 
-from myutils.configutils import resource_path,get_config
+from myutils.configutils import resource_path
 
 # class SiftMap:
 #     def __init__(self, map_name, block_size,img, des, kep, center):
@@ -85,6 +85,9 @@ def load(block_size, map_name):
     return keypoints_large, descriptors_large
 
 
+def sift_kp_des_generator():
+    from myutils.configutils import MapConfig
+
 if __name__ == '__main__':
     block_size = 2048
     # block_size = 256
@@ -93,9 +96,9 @@ if __name__ == '__main__':
     # map_name = 'nata'
     # map_name = 'xumi'
     # map_name = 'daoqi'
-    # map_name = 'mengde'
-    map_name = 'shachongsuidao-shangfangtonglu'
-    __save(block_size, map_name)
+    map_name = 'mengde'
+    # map_name = 'shachongsuidao-shangfangtonglu'
+    # __save(block_size, map_name)
     kp, des = load(block_size, map_name)
     print(des.shape)
     # mapobj = get_sift_map(map_name='枫丹', block_size=block_size)

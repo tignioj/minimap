@@ -125,9 +125,10 @@ class FightTeamService:
         return "成功停止"
 
     def set_default(self, filename):
-        from myutils.configutils import set_config, YAML_KEY_DEFAULT_FIGHT_TEAM
+        from myutils.configutils import FightConfig
         try:
-            set_config(YAML_KEY_DEFAULT_FIGHT_TEAM, filename)
+            FightConfig.set(FightConfig.KEY_DEFAULT_FIGHT_TEAM, filename)
+            FightConfig.save_config()
             return f"设置默认战斗队伍为{filename}成功"
         except Exception as e:
             logger.exception(e,exc_info=True)
@@ -135,9 +136,9 @@ class FightTeamService:
 
 
     def get_default(self):
-        from myutils.configutils import get_config, YAML_KEY_DEFAULT_FIGHT_TEAM
+        from myutils.configutils import FightConfig
         try:
-            return get_config(YAML_KEY_DEFAULT_FIGHT_TEAM)
+            return FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
         except Exception as e:
             logger.exception(e,exc_info=True)
             raise FightTeamServiceException(f"设置默认队伍失败:{e.args}")
@@ -157,3 +158,12 @@ class FightTeamService:
         self.fight_controller.start_fighting()
         return f"正在从临时内容中运行{filename}"
 
+
+if __name__ == '__main__':
+    import time
+    ft = FightTeamService()
+    # ft.run_teams_from_saved_file("莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt")
+    # ft.run_teams_from_memory_text("1_2_3_散兵(xx).txt", "散兵 e, charge, charge, charge, charge, charge")
+    ft.run_teams_from_memory_text("1_2_3_散兵(xx).txt", "散兵 charge")
+    time.sleep(1)
+    ft.stop_fighting()

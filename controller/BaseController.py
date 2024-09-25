@@ -16,7 +16,7 @@ from mylogger.MyLogger3 import MyLogger
 import win32api, win32con
 from matchmap.minimap_interface import MinimapInterface
 from capture.capture_factory import capture
-from myutils.configutils import get_config
+from myutils.configutils import DebugConfig, PathExecutorConfig
 logger = MyLogger('BaseController')
 
 class StopListenException(Exception): pass
@@ -104,7 +104,7 @@ class BaseController:
         self.tracker = MinimapInterface
 
         if debug_enable is None:
-            debug_enable = get_config('debug_enable', False)
+            debug_enable = DebugConfig.get(DebugConfig.KEY_DEBUG_ENABLE, False)
             if debug_enable: self.logger = MyLogger(self.__class__.__name__, logging.DEBUG)
             else: self.logger = MyLogger(self.__class__.__name__, logging.INFO)
         else:
@@ -309,13 +309,10 @@ class BaseController:
             # print(f"current: {current_rotation}, target{degree},diff{diff}, 转向:{direction}, 转动距离:{s}")
             if s < 10: return
 
+            max_rate = PathExecutorConfig.get(PathExecutorConfig.KEY_CHANGE_ROTATION_MAX_SPEED, 500)
             s = s * 2
-            max_rate = get_config('change_rotation_max_speed', 200)
-            if max_rate > 1000: max_rate = 1000
-            elif max_rate < 200: max_rate = 200
 
             if s > max_rate: s = max_rate
-            # if s<20: s = 20
             # win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
             self.camera_chage(-direction*s, 0,0)
 

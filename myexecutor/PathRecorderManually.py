@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 
 import cv2
+import numpy as np
 
 from matchmap.minimap_interface import MinimapInterface
 
@@ -14,7 +15,8 @@ PyCharm需要用管理员方式启动，否则游戏内输入无效！
 from pynput import keyboard
 from pynput.keyboard import Key
 import json
-from myutils.jsonutils import Point, load_json, PointEncoder
+from myutils.configutils import cfg
+from myexecutor.BasePathExecutor2 import Point, BasePathExecutor, PointEncoder
 from typing import List
 
 class PathRecorder:
@@ -37,9 +39,10 @@ class PathRecorder:
         self.positions: List[Point] = []
         self.path_viewer_scale = 1.5  # 预览地图放大倍率
 
+        self.path_viewer_width = cfg.get('path_viewer_width', 500)
         if edit_mode:
             if os.path.exists(edit_file_path):
-                json_obj = load_json(edit_file_path)
+                json_obj = BasePathExecutor.load_basepath_from_json_file(edit_file_path)
                 name = json_obj['name']
                 self.positions:List[Point] = json_obj["positions"]
                 country = json_obj['country']
@@ -98,20 +101,42 @@ class PathRecorder:
 
         self.listener.join()
 
+    def __putText(self, img, text, org=(0,20), font=cv2.FONT_HERSHEY_SIMPLEX, font_scale=0.5, color=(0,0,255), thickness=2):
+        # 在图像上添加文字
+        cv2.putText(img, text, org, font, font_scale, color, thickness)
+
+    def user_position_map(self):
+        pos = self.auto_tracker.get_position()
+        if pos:
+            img = self.auto_tracker.get_region_map(x=pos[0], y=pos[1], width=self.path_viewer_width)
+            if img is not None:
+                w,h = img.shape[0], img.shape[1]
+                img = cv2.circle(img, (w//2,h//2), 5, (0,255,255), 2)
+                return img
+
+
     def points_viewer(self):
         from myexecutor.KeyPointViewer import get_points_img_live
-        from myutils.configutils import cfg
-        width = cfg.get('path_viewer_width', 500)
+
         while True:
             time.sleep(0.02)
-            img = get_points_img_live(self.positions, self.name, width=width, scale=self.path_viewer_scale)
+            if len(self.positions) < 1:
+                img = self.user_position_map()
+            else:
+                img = get_points_img_live(self.positions, self.name, width=self.path_viewer_width, scale=self.path_viewer_scale)
+
             if img is None: continue
+            if self.is_recording:
+                self.__putText(img, 'Recording', color=(0, 255, 0), font_scale=0.9)
+            else:
+                self.__putText(img, 'Press F9 to start record', color=(0, 0, 255), font_scale=0.9)
+
             # img = cv2.resize(img, None, fx=0.6, fy=0.6)
             cv2.imshow('path viewer', img)
             cv2.moveWindow('path viewer', 10,10)
+            # 窗口置顶
             cv2.setWindowProperty('path viewer', cv2.WND_PROP_TOPMOST, 1)
             cv2.waitKey(20)
-            # 绘制出已保存的点位在地图的位
         cv2.destroyAllWindows()
 
     def start_record(self):
@@ -137,7 +162,6 @@ class PathRecorder:
             "country": self.country
         }
         json_object = json.dumps(dictionary, indent=4, ensure_ascii=False, cls=PointEncoder)
-        # Writing to sample.json
         with open(self.record_json_path, mode="w",
                   encoding="utf-8") as outfile:
             outfile.write(json_object)
@@ -208,8 +232,6 @@ class PathRecorder:
             # print('special key {0} pressed'.format(key))
             elif key == Key.insert:
                 print(f'你按下了insert, 插入{self.name}点位')
-                self.save_current_position(self.name)
-            elif key == Key.end:
                 print('你按下了end, 尝试存储当前点位为json')
                 self.save_json()
             elif key == Key.page_up:
@@ -336,10 +358,10 @@ def edit_json(filename):
 
 def collect_path_record():
     # PathRecorder(name='甜甜花', region='誓言岬', country='蒙德', debug_enable=True)
-    PathRecorder(name='甜甜花', region='清泉镇', country='蒙德', debug_enable=True)
+    # PathRecorder(name='甜甜花', region='清泉镇', country='蒙德', debug_enable=True)
+    PathRecorder(name='月莲', region='降魔山2', country='须弥', debug_enable=True)
     # PathRecorder(name='搜刮', region='望风角', country='蒙德', debug_enable=True)
     # PathRecorder(name='甜甜花', region='中央实验室遗址_test', country='枫丹', debug_enable=True)
-
     # PathRecorder(name='甜甜花', region='中央实验室遗址', country='枫丹', debug_enable=True)
 
 
@@ -348,4 +370,5 @@ if __name__ == '__main__':
     collect_path_record()
     # edit_json('搜刮_蒙德_望风角_2024-08-04_16_52_58.json')
     # edit_json('甜甜花_蒙德_清泉镇_2024-07-31_07_30_39.json')
+    # edit_json('调查_璃月_地中之岩_2024-04-29_06_23_28.json')
     # edit_json('甜甜花_枫丹_中央实验室遗址_2024-07-31_07_01_37.json')

@@ -3,10 +3,8 @@ import os
 
 from flask import Blueprint, jsonify, request, render_template
 
-from myutils.configutils import resource_path, get_config
-from myutils.fileutils import getjson_path_byname
+from myutils.configutils import resource_path
 from server.controller.ServerBaseController import ServerBaseController
-from server.service.TodoService import TodoService
 from server.service.FileManagerService import FileManagerService, FileManagerServiceException
 
 filemanager_bp = Blueprint('filemanager', __name__)
@@ -54,7 +52,7 @@ class FileManagerController(ServerBaseController):
     @staticmethod
     @filemanager_bp.route('/pathlist/list')
     def pathlist():
-        p = get_config('points_path', os.path.join(resource_path, 'pathlist'))
+        p = os.path.join(resource_path, 'pathlist')
         folders = []
         try:
             dirs = os.listdir(p)

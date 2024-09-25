@@ -8,7 +8,6 @@ import numpy as np
 import win32gui, win32ui, win32con
 import win32api
 import math
-from myutils.configutils import get_config
 from ctypes import windll
 from mylogger.MyLogger3 import MyLogger
 

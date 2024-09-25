@@ -78,16 +78,19 @@ class OCRController(BaseController):
         return center_x, center_y
 
     def find_match_text(self, target_text, match_all=False)->List[OCRResult]:
-        if self.stop_listen or target_text is None: return []
-        self.log(f"正在查找'{target_text}'")
-        # img = self.gc.get_screenshot()
-        result = self.get_ocr_result()
-        match_texts:List[OCRResult] = []
-        for item in result:
-            if target_text in item.text:
-                if match_all and target_text != item.text: continue
-                match_texts.append(item)
-        return match_texts
+        try:
+            if self.stop_listen or target_text is None: return []
+            self.log(f"正在查找'{target_text}'")
+            # img = self.gc.get_screenshot()
+            result = self.get_ocr_result()
+            match_texts:List[OCRResult] = []
+            for item in result:
+                if target_text in item.text:
+                    if match_all and target_text != item.text: continue
+                    match_texts.append(item)
+            return match_texts
+        except Exception as e:
+            self.logger.error(e.args)
 
     def find_text_and_click(self, target_text, match_all=False, index=0, click_all=False):
         """
@@ -155,6 +158,7 @@ if __name__ == '__main__':
     # cv2.imshow('sc', gc.get_screenshot())
     # cv2.waitKey(0)
     ocr = OCRController(debug_enable=True)
+    ocr.find_text_and_click('渊下宫', match_all=True)
     # ocr.is_text_in_screen('探索度')
     # ocr.find_text_and_click("锚点")
     # ocr.find_text_and_click("七天神像")
@@ -165,9 +169,9 @@ if __name__ == '__main__':
     # print(ocr.is_text_in_screen("传送锚点"))
     # print(ocr.find_text_and_click("传送锚点"))
     # print(ocr.is_text_in_screen("蔷薇"))
-    while True:
-        result = ocr.get_ocr_result()
-        print(result)
+    # while True:
+    #     result = ocr.get_ocr_result()
+    #     print(result)
         # time.sleep(15)
         # ocr.is_text_in_screen('复苏')
         # matches = ocr.find_match_text('复苏')

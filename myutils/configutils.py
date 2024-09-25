@@ -15,62 +15,107 @@ elif __file__:
     application_path = os.path.dirname(os.path.dirname(__file__))
 
 PROJECT_PATH = application_path
+resource_path = os.path.join(PROJECT_PATH, 'resources')
 
-YAML_KEY_DEFAULT_FIGHT_TEAM = 'default_fight_team'
-YAML_KEY_DEFAULT_FIGHT_DURATION = 'fight_duration'
+class _BaseConfig:
+    _yaml_obj = None
+    # _yaml_file = "config.dev.yaml"  # 给子类继承
+    _yaml_file = config_name
+
+    @classmethod
+    def _load_if_none(cls):
+        if cls._yaml_obj is None:
+            cls.reload_config()
+    @classmethod
+    def get_yaml_object(cls):
+        cls._load_if_none()
+        return cls._yaml_obj
+    @classmethod
+    def get(cls,key, default=None, min_val=None, max_val=None):
+        value = cls.get_yaml_object().get(key, default)
+        if min_val is not None and max_val is not None:
+            if value < min_val: value = min_val
+            elif value > max_val: value = max_val
+        return value
+
+    @classmethod
+    def set(cls, key, value):
+        cls.get_yaml_object()[key] = value
+
+    @classmethod
+    def save_config(cls):
+        yaml_file = os.path.join(PROJECT_PATH, cls._yaml_file)
+        with open(yaml_file, "w", encoding="utf8") as f:
+            yaml.dump(cls.get_yaml_object(), f)
+
+    @classmethod
+    def reload_config(cls):
+        yaml_file = os.path.join(PROJECT_PATH, cls._yaml_file)
+        with open(yaml_file, 'r', encoding='utf8') as f:
+            cls._yaml_obj = yaml.load(f)
 
 
-def load_config():
-    config_path = get_config_file_path()
-    with open(config_path, "r", encoding="utf8") as stream:
-        return yaml.load(stream)
 
-def get_config_file_path():
-    return os.path.join(application_path, config_name)
+class MapConfig(_BaseConfig):
+    _yaml_obj = None
+    _yaml_file = 'config.map.yaml'
+
+
+class DebugConfig(_BaseConfig):
+    KEY_DEBUG_ENABLE = 'debug_enable'
+
+class WindowsConfig(_BaseConfig):
+    KEY_WINDOW_NAME = 'window_name'
+
+class PathExecutorConfig(_BaseConfig):
+    KEY_LOCAL_MAP_SIZE = 'local_map_size'  # 允许范围512 ~ 4096 # 越大越卡
+    KEY_SHOW_PATH_VIEWER = 'show_path_viewer'  # 跑点位的时候是否展示路径
+    KEY_PATH_VIEWER_WIDTH = 'path_viewer_width'  # 路径展示的宽高，允许范围(50~4096
+    KEY_ENABLE_CRAZY_F = 'enable_crazy_f'  # 自动拾取开关(没有做ocr，仅是在接近点位的时候疯狂按下f)
+    KEY_MOVE_NEXT_POINT_ALLOW_MAX_TIME = 'move_next_point_allow_max_time'  # 移动到下一个点位最大允许时间（秒），超过该时间则跳过该点位, 允许范围(5~60)
+    KEY_STUCK_MOVEMENT_THRESHOLD = 'stuck_movement_threshold'  # 8秒内移动的总距离(像素)在多少范围内认为卡住，允许范围(2~50)
+    KEY_TARGET_NEARBY_THRESHOLD = 'target_nearby_threshold'  # 对于目标点精确到多少个像素认为接近, 允许范围(1~10)
+    KEY_PATH_POINT_NEARBY_THRESHOLD = 'path_point_nearby_threshold'  # 对于途径点精确到多少个像素认为接近, 允许范围(2~50)
+    KEY_ALLOW_SMALL_STEPS = 'allow_small_steps'  # 是否允许小碎步接近目标：注意此选项对途径点以及游泳模式下无效
+    KEY_ENABLE_FOOD_REVIVE = 'enable_food_revive'  # 死亡后，是否允许使用道具复苏角色
+    KEY_ENABLE_LOOP_PRESS_E = 'enable_loop_press_e'  # 跑路的时候不断按下按键(e技能)，0表示关闭,1表示开启
+    KEY_ENABLE_LOOP_PRESS_Z = 'enable_loop_press_z'  # 跑路时不断按下z，0表示关闭,1表示开启
+    KEY_ENABLE_LOOP_JUMP = 'enable_loop_jump'  # 是否允许循环跳跃，0表示关闭,1表示开启
+    KEY_LOOP_PRESS_E_INTERVAL = 'loop_press_e_interval'  # 循环按下e的时间间隔
+    KEY_SMALL_STEP_INTERVAL = 'small_step_interval'  # 小碎步按下w的频率，允许范围(0.05~0.2)
+    KEY_ENABLE_DASH = 'enable_dash'  # 是否允许途径点冲刺
+    KEY_CHANGE_ROTATION_MAX_SPEED = 'change_rotation_max_speed'  # 转向速度，允许范围200~1000
+    KEY_UPDATE_USER_STATUS_INTERVAL = 'update_user_status_interval'  # 多少秒更新一次位置，允许值0.01~0.2
+    KEY_POSITION_MUTATION_THRESHOLD = 'position_mutation_threshold'  # 当前位置和历史点位差距超过多少认为位置突变，允许范围(50-200)
+    KEY_POSITION_MUTATION_MAX_TIME = 'position_mutation_max_time'  # 一段路径中允许位置突变次数，允许范围(0~10)
+    KEY_SEARCH_CLOSEST_POINT_MAX_DISTANCE = 'search_closet_point_max_distance'  # 路径突变后搜索最近点位策略，允许范围(80~500)
+
+class FightConfig(_BaseConfig):
+    KEY_DEFAULT_FIGHT_TEAM = 'default_fight_team'
+    KEY_FIGHT_DURATION = 'fight_duration'
+
+class DailyMissionConfig(_BaseConfig):
+    KEY_DAILY_TASK_EXECUTE_TIMEOUT = 'daily_task_execute_timeout'
+    KEY_DAILY_TASK_FIGHT_TIMEOUT = 'daily_task_fight_timeout'
+    KEY_DAILY_TASK_DESTROY_TIMEOUT = 'daily_task_destroy_timeout'
+
+class LeyLineConfig(_BaseConfig):
+    KEY_LEYLINE_OUTCROP_TASK_EXECUTE_TIMEOUT = 'leyline_outcrop_task_execute_timeout'
+    KEY_LEYLINE_OUTCROP_TASK_FIGHT_TIMEOUT = 'leyline_outcrop_task_fight_timeout'
+    KEY_LEYLINE_ENABLE_WANYE_PICKUP_AFTER_REWARD = 'leyline_enable_wanye_pickup_after_reward'
+
+
+class ServerConfig(_BaseConfig):
+    KEY_HOST = 'host'
+    KEY_PORT = 'port'
 
 def reload_config():
-    global cfg,resource_path
-    cfg = load_config()
-    if cfg.get('resources_path') is not None: resource_path = cfg['resource_path']
-    else: resource_path = os.path.join(PROJECT_PATH, 'resources')
-
-def get_config(key, default=None):
-    return cfg.get(key, default)
-
-cfg = load_config()
-
-if cfg.get('resources_path') is not None:
-    resource_path = cfg['resource_path']
-else:
-    resource_path = os.path.join(PROJECT_PATH, 'resources')
-
-def set_config(key, value=None):
-    reload_config()
-    old_val = cfg[key]
-    try:
-        cfg[key] = value
-        config_path = get_config_file_path()
-        with open(config_path, "w", encoding="utf8") as f:
-            yaml.dump(cfg, f)
-    except Exception as e:
-        # 失败回滚
-        cfg[key] = old_val
-        raise e
-
+    _BaseConfig.reload_config()
 
 def get_bigmap_path(size=2048,version=5.0):
     # return os.path.join(resource_path, 'map', f'combined_image_{size}.png')
     return os.path.join(resource_path, 'map',f'version{version}', f'map{version}_{size}.png')
 
-def get_keypoints_des_path(size=2048, version=5.0):
-    kp = os.path.join(resource_path, 'features', 'sift', f'version{version}', f'sift_keypoints_version{version}_blocksize{size}.pkl')
-    des = os.path.join(resource_path, 'features', 'sift', f'version{version}', f'sift_descriptors_version{version}_blocksize{size}.pkl')
-    # kp = os.path.join(resource_path, 'features', 'sift', f'sift_keypoints_large_blocksize{size}.pkl')
-    # des = os.path.join(resource_path, 'features', 'sift', f'sift_descriptors_large_blocksize{size}.pkl')
-    return kp, des
-
-def get_paimon_icon_path():
-    return os.path.join(resource_path, 'template', 'paimeng_icon_trim.png')
 
 def get_user_folder():
     user_folder = os.path.join(resource_path, 'user')
@@ -78,7 +123,10 @@ def get_user_folder():
     return user_folder
 
 if __name__ == '__main__':
-    df = get_config('default_fight_team')
-    print(df)
-    set_config('default_fight_team', '1.txt')
-    print(get_config('default_fight_team'))
+    # df = get_config('default_fight_team')
+    # print(df)
+    # set_config('default_fight_team', '1.txt')
+    # print(get_config('default_fight_team'))
+    # mc = MapConfig.get_all_map()
+    print(_BaseConfig.get(ServerConfig.KEY_HOST))
+

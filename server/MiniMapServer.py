@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_file, render_template
-from myutils.configutils import get_config
+from myutils.configutils import ServerConfig, DebugConfig
 import logging
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -18,12 +18,10 @@ from server.controller.LeyLineOutCropController import leyline_outcrop_bp
 
 from engineio.async_drivers import threading  # pyinstaller打包flask的时候要导入
 
-host = get_config('minimap')['host']
-port = get_config('minimap')['port']
+host = ServerConfig.get(ServerConfig.KEY_HOST)
+port = ServerConfig.get(ServerConfig.KEY_PORT)
+debug_enable = DebugConfig.get(DebugConfig.KEY_DEBUG_ENABLE)
 logger = MyLogger('minimap server')
-
-if get_config('debug_enable') == 1: debug_enable = True
-else: debug_enable = False
 
 SOCKET_EVENT_PLAYBACK = 'playback_event'
 SOCKET_EVENT_KEYBOARD = 'key_event'

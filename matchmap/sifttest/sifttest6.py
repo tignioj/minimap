@@ -8,13 +8,14 @@ import cv2
 import numpy
 import numpy as np
 from capture.capture_factory import capture
-from myutils.configutils import get_config, resource_path
+from myutils.configutils import resource_path
 from myutils.load_save_sift_keypoint import load
-from myutils.timerutils import Timer, RateLimiterAsync
+from myutils.timerutils import RateLimiterAsync
 from myutils.imgutils import crop_img
 from myutils.sift_utils import get_match_position, get_match_position_with_good_match_count, get_match_corner
 gs = capture
 from mylogger.MyLogger3 import MyLogger
+from myutils.configutils import MapConfig, DebugConfig, PathExecutorConfig
 import threading
 
 # TODO: 优化思路：
@@ -47,7 +48,8 @@ class MiniMap:
     @staticmethod
     def get_sift_map(map_name, block_size) -> SiftMap:
         # map_pinyin = MiniMap.cn_text_map.get(map_name)
-        map_conf = get_config('map_config').get(map_name, None)
+
+        map_conf = MapConfig.get(map_name, None)
         if map_conf is None:
             raise SiftMapNotFoundException(f"指定的地图{map_name}未找到")
         key = f'{map_conf.get("img_name")}_{block_size}'
@@ -84,7 +86,7 @@ class MiniMap:
         """
         self.logger = MyLogger(__class__.__name__, logging.DEBUG, save_log=True)
         if debug_enable is None:
-            debug_enable = get_config('debug_enable', False)
+            debug_enable = DebugConfig.get(DebugConfig.KEY_DEBUG_ENABLE, True)
             if debug_enable: self.logger = MyLogger(__class__.__name__,level=logging.DEBUG, save_log=True)
 
         self.debug_enable = debug_enable
@@ -102,7 +104,7 @@ class MiniMap:
 
         self.choose_map('璃月')
 
-        local_map_size = get_config('local_map_size', 1024)
+        local_map_size = MapConfig.get('local_map_size', 1024)
         if local_map_size < 512: local_map_size = 512
         if local_map_size > 10240: local_map_size = 10240
         self.logger.info(f'搜索范围设置为{local_map_size}')
@@ -181,6 +183,7 @@ class MiniMap:
         large_height = np.linalg.norm(large_img_corners[2] - large_img_corners[1])
 
         h, w = screenshot.shape[:2]
+        #TODO BUG:  divide by zero encountered in divide
         ratio = self.map_2048.block_size / self.map_256.block_size
         scale_y = h / large_height / ratio
         scale_x = w / large_width / ratio
@@ -236,7 +239,7 @@ class MiniMap:
             t0 = time.time()
             # map = self.map_2048
             # TODO: 多线程匹配
-            maps_name = get_config('map_config').keys()
+            maps_name = MapConfig.get_yaml_object().keys()
             threads = []
             self.good_match_count = 0  # 先清空匹配质量
 
@@ -456,7 +459,6 @@ if __name__ == '__main__':
     # TODO: BUG 同一个位置，不同分辨率获取的位置有差异！
     # 解决思路：
     # 1. 不同分辨率下裁剪的小地图要一致，保持圆形在正中间
-    from myutils.configutils import get_config
     mp = MiniMap(debug_enable=True)
     mp.logger.setLevel(logging.INFO)
     # mp.choose_map('层岩巨渊')

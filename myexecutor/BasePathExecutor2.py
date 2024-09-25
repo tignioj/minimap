@@ -12,7 +12,7 @@ from controller.OCRController import OCRController
 from myutils.executor_utils import point1_near_by_point2, find_closest_point_index
 from typing import List
 import json
-from myutils.configutils import get_config, PROJECT_PATH
+from myutils.configutils import PROJECT_PATH, DebugConfig, PathExecutorConfig
 from myutils.timerutils import RateLimiter, RateLimiterAsync
 from mylogger.MyLogger3 import MyLogger
 import logging
@@ -113,7 +113,7 @@ class BasePathExecutor(BaseController):
 
     def __init__(self, json_file_path=None, debug_enable=None):
         super().__init__(debug_enable=debug_enable)
-        if debug_enable is None: debug_enable = get_config('debug_enable', False)
+        if debug_enable is None: debug_enable = DebugConfig.get(DebugConfig.KEY_DEBUG_ENABLE, False)
         if json_file_path is None: raise Exception(f"无法加载json对象")
         try:
             self.base_path:BasePath = self.load_basepath_from_json_file(json_file_path)
@@ -127,89 +127,65 @@ class BasePathExecutor(BaseController):
         self.debug_enable = debug_enable
 
         ################## 参数 #########################
-        self.move_next_point_allow_max_time = get_config('move_next_point_allow_max_time', 20)
-        if self.move_next_point_allow_max_time < 5:
-            self.move_next_point_allow_max_time = 5
-        elif self.move_next_point_allow_max_time > 60:
-            self.move_next_point_allow_max_time = 60
+        self.move_next_point_allow_max_time = PathExecutorConfig.get(
+            PathExecutorConfig.KEY_MOVE_NEXT_POINT_ALLOW_MAX_TIME, 20, min_val=5, max_val=60)
 
         self.position_history = deque(maxlen=8)  # 一秒钟存1次，计算总距离
         self.rotation_history = deque(maxlen=20)  # 0.2秒存1次，用于判断是否原地打转
 
         # 8秒内移动的总距离(像素)在多少范围内认为卡住，允许范围(2~50)
-        self.stuck_movement_threshold = get_config('stuck_movement_threshold', 20)
-        if self.stuck_movement_threshold < 2:
-            self.stuck_movement_threshold = 2
-        elif self.stuck_movement_threshold > 50:
-            self.stuck_movement_threshold = 50
+        self.stuck_movement_threshold = PathExecutorConfig.get(
+            PathExecutorConfig.KEY_STUCK_MOVEMENT_THRESHOLD, 20, min_val=2, max_val=50)
 
         # 精度：当前位置距离目标点距离多少个像素点表示他们是临近, 小碎步时候要用到
-        self.target_nearby_threshold = get_config('target_nearby_threshold', 2)
-        if self.target_nearby_threshold < 0.1: self.target_nearby_threshold = 0.1
-        if self.target_nearby_threshold > 10: self.target_nearby_threshold = 10
+        self.target_nearby_threshold = PathExecutorConfig.get(
+            PathExecutorConfig.KEY_TARGET_NEARBY_THRESHOLD, min_val=1, max_val=10)
 
         # 判断是否到达途径点的阈值
-        self.path_point_nearby_threshold = get_config('path_point_nearby_threshold', 2)
-        if self.path_point_nearby_threshold < 2: self.path_point_nearby_threshold = 2
-        if self.path_point_nearby_threshold > 50: self.path_point_nearby_threshold = 50
+        self.path_point_nearby_threshold = PathExecutorConfig.get(
+            PathExecutorConfig.KEY_PATH_POINT_NEARBY_THRESHOLD, default=2, min_val=1, max_val=50)
 
         # 在跑路的过程中,角色'当前位置'和走过的'历史点位中最近存放的一个点位'差距超过多少的时候判定为死亡
         # 原理: 人物死亡会被传送, 要么原地复活,要么被传送到附近的锚点, 原地复活不会触发此异常(因为位置变化不大)
         # (不能和next_point比较,因为有些路径本身打点可能打的比较远)
         # 不能设置太小, 以防止人物正常的移动产生较大位移时, 误判为位置突变
-        self.position_mutation_threshold = get_config('position_mutation_threshold', 100)
-        if self.position_mutation_threshold < 50:
-            self.position_mutation_threshold = 50
-        elif self.position_mutation_threshold > 200:
-            self.position_mutation_threshold = 200
+        self.position_mutation_threshold = PathExecutorConfig.get(
+            PathExecutorConfig.KEY_POSITION_MUTATION_THRESHOLD, default=100, min_val=50, max_val=200)
 
         # 即使找到了最近的点,也要求最近的距离不能大于指定阈值
-        self.search_closet_point_max_distance = get_config('search_closet_point_max_distance', 200)
-        if self.search_closet_point_max_distance > 500:
-            self.search_closet_point_max_distance = 500
-        elif self.search_closet_point_max_distance < 80:
-            self.search_closet_point_max_distance = 80
+        self.search_closet_point_max_distance = PathExecutorConfig.get(
+            PathExecutorConfig.KEY_SEARCH_CLOSEST_POINT_MAX_DISTANCE, default=200, min_val=80, max_val=500)
 
         # 允许多少次位置突变(当前位置突然和历史轨迹的距离超过一定阈值)
-        self.position_mutation_max_time = get_config('position_mutation_max_time', 3)
-        if self.position_mutation_max_time < 0:
-            self.position_mutation_max_time = 0  # 突变一次就结束
-        elif self.position_mutation_max_time > 10:
-            self.position_mutation_max_time = 10
+        self.position_mutation_max_time = PathExecutorConfig.get(
+            PathExecutorConfig.KEY_POSITION_MUTATION_MAX_TIME, default=3, min_val=0, max_val=10)
 
         # 路径展示器的宽高
-        self.path_viewer_width = get_config('path_viewer_width', 500)
-        if self.path_viewer_width < 50:
-            self.path_viewer_width = 50
-        elif self.path_viewer_width > 4096:
-            self.path_viewer_width = 4096
+        self.path_viewer_width = PathExecutorConfig.get(
+            PathExecutorConfig.KEY_PATH_VIEWER_WIDTH, default=500, min_val=50,max_val=4096)
 
-        self.allow_small_steps = get_config('allow_small_steps', 1) == 1  # 是否允许小碎步接近目标：注意此选项对Point.type=='path'的途径点无效
-        self.enable_crazy_f = get_config('enable_crazy_f', 1) == 1  # 是否在接近目标点时候疯狂按下f：对途径点无效
-        self.enable_loop_press_e = get_config('enable_loop_press_e', 1) == 1  # 循环按下e开技能
-        self.enable_loop_press_z = get_config('enable_loop_press_z', 1) == 1  # 循环按下z使用道具
-        self.enable_loop_jump = get_config('enable_loop_jump', 1) == 1  # 循环按下空格跳跃
-        self.enable_dash = get_config('enable_dash', 1) == 1  # 循环按下鼠标右键冲刺
+        # 是否允许小碎步接近目标：注意此选项对Point.type=='path'的途径点无效
+        self.allow_small_steps = PathExecutorConfig.get(PathExecutorConfig.KEY_ALLOW_SMALL_STEPS, True)
+        
+        def get(key, default, min_val=None,max_val=None):
+            return PathExecutorConfig.get(key, default,min_val,max_val)
 
-        self.loop_press_e_interval = get_config('loop_press_e_interval', 0.5)  # 循环按下e的时间间隔
-        if self.loop_press_e_interval < 0:
-            self.loop_press_e_interval = 0
-        elif self.loop_press_e_interval > 60:
-            self.loop_press_e_interval = 60
+        # 是否在接近目标点时候疯狂按下f：对途径点无效
+        self.enable_crazy_f = get(PathExecutorConfig.KEY_ENABLE_CRAZY_F, True)
+        self.enable_loop_press_e = get(PathExecutorConfig.KEY_ENABLE_LOOP_PRESS_E, False)  # 循环按下e开技能
+        self.enable_loop_press_z = get(PathExecutorConfig.KEY_ENABLE_LOOP_PRESS_Z, False)  # 循环按下z使用道具
+        self.enable_loop_jump = get(PathExecutorConfig.KEY_ENABLE_LOOP_JUMP, False)  # 循环按下空格跳跃
+        self.enable_dash = get(PathExecutorConfig.KEY_ENABLE_DASH, True)  # 循环按下鼠标右键冲刺
 
-        self.small_step_interval = get_config('small_step_interval', 0.1)  # 小碎步松开w频率
-        if self.small_step_interval > 0.2:
-            self.small_step_interval = 0.2
-        elif self.small_step_interval < 0.05:
-            self.small_step_interval = 0.05
+        self.loop_press_e_interval = get(
+            PathExecutorConfig.KEY_LOOP_PRESS_E_INTERVAL, 0.5, min_val=1,max_val=20)  # 循环按下e的时间间隔
+        # 小碎步松开w频率
+        self.small_step_interval = get(
+            PathExecutorConfig.KEY_SMALL_STEP_INTERVAL, 0.1, min_val=0.05, max_val=0.2)
 
         # 0.05s更新一次位置, 值越小，请求位置信息越频繁
-        # self.update_user_status_interval = get_config('update_user_status_interval', 0.2)
-        self.update_user_status_interval = get_config('update_user_status_interval', 0.1)
-        if self.update_user_status_interval > 0.2:
-            self.update_user_status_interval = 0.2
-        elif self.update_user_status_interval < 0.01:
-            self.update_user_status_interval = 0.01
+        self.update_user_status_interval = get(
+            PathExecutorConfig.KEY_UPDATE_USER_STATUS_INTERVAL, 0.1, min_val=0.01, max_val=0.2)
 
         self.last_time_update_user_status = time.time()  # 上一次更新用户状态(当前位置、转向）的时间
 
@@ -320,7 +296,7 @@ class BasePathExecutor(BaseController):
                 self.ocr.click_ocr_result(result)   # 全军覆灭
             elif '使用道具复苏角色' in result.text:  # 自动复活
                 self.logger.debug('handle_text:检查到角色死亡')
-                if get_config('enable_food_revive'):
+                if PathExecutorConfig.get(PathExecutorConfig.KEY_ENABLE_FOOD_REVIVE, True):
                     self.logger.debug('handle_text:使用道具复苏角色')
                     self.ocr.find_text_and_click('确认')
                 else:
@@ -560,7 +536,8 @@ class BasePathExecutor(BaseController):
             return deg
 
     def _thread_path_viewer(self):
-        if not get_config('show_path_viewer', 1): return  # 无需展示路径
+        if not PathExecutorConfig.get(
+                PathExecutorConfig.KEY_SHOW_PATH_VIEWER, True): return  # 无需展示路径
         from myexecutor.KeyPointViewer import get_points_img_live
         #  当前路径结束后，应当退出循环，结束线程，以便于开启下一个线程展示新的路径
         logger.info(f"准备展示路径:{self.base_path.name}")
@@ -728,7 +705,7 @@ class BasePathExecutor(BaseController):
 
 def execute_one(jsonfile):
     logger.info(f"开始执行{jsonfile}")
-    debug_enable = get_config('debug_enable', True)
+    debug_enable = DebugConfig.get(DebugConfig.KEY_DEBUG_ENABLE, True)
     BasePathExecutor(jsonfile, debug_enable=debug_enable).execute()
     logger.info(f"文件{jsonfile}执行完毕")
     return True

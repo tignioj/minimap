@@ -11,7 +11,7 @@ from capture.capture_factory import capture
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("leyline_outcrop_executor")
 from controller.FightController import FightController, CharacterDieException
-from myutils.configutils import get_config
+from myutils.configutils import LeyLineConfig
 class MoveToLocationTimeoutException(Exception): pass
 
 # TODO: 委托会挡住图标, 只能放大
@@ -195,10 +195,8 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         logger.debug(f'地脉类型：{leyline_type}')
         LeyLineOutcropPathExecutor.__leyline_type = leyline_type
         from server.service.LeyLineOutcropService import SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, SOCKET_EVENT_LEYLINE_OUTCROP_END
-        leyline_execute_timeout:int = get_config('leyline_outcrop_task_execute_timeout', 500)
-        if leyline_execute_timeout < 60: leyline_execute_timeout = 60
-        elif leyline_execute_timeout > 3600: leyline_execute_timeout = 3600
-
+        leyline_execute_timeout:int = LeyLineConfig.get(
+            LeyLineConfig.KEY_LEYLINE_OUTCROP_TASK_EXECUTE_TIMEOUT, default=500, min_val=60, max_val=3600)
 
         start_time = time.time()
         try:
@@ -247,10 +245,8 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         self.fight_controller.stop_fighting()
 
     def wait_until_fight_finished(self):
-        leyline_fight_timeout = get_config('leyline_outcrop_task_fight_timeout', 20)
-        if leyline_fight_timeout < 10: leyline_fight_timeout = 10
-        elif leyline_fight_timeout > 400: leyline_fight_timeout = 400
-
+        leyline_fight_timeout = LeyLineConfig.get(
+            LeyLineConfig.KEY_LEYLINE_OUTCROP_TASK_FIGHT_TIMEOUT, default=20, min_val=10,max_val=400)
         start_time = time.time()
         time.sleep(0.5)
         self.start_fight()
@@ -342,8 +338,9 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                     self.click_use_resin()
                     time.sleep(0.02)
 
-                if self.reward_ok and get_config('leyline_enable_wanye_pickup_after_reward', 1) == 1:
-                    self.fight_controller.wanye_pickup()  # 万叶拾取
+                if self.reward_ok and LeyLineConfig.get(
+                        LeyLineConfig.KEY_LEYLINE_ENABLE_WANYE_PICKUP_AFTER_REWARD, True):
+                        self.fight_controller.wanye_pickup()  # 万叶拾取
 
 
 

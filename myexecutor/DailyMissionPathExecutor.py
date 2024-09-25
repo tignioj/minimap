@@ -1,4 +1,3 @@
-import threading
 import time
 from controller.BaseController import StopListenException
 from controller.MapController2 import MapController
@@ -18,7 +17,7 @@ from capture.capture_factory import capture
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("daily_mission_executor")
 from controller.FightController import FightController, CharacterDieException
-from myutils.configutils import get_config
+from myutils.configutils import DailyMissionConfig
 
 # 递归超时异常
 class ExecuteTimeOutException(Exception): pass
@@ -203,9 +202,8 @@ class DailyMissionPathExecutor(BasePathExecutor):
     def execute_all_mission(emit=lambda val1,val2:None):  # 传一个空实现的方法，免去判断函数是否为空
         from server.service.DailyMissionService import  SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END
         from controller.MapController2 import MapController
-        daily_task_execute_timeout:int = get_config('daily_task_execute_timeout', 500)
-        if daily_task_execute_timeout < 60: daily_task_execute_timeout = 60
-        elif daily_task_execute_timeout > 3600: daily_task_execute_timeout = 3600
+        daily_task_execute_timeout = DailyMissionConfig.get(
+            DailyMissionConfig.KEY_DAILY_TASK_EXECUTE_TIMEOUT, 500, min_val=60, max_val=3600)
 
         map_controller = MapController()
         start_time = time.time()
@@ -250,9 +248,8 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
 
     def wait_until_fight_finished(self):
-        daily_task_fight_timeout = get_config('daily_task_fight_timeout', 20)
-        if daily_task_fight_timeout < 10: daily_task_fight_timeout = 10
-        elif daily_task_fight_timeout > 400: daily_task_fight_timeout = 400
+        daily_task_fight_timeout = DailyMissionConfig.get(
+            DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TIMEOUT, default=20, min_val=10, max_val=400)
 
         start_time = time.time()
         time.sleep(0.5)
@@ -270,9 +267,8 @@ class DailyMissionPathExecutor(BasePathExecutor):
         self.stop_fight()
 
     def wait_until_destroy(self):
-        daily_task_destroy_timeout = get_config('daily_task_destroy_timeout', 20)
-        if daily_task_destroy_timeout < 10: daily_task_destroy_timeout = 10
-        elif daily_task_destroy_timeout > 400: daily_task_destroy_timeout = 400
+        daily_task_destroy_timeout = DailyMissionConfig.get(
+            DailyMissionConfig.KEY_DAILY_TASK_DESTROY_TIMEOUT, default=20, min_val=10, max_val=400)
 
         self.start_fight()
         start_time = time.time()

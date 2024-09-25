@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from myutils.timerutils import RateLimiter
 from capture.observable_capture import ObservableCapture
-from myutils.configutils import get_config
+from myutils.configutils import WindowsConfig
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger('genshin_capture')
 
@@ -12,7 +12,7 @@ class ResolutionException(Exception): pass
 
 class GenShinCaptureObj(ObservableCapture):
     def __init__(self):
-        super().__init__(get_config('window_name', '原神'))
+        super().__init__(WindowsConfig.get(WindowsConfig.KEY_WINDOW_NAME, '原神'))
         # super().__init__('Genshin Impact')
         # 16:9
         self.minimap_radius = None
