@@ -20,13 +20,13 @@ from myutils.configutils import resource_path
 #
 __map_dict = {}
 
-def get_bigmap_path(block_size=2048,map_name='daoqi'):
+def get_bigmap_path(block_size=2048,map_name='daoqi', version=0):
     # return os.path.join(resource_path, 'map', 'segments', map_file_name)
-    return os.path.join(resource_path, 'map', 'segments', f'{map_name}_{block_size}.png')
+    return os.path.join(resource_path, 'map', 'segments', f'{map_name}_{block_size}_v{version}.png')
 
-def get_keypoints_des_path(block_size,map_name):
-    kp = os.path.join(resource_path, 'features', 'sift', f'segments', f'sift_keypoints_{block_size}_{map_name}.pkl')
-    des = os.path.join(resource_path, 'features', 'sift', f'segments', f'sift_descriptors_{block_size}_{map_name}.pkl')
+def get_keypoints_des_path(block_size,map_name,version=0):
+    kp = os.path.join(resource_path, 'features', 'sift', f'segments', f'sift_keypoints_{block_size}_{map_name}_v{version}.pkl')
+    des = os.path.join(resource_path, 'features', 'sift', f'segments', f'sift_descriptors_{block_size}_{map_name}_v{version}.pkl')
     return kp, des
 
 
@@ -49,14 +49,12 @@ def get_keypoints_des_path(block_size,map_name):
 
 
 # 将关键点的数据转换为可以序列化的格式
-# 只能在google lab运行，需要运行内存至少100G
-def __save(block_size, map_name):
-    # 假设 'surf' 是已经初始化的cv2.xresources/features2d.SURF对象
-    # 'bigmap' 是大图像的变量
-    surf = cv2.SIFT.create()
+# 需要运行内存至少16G
+def __generate(block_size, map_name):
+    sift = cv2.SIFT.create()
     bigmap = cv2.imread(get_bigmap_path(block_size=block_size,map_name=map_name), 0)
     # 检测关键点和计算描述符
-    keypoints_large, descriptors_large = surf.detectAndCompute(bigmap, None)
+    keypoints_large, descriptors_large = sift.detectAndCompute(bigmap, None)
     index = []
     for point in keypoints_large:
         temp = (point.pt, point.size, point.angle, point.response, point.octave, point.class_id)
@@ -69,8 +67,8 @@ def __save(block_size, map_name):
     with open(desp, 'wb') as des_file:
         pickle.dump(descriptors_large, des_file)
 
-def load(block_size, map_name):
-    kpp, desp = get_keypoints_des_path(block_size, map_name)
+def load(block_size, map_name, map_version=0):
+    kpp, desp = get_keypoints_des_path(block_size, map_name, version=map_version)
     # 读取关键点
     with open( kpp, 'rb') as kp_file:
         index = pickle.load(kp_file)
@@ -85,21 +83,51 @@ def load(block_size, map_name):
     return keypoints_large, descriptors_large
 
 
-def sift_kp_des_generator():
+def __sift_kp_des_generator():
+    """
+    生成特征点并保存, 需要较大的内存才能运行
+    :return:
+    """
+    import time
     from myutils.configutils import MapConfig
+    start = time.time()
+    obj = MapConfig.get_all_map()
+    for key in obj.keys():
+        map_obj = obj.get(key)
+        map_name = map_obj.get('img_name')
+        map_version = map_obj.get('version')
+        block_size = 2048
+        kp, des = get_keypoints_des_path(block_size=block_size, map_name=map_name, version=map_version)
+        if not os.path.exists(kp):
+            gen_time = time.time()
+            print(f'正在生成{block_size}, {map_name}')
+            __generate(block_size=block_size, map_name=map_name)
+            print(f'生成{block_size}, {map_name} 用时{time.time() - gen_time}')
+
+        block_size = 256
+        kp, des = get_keypoints_des_path(block_size=block_size, map_name=map_name, version=map_version)
+        gen_time = time.time()
+        if not os.path.exists(kp):
+            print(f'正在生成{block_size}, {map_name}')
+            __generate(block_size=block_size, map_name=map_name)
+            print(f'生成{block_size}, {map_name} 用时{time.time() - gen_time}')
+
+
+    print('总计用时', time.time() - start)
 
 if __name__ == '__main__':
-    block_size = 2048
+    # block_size = 2048
     # block_size = 256
     # map_name = 'liyue'
     # map_name = 'fengdan'
     # map_name = 'nata'
     # map_name = 'xumi'
     # map_name = 'daoqi'
-    map_name = 'mengde'
+    # map_name = 'mengde'
     # map_name = 'shachongsuidao-shangfangtonglu'
     # __save(block_size, map_name)
-    kp, des = load(block_size, map_name)
-    print(des.shape)
+    # kp, des = load(block_size, map_name)
+    # print(des.shape)
     # mapobj = get_sift_map(map_name='枫丹', block_size=block_size)
     # print(mapobj.map_name)
+    __sift_kp_des_generator()

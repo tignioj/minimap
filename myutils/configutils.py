@@ -60,6 +60,10 @@ class MapConfig(_BaseConfig):
     _yaml_obj = None
     _yaml_file = 'config.map.yaml'
 
+    @staticmethod
+    def get_all_map():
+        return MapConfig.get_yaml_object()
+
 
 class DebugConfig(_BaseConfig):
     KEY_DEBUG_ENABLE = 'debug_enable'

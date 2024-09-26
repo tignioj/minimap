@@ -57,13 +57,14 @@ class MiniMap:
         if map_obj is None:
             # logger.debug(f"加载{map_name}图片中...........")
             img_name = map_conf.get('img_name')
-            center = map_conf.get('center')
-            map_path = os.path.join(resource_path, 'map', 'segments', f'{img_name}_{block_size}.png')
+            map_center = map_conf.get('center')
+            map_version = map_conf.get('version')
+            map_path = os.path.join(resource_path, 'map', 'segments', f'{img_name}_{block_size}_v{map_version}.png')
             img = cv2.imread(map_path, cv2.IMREAD_GRAYSCALE)
             # cv2.imshow(map_pinyin, cv2.resize(img, None, fx=0.1,fy=0.1))
             # cv2.waitKey(0)
 
-            kep, des = load(block_size=block_size, map_name=img_name)
+            kep, des = load(block_size=block_size, map_name=img_name, map_version=map_version)
             scale = map_conf.get('scale')
             if scale is not None:
                 img = cv2.resize(img, None, fx=scale, fy=scale)
@@ -76,7 +77,7 @@ class MiniMap:
             if contrastThreshold is not None: sift.setContrastThreshold(contrastThreshold)
 
             MiniMap.__map_dict[key] = SiftMap(map_name=map_name, block_size=block_size, img=img, des=des, kep=kep,
-                                      center=center, sift=sift)
+                                      center=map_center, sift=sift)
         return MiniMap.__map_dict[key]
 
     def __init__(self, debug_enable=None):
@@ -104,9 +105,8 @@ class MiniMap:
 
         self.choose_map('璃月')
 
-        local_map_size = MapConfig.get('local_map_size', 1024)
-        if local_map_size < 512: local_map_size = 512
-        if local_map_size > 10240: local_map_size = 10240
+        local_map_size = PathExecutorConfig.get(
+            PathExecutorConfig.KEY_LOCAL_MAP_SIZE, 1024, min_val=512, max_val=4096)
         self.logger.info(f'搜索范围设置为{local_map_size}')
         self.local_map_size = local_map_size  # 缓存局部地图宽高
         self.local_map_descriptors, self.local_map_keypoints = None, None # 局部地图缓存
@@ -467,9 +467,9 @@ if __name__ == '__main__':
     while True:
         time.sleep(0.05)
         t0 = time.time()
-        # pos = mp.get_position()
+        pos = mp.get_position()
         # pos = mp.get_user_map_position()
-        pos = mp.get_user_map_scale()
+        # pos = mp.get_user_map_scale()
         print(pos,time.time() - t0)
 
 
