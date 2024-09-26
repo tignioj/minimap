@@ -39,7 +39,9 @@ git submodule update --init --recursive
 ```
 
 ### 生成特征点
+如果你在终端运行，则需要先设置`PYTHONPATH`
 ```text
+$env:PYTHONPATH="项目根目录"
 cd myutils
 python kp_gen.py
 ```
