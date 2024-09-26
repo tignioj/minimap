@@ -19,7 +19,7 @@
 ## 直接运行
 - 游戏调整为1920*1080窗口分辨率(如果屏幕大小只有1080p则用1080p**无边框模式**，不要用独占全屏)
 - 帧率设置为60帧
-- 不要把游戏窗口移动到屏幕外面
+- 不要把游戏窗口移动到屏幕外面, 不要最小化游戏
 - 下载[release](https://github.com/tignioj/minimap/releases/latest), 解压后移动到英文路径下，双击start.bat即可(需要管理员权限操作键盘鼠标)
 
 ## 从源码安装
@@ -36,6 +36,12 @@ pip install -r ./requirements
 ### 拉取资源
 ```text
 git submodule update --init --recursive
+```
+
+### 生成特征点
+```text
+cd myutils
+python kp_gen.py
 ```
 
 ### 运行
