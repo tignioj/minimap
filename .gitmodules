@@ -1,3 +1,6 @@
 [submodule "resources/pathlist"]
 	path = resources/pathlist
 	url = https://github.com/tignioj/minimap-pathlist.git
+[submodule "resources/map/segments"]
+	path = resources/map/segments
+	url = https://github.com/tignioj/minimap-map.git
