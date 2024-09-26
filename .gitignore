@@ -1,9 +1,10 @@
 /resources/features
-/resources/map
 /resources/ocr
 /resources/user
 /resources/temp
 /resources/template
+
+config.yaml
 
 /log/
 *_log.txt
