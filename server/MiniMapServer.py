@@ -65,7 +65,9 @@ kb_listener.start()
 #     socketio.emit(event, {'result': success, 'msg': msg})
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__,
+                static_folder='web/static',
+                template_folder='web/templates')
     CORS(app, resources={r"/*": {"origins": allow_urls}})
     app.config['SECRET_KEY'] = 'mysecret'
     socketio_instance.init_app(app)
@@ -100,3 +102,4 @@ if __name__ == '__main__':
 
     socketio_instance.run(app, host=host, port=port, allow_unsafe_werkzeug=True)
     # app.run(port=5000,debug=False)
+

@@ -4,3 +4,7 @@
 [submodule "resources/map/segments"]
 	path = resources/map/segments
 	url = https://github.com/tignioj/minimap-map.git
+[submodule "server/web"]
+	path = server/web
+	url = https://github.com/tignioj/minimap-gui.git
+	branch = flask-deploy
