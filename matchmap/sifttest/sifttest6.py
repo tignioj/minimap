@@ -9,7 +9,7 @@ import numpy
 import numpy as np
 from capture.capture_factory import capture
 from myutils.configutils import resource_path
-from myutils.load_save_sift_keypoint import load
+from myutils.kp_gen import load
 from myutils.timerutils import RateLimiterAsync
 from myutils.imgutils import crop_img
 from myutils.sift_utils import get_match_position, get_match_position_with_good_match_count, get_match_corner

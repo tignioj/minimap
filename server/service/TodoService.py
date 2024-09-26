@@ -7,6 +7,10 @@ from server.service.PlayBackService import PlayBackService
 from myutils.configutils import get_user_folder
 from myutils.fileutils import getjson_path_byname
 
+# TODO: 按顺序执行
+# TODO: 重复执行
+# TODO: 导入、导出清单？
+
 
 class TodoException(Exception):pass
 class TodoExecuteException(Exception):pass

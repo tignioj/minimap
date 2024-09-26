@@ -31,7 +31,9 @@
   img_name: 'juyuan'
   center: [0, 0]  # 独立地图
   version: 0
+
 '渊下宫':
+  # 注意：渊下宫三个隐藏地图匹配质量不好，调整sift参数无果，考虑放弃
   img_name: 'yuanxiagong'
   center: [0, 0]    # 独立地图
   version: 0
