@@ -18,6 +18,12 @@ from server.controller.LeyLineOutCropController import leyline_outcrop_bp
 
 from engineio.async_drivers import threading  # pyinstaller打包flask的时候要导入
 
+# 尝试修复 Error: Failed to load module script:
+# Expected a JavaScript module script but the server responded with a MIME type of "text/plain".
+import mimetypes
+mimetypes.add_type('text/css', '.css')
+mimetypes.add_type('application/javascript', '.js')
+
 host = ServerConfig.get(ServerConfig.KEY_HOST)
 port = ServerConfig.get(ServerConfig.KEY_PORT)
 debug_enable = DebugConfig.get(DebugConfig.KEY_DEBUG_ENABLE)
