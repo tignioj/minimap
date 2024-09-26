@@ -5,12 +5,12 @@ yaml = YAML()
 yaml.preserve_quotes = True
 
 import sys
-config_name = 'config.dev.yaml'
+config_name = 'config.yaml'
 application_path = '.'
 if getattr(sys, 'frozen', False):
     application_path = os.path.dirname(sys.executable)
     application_path = os.path.join(application_path, '_internal')
-    config_name = 'config.yaml'
+    # config_name = 'config.yaml'
 elif __file__:
     application_path = os.path.dirname(os.path.dirname(__file__))
 
@@ -22,17 +22,28 @@ class _BaseConfig:
     # _yaml_file = "config.dev.yaml"  # 给子类继承
     _yaml_file = config_name
 
+    # template
+    _yaml_template_obj = None
+    _yaml_template_file = 'config-template.yaml'
+
     @classmethod
     def _load_if_none(cls):
         if cls._yaml_obj is None:
             cls.reload_config()
+
     @classmethod
-    def get_yaml_object(cls):
+    def get_yaml_object(cls, is_template=False):
         cls._load_if_none()
+        if is_template:
+            return cls._yaml_template_obj
         return cls._yaml_obj
+
     @classmethod
     def get(cls,key, default=None, min_val=None, max_val=None):
         value = cls.get_yaml_object().get(key, default)
+        if value is None:
+            value = cls.get_yaml_object()
+
         if min_val is not None and max_val is not None:
             if value < min_val: value = min_val
             elif value > max_val: value = max_val
@@ -51,8 +62,19 @@ class _BaseConfig:
     @classmethod
     def reload_config(cls):
         yaml_file = os.path.join(PROJECT_PATH, cls._yaml_file)
+        yaml_template_file = os.path.join(PROJECT_PATH, cls._yaml_template_file)
+        if not os.path.exists(yaml_template_file):
+            raise Exception("config-template.yaml模板配置文件丢失!")
+
+        if not os.path.exists(yaml_file):
+            import shutil
+            shutil.copy(yaml_template_file, yaml_file)
+
         with open(yaml_file, 'r', encoding='utf8') as f:
             cls._yaml_obj = yaml.load(f)
+
+        with open(yaml_template_file, 'r', encoding='utf8') as f:
+            cls._yaml_template_obj = yaml.load(f)
 
 
 
@@ -116,14 +138,17 @@ class ServerConfig(_BaseConfig):
 def reload_config():
     _BaseConfig.reload_config()
 
-def get_bigmap_path(size=2048,version=5.0):
-    # return os.path.join(resource_path, 'map', f'combined_image_{size}.png')
-    return os.path.join(resource_path, 'map',f'version{version}', f'map{version}_{size}.png')
+# def get_bigmap_path(size=2048,version=5.0):
+#     # return os.path.join(resource_path, 'map', f'combined_image_{size}.png')
+#     return os.path.join(resource_path, 'map',f'version{version}', f'map{version}_{size}.png')
 
 
 def get_user_folder():
     user_folder = os.path.join(resource_path, 'user')
-    if not os.path.exists(user_folder): os.mkdir(user_folder)
+    if not os.path.exists(user_folder):
+        user_template = os.path.join(resource_path, 'user-template')
+        import shutil
+        shutil.copytree(user_template, user_folder)
     return user_folder
 
 if __name__ == '__main__':
@@ -133,4 +158,5 @@ if __name__ == '__main__':
     # print(get_config('default_fight_team'))
     # mc = MapConfig.get_all_map()
     print(_BaseConfig.get(ServerConfig.KEY_HOST))
+    # get_user_folder()
 
