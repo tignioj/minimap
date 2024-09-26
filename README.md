@@ -13,7 +13,8 @@
 
 # 关联仓库
 - GUI: https://github.com/tignioj/minimap-gui
-- 路线： https://github.com/tignioj/minimap-pathlist 
+- 路线: https://github.com/tignioj/minimap-pathlist 
+- 地图: https://github.com/tignioj/minimap-map
 
 ## 直接运行
 - 游戏调整为1920*1080窗口分辨率(如果屏幕大小只有1080p则用1080p**无边框模式**，不要用独占全屏)
@@ -32,13 +33,10 @@ conda create -n minimap python==3.8
 pip install -r ./requirements
 ```
 
-### 准备项目资源
-- 把release中的`_internal/resources`复制到项目根目录
-
-### 准备web界面
-- 在这里下载 https://github.com/tignioj/minimap-gui
-- 把编译后的`index.html`放进后端的`server/templates`目录文件夹里面 
-- 把编译后的`assets`放进`server/static`目录文件夹里面
+### 拉取资源
+```text
+git submodule update --init --recursive
+```
 
 ### 运行
 ```shell
