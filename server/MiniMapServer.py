@@ -34,12 +34,18 @@ socketio_instance = SocketIO(async_mode='threading', cors_allowed_origins=allow_
 def _on_press(key):
     try: c = key.char
     except AttributeError: c = key.name
-    if socketio_instance: socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
 
+    try:
+        if socketio_instance: socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
+    except AttributeError:
+        logger.error('服务器还在启动中，请稍后再发送键盘事件')
 def _on_release(key):
     try: c = key.char
     except AttributeError: c = key.name
-    if socketio_instance: socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
+    try:
+        if socketio_instance: socketio_instance.emit(SOCKET_EVENT_KEYBOARD, {'key': c})
+    except AttributeError:
+        logger.error('服务器还在启动中，请稍后再发送键盘事件')
 
 
 # socketio = SocketIO(app, async_mode='threading', cors_allowed_origins="http://localhost:63343")
