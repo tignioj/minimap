@@ -1,24 +1,20 @@
+
+import pickle, cv2,os
 import time
-import cv2
+
+from myutils.configutils import MapConfig, resource_path
 import numpy as np
-import os
-import pickle
-from myutils.configutils import get_keypoints_des_path
 
-def save_sigma(x,y,block,sigma):
-    kps, descs = cv2.SIFT.create(sigma=sigma).detectAndCompute(block, None)
-    block_kp = cv2.drawKeypoints(block, kps, None, color=(0, 0, 255))
-    cv2.imwrite(f'img/{x}_{y}_sigma{sigma}.jpg', block_kp)
+def get_bigmap_path(block_size=2048,map_name='daoqi', version=0):
+    # return os.path.join(resource_path, 'map', 'segments', map_file_name)
+    return os.path.join(resource_path, 'map', 'segments', f'{map_name}_{block_size}_v{version}.png')
 
-def save_contrast(x,y,block,contrast):
-    kps, descs = cv2.SIFT.create(contrastThreshold=contrast).detectAndCompute(block, None)
-    block_kp = cv2.drawKeypoints(block, kps, None, color=(0, 0, 255))
-    __putText(block_kp, text=str(len(descs)))
-    cv2.imwrite(f'contrast/{x}_{y}_contrast{contrast}.jpg', block_kp)
+def get_keypoints_des_path(block_size,map_name,version=0):
+    kp = os.path.join(resource_path, 'features', 'sift', f'segments', f'sift_keypoints_{block_size}_{map_name}_v{version}.pkl')
+    des = os.path.join(resource_path, 'features', 'sift', f'segments', f'sift_descriptors_{block_size}_{map_name}_v{version}.pkl')
+    return kp, des
 
-def __putText(img, text, org=(0,20), font=cv2.FONT_HERSHEY_SIMPLEX, font_scale=0.5, color=(0,0,255), thickness=2):
-    # 在图像上添加文字
-    cv2.putText(img, text, org, font, font_scale, color, thickness)
+
 def detect_features_in_blocks(image, process_block_size):
     sift = cv2.SIFT.create()
     keypoints = []
@@ -32,16 +28,6 @@ def detect_features_in_blocks(image, process_block_size):
             kps, descs = sift.detectAndCompute(block, None)
             print('y进度%3.2f' % ((y / height)*100), 'x进度{%3.2f}' % ((x / width)*100), '用时%.3f' % (time.time()-t))
             if kps:
-                # print(len(descs))
-                # if len(descs) < 1000 and len(descs>200):
-                #     block_kp = cv2.drawKeypoints(block, kps, None, color=(0, 0, 255))
-                #     __putText(block_kp, text=str(len(descs)))
-                #     cv2.imwrite(f'contrast/{x}_{y}.jpg', block_kp)
-                #     contrast = sift.getContrastThreshold()
-                #     save_contrast(x,y,block,contrast-0.01)
-                #     save_contrast(x,y,block,contrast-0.02)
-                #     save_contrast(x,y,block,contrast-0.03)
-
                 # 调整块中的关键点位置到整个图像坐标
                 for kp in kps:
                     kp.pt = (kp.pt[0] + x, kp.pt[1] + y)
@@ -58,15 +44,10 @@ def detect_features_in_blocks(image, process_block_size):
     return keypoints, descriptors
 
 
-def get_big_map_path(version=5.0, block_size=2048):
-    from myutils.configutils import resource_path
-    return os.path.join(resource_path,'map', f'version{version}', f'map{version}_{block_size}.png')
-
-def kpgen(block_size=2048, version=5.0):
+# 分割生成(小内存推荐)
+def __generate2(block_size=2048, map_name=None):
     # 读取图像
-    current_path = os.getcwd()
-    # large_image = cv2.imread(current_path + '/../resources/map/combined_image_{}.png'.format(block_size), cv2.IMREAD_GRAYSCALE)
-    large_image = cv2.imread(get_big_map_path(version=version,block_size=block_size), cv2.IMREAD_GRAYSCALE)
+    large_image = cv2.imread(get_bigmap_path(block_size=block_size,map_name=map_name), 0)
 
     if large_image is None:
         print("图像加载失败，请检查路径和文件名是否正确。")
@@ -74,23 +55,48 @@ def kpgen(block_size=2048, version=5.0):
 
     # 分块处理图像
     start_time = time.time()
-    keypoints2, descriptors2 = detect_features_in_blocks(large_image, 2048)
+    keypoints2, descriptors2 = detect_features_in_blocks(
+        # 注意此block_size不同于参数的block_size
+        # 参数的block_size是图片合成时的大小
+        # 这里的process_block_size是指切割成多大的图片来生成特征点
+        large_image, 2048)
     print("特征点检测完成，用时: {:.2f}秒".format(time.time() - start_time))
 
     index = [(kp.pt, kp.size, kp.angle, kp.response, kp.octave, kp.class_id) for kp in keypoints2]
 
     # 保存关键点和描述符
-    with open(f'sift_keypoints_version{version}_blocksize{block_size}.pkl', 'wb') as kp_file:
+    kpp, desp = get_keypoints_des_path(block_size,map_name)
+    with open(kpp, 'wb') as kp_file:
         pickle.dump(index, kp_file)
-    with open(f'sift_descriptors_version{version}_blocksize{block_size}.pkl', 'wb') as des_file:
+    with open(desp, 'wb') as des_file:
         pickle.dump(descriptors2, des_file)
 
     print("关键点和描述符已保存到文件中。")
 
-def load(block_size=2048):
-    kpp, desp = get_keypoints_des_path(block_size)
+
+# 不分割直接生成特征点：需要运行内存至少16G
+def __generate(block_size, map_name):
+    sift = cv2.SIFT.create()
+    bigmap = cv2.imread(get_bigmap_path(block_size=block_size,map_name=map_name), 0)
+    # 检测关键点和计算描述符
+    keypoints_large, descriptors_large = sift.detectAndCompute(bigmap, None)
+    index = []
+    for point in keypoints_large:
+        temp = (point.pt, point.size, point.angle, point.response, point.octave, point.class_id)
+        index.append(temp)
+
+    # 保存关键点和描述符
+    kpp, desp = get_keypoints_des_path(block_size,map_name)
+    with open(kpp, 'wb') as kp_file:
+        pickle.dump(index, kp_file)
+    with open(desp, 'wb') as des_file:
+        pickle.dump(descriptors_large, des_file)
+
+# 加载特征点
+def load(block_size, map_name, map_version=0):
+    kpp, desp = get_keypoints_des_path(block_size, map_name, version=map_version)
     # 读取关键点
-    with open(kpp, 'rb') as kp_file:
+    with open( kpp, 'rb') as kp_file:
         index = pickle.load(kp_file)
     keypoints_large = []
     for point in index:
@@ -102,8 +108,50 @@ def load(block_size=2048):
         descriptors_large = pickle.load(des_file)
     return keypoints_large, descriptors_large
 
+def __compress(kpp,desp, map_name, block_size, map_version):
+    import zipfile
+    # 使用 zipfile 模块压缩文件
+    output_zip = f"{map_name}_block_{block_size}_v{map_version}.zip"
+    with zipfile.ZipFile(output_zip, 'w', compression=zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(kpp, os.path.basename(kpp))  # 使用 os.path.basename 以只存储文件名
+        zipf.write(desp, os.path.basename(desp))
+    print(f"压缩包已生成：{output_zip}")
+def __sift_kp_des_generator():
+    feat_folder = os.path.join(resource_path, 'features', 'sift', 'segments')
+    if not os.path.exists(feat_folder): os.makedirs(feat_folder)
+
+
+    """
+    生成特征点并保存, 需要较大的内存才能运行
+    :return:
+    """
+    import time
+    from myutils.configutils import MapConfig
+    start = time.time()
+    obj = MapConfig.get_all_map()
+    for key in obj.keys():
+        map_obj = obj.get(key)
+        map_name = map_obj.get('img_name')
+        map_version = map_obj.get('version')
+        block_size = 2048
+        kp, des = get_keypoints_des_path(block_size=block_size, map_name=map_name, version=map_version)
+        if not os.path.exists(kp):
+            gen_time = time.time()
+            print(f'正在生成{block_size}, {map_name}')
+            __generate2(block_size=block_size, map_name=map_name)
+            print(f'生成{block_size}, {map_name} 用时{time.time() - gen_time}')
+        # __compress(kp,des, map_name=map_name,block_size=block_size, map_version=map_version)
+
+        block_size = 256
+        kp, des = get_keypoints_des_path(block_size=block_size, map_name=map_name, version=map_version)
+        gen_time = time.time()
+        if not os.path.exists(kp):
+            print(f'正在生成{block_size}, {map_name}')
+            __generate2(block_size=block_size, map_name=map_name)
+            print(f'生成{block_size}, {map_name} 用时{time.time() - gen_time}')
+        # __compress(kp,des, map_name=map_name,block_size=block_size, map_version=map_version)
+
+    print('总计用时', time.time() - start)
 
 if __name__ == '__main__':
-    kpgen(2048)
-    k,d = load(2048)
-    print(d.shape)
+    __sift_kp_des_generator()
