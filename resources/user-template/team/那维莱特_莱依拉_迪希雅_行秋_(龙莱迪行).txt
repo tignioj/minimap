@@ -1,0 +1,6 @@
+莱依拉 e, wait(1), q, wait(0.3)
+行秋 e, wait(0.5), j , q, wait(0.3)
+那维莱特 e, charge(3), q
+迪希雅 e, wait(0.1), e
+莱依拉 e
+那维莱特 charge(3), e, charge(3),charge(3)

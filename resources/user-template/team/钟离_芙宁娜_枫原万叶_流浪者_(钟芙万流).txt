@@ -1,0 +1,8 @@
+芙宁娜 e, wait(0.8), charge,wait(0.4), q
+钟离 s(0.1), e(hold)
+枫原万叶 e(hold), attack, wait(0.5),q
+//散兵 e,wait(0.3), charge(0.6), charge(0.6), charge(0.6), charge(0.6), charge(0.6), charge(0.6), charge(0.6), charge(0.6), charge(0.6), charge(0.6)
+//散兵 e,wait(0.3), charge(0.6), attack(2), charge(0.6), attack(2), charge(0.6), attack(2)
+//散兵 e,wait(0.3), charge(0.6), attack(1.6), dash, wait(0.1), charge(0.6), attack(1.6), dash, wait(0.1), charge(0.6), attack(1.6), dash, wait(0.1)
+
+流浪者 e,wait(0.3), charge(0.6), attack(1.4), charge(0.6), attack(1.4), charge(0.6), attack(1.4),charge(0.6), attack(1.4), q

@@ -1,0 +1,6 @@
+莱依拉 e, wait(1), q, wait(0.3)
+行秋 e, wait(0.5), j, wait(0.3), q
+纳西妲 e(hold)
+那维莱特 e, charge(3), q
+莱依拉 e
+那维莱特 charge(3), e, charge(3),charge(3)
