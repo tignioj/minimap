@@ -1,8 +1,6 @@
 /resources/features
-/resources/ocr
 /resources/user
 /resources/temp
-/resources/template
 
 config.yaml
 
