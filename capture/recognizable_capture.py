@@ -121,6 +121,11 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_mission_ok_org = cv2.imread(os.path.join(template_path, "icon_mission_ok.png"), cv2.IMREAD_GRAYSCALE)
         self.icon_mission_ok = self.__icon_mission_ok_org.copy()
 
+        # 队伍选择器
+        self.__icon_team_selector_org = cv2.imread(os.path.join(template_path, "button_team_selector.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_team_selector = self.__icon_team_selector_org.copy()
+
+
         self.sift = cv2.SIFT.create()
         # 匹配器
         self.bf_matcher = cv2.BFMatcher()
@@ -220,6 +225,8 @@ class RecognizableCapture(GenShinCaptureObj):
 
         self.icon_daily_mission = cv2.resize(self.__icon_daily_mission_org, None, fx=scale, fy=scale)
         self.icon_mission_ok = cv2.resize(self.__icon_mission_ok_org, None, fx=scale, fy=scale)
+
+        self.icon_team_selector = cv2.resize(self.__icon_team_selector_org, None, fx=scale,fy=scale)
 
     def has_mission_ok(self):
         """
@@ -401,9 +408,9 @@ if __name__ == '__main__':
         t = time.time()
         # rc.update_screenshot_if_none()
         # print(rc.has_origin_resin_in_top_bar(),time.time()-t)
-        # pos = rc.get_icon_position(rc.icon_daily_mission)
-        # print(pos, time.time()-t)
-        print(rc.has_origin_resin_in_top_bar(), time.time() - t)
+        pos = rc.get_icon_position(rc.icon_team_selector)
+        print(pos, time.time()-t)
+        # print(rc.has_origin_resin_in_top_bar(), time.time() - t)
         # print(rc.has_paimon(), time.time()-t)
         # rc.check_icon()
         # sc = rc.get_paimon_area()
