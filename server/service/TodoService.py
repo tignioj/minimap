@@ -1,4 +1,4 @@
-import os,json
+import os, json
 import time
 from threading import Lock, Thread
 
@@ -7,37 +7,111 @@ from server.service.PlayBackService import PlayBackService
 from myutils.configutils import get_user_folder
 from myutils.fileutils import getjson_path_byname
 
+
 # TODO: 按顺序执行
 # TODO: 重复执行
 # TODO: 导入、导出清单？
 
 
-class TodoException(Exception):pass
-class TodoExecuteException(Exception):pass
+class TodoException(Exception): pass
+
+
+class TodoExecuteException(Exception): pass
+
+class TeamNotFoundException(Exception): pass
+
 
 todo_runner_lock = Lock()
 from mylogger.MyLogger3 import MyLogger
+
 logger = MyLogger('todo_service')
 
-from server.service.PlayBackService import SOCKET_EVENT_PLAYBACK_EXCEPTION, SOCKET_EVENT_PLAYBACK_END, SOCKET_EVENT_PLAYBACK_UPDATE, SOCKET_EVENT_PLAYBACK_START
+from server.service.PlayBackService import SOCKET_EVENT_PLAYBACK_EXCEPTION, SOCKET_EVENT_PLAYBACK_END, \
+    SOCKET_EVENT_PLAYBACK_UPDATE
+
 class TodoService:
     _is_thread_todo_running = False
+    _last_selected_team = None
 
-    def get_todo_by_name(self): pass
+    def get_todo_by_name(self):
+        pass
 
     @staticmethod
     def get_unrepeated_file(todo_json):
+        from server.dto.DataClass import Todo
         # 提取非重复文件
         json_file_set = []
         for item in todo_json:
-            enable = item.get('enable', False)
+            todo = Todo.from_dict(item)
             # 只保留启用的清单
-            if not enable: continue
-            files = item.get('files', [])
-            for file in files:
+            if not todo.enable: continue
+            for file in todo.files:
                 if file not in json_file_set:
                     json_file_set.append(file)
         return json_file_set
+
+    @staticmethod
+    def change_team(fight_team):
+        from controller.MapController2 import MapController
+        from controller.FightController import FightController
+
+        if TodoService._last_selected_team != fight_team:
+            # 战斗状态下无法切换队伍, 所以每次切换队伍都要去七天神像
+            # 如果发现仍然在战斗状态，则回七天神像后再切换队伍
+            if FightController(None).has_enemy():
+                MapController().go_to_seven_anemo_for_revive()
+            TodoService._last_selected_team = fight_team
+            from myutils.configutils import FightConfig
+            if fight_team is None or len(fight_team) == 0:
+                fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
+            if fight_team is None: raise TeamNotFoundException("未选择队伍!")
+            from controller.UIController import TeamUIController
+            tuic = TeamUIController()
+            try:
+                team_alias = FightController.get_teamname_from_string(fight_team)
+            except Exception as e:
+                logger.error(e.args)
+                raise TeamNotFoundException(f"{fight_team}无法解析队伍简称!")
+
+            if len(team_alias.strip()) == 0:
+                raise TeamNotFoundException(f"{fight_team}队伍未设置简称，无法切换,请在括号内写入队伍简称!")
+
+            result = tuic.switch_team(team_alias)
+            tuic.navigation_to_world_page()
+            if not result:
+                raise TeamNotFoundException(f"{fight_team}:无法切换队伍!")
+
+    @staticmethod
+    def run_one_todo(todo, socketio_instance=None):
+        socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行清单{todo.name}, 指定队伍为{todo.fight_team}')
+        # 切换队伍
+        TodoService.change_team(todo.fight_team)
+        for file in todo.files:
+            json_file_path = getjson_path_byname(file)
+            # socket_emit(SOCKET_EVENT_PLAYBACK, msg=f'正在执行{json_file_name}')
+            if not os.path.exists(json_file_path):
+                # socket_emit(SOCKET_EVENT_PLAYBACK, msg=f'{json_file_name}不存在', success=False)
+                continue
+            while PlayBackService.playing_thread_running:
+                logger.debug(f'回放线程正在执行中，请等待')
+                time.sleep(1)
+                if not TodoService._is_thread_todo_running:
+                    logger.debug("停止执行清单")
+                    BaseController.stop_listen = True
+                    return
+
+            if not TodoService._is_thread_todo_running:
+                logger.debug("停止执行清单")
+                BaseController.stop_listen = True
+                return
+            with open(json_file_path, 'r', encoding='utf8') as f:
+                json_dict = json.load(f)
+
+            # 添加战斗信息
+            json_dict['fight_team'] = todo.fight_team
+            json_dict['fight_duration'] = todo.fight_duration
+            PlayBackService.playback_runner(json_dict, socketio_instance=socketio_instance)
+
 
     @staticmethod
     def _thread_todo_runner(todo_json=None, socketio_instance=None):
@@ -49,37 +123,19 @@ class TodoService:
                 return
             try:
                 TodoService._is_thread_todo_running = True
-                if todo_json:
-                    json_file_set = TodoService.get_unrepeated_file(todo_json)
-                else:
+                if not todo_json:
                     todo_path = os.path.join(get_user_folder(), 'todo.json')
                     with open(todo_path, 'r', encoding='utf8') as f:
-                        todo_dict = json.load(f)
-                        json_file_set = TodoService.get_unrepeated_file(todo_dict)
-
+                        todo_json = json.load(f)
+                from server.dto.DataClass import Todo
                 # 加载json并执行
-                for json_file_name in json_file_set:
-                    json_file_path = getjson_path_byname(json_file_name)
-                    # socket_emit(SOCKET_EVENT_PLAYBACK, msg=f'正在执行{json_file_name}')
-                    if not os.path.exists(json_file_path):
-                        # socket_emit(SOCKET_EVENT_PLAYBACK, msg=f'{json_file_name}不存在', success=False)
-                        continue
-                    while PlayBackService.playing_thread_running:
-                        logger.debug(f'回放线程正在执行中，请等待')
-                        time.sleep(1)
-                        if not TodoService._is_thread_todo_running:
-                            logger.debug("停止执行清单")
-                            BaseController.stop_listen = True
-                            return
-
-                    if not TodoService._is_thread_todo_running:
-                        logger.debug("停止执行清单")
-                        BaseController.stop_listen = True
-                        return
-
-                    with open(json_file_path, 'r', encoding='utf8') as f:
-                        json_dict = json.load(f)
-                    PlayBackService.playback_runner(json_dict, socketio_instance=socketio_instance)
+                for todo in todo_json:
+                    todo_obj = Todo.from_dict(todo)
+                    try:
+                        if todo_obj.enable: TodoService.run_one_todo(todo_obj, socketio_instance=socketio_instance)
+                    except TeamNotFoundException as e:
+                        logger.error(e)
+                        socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, str(e.args))
             except StopListenException as e:
                 TodoService._is_thread_todo_running = False
                 logger.debug('结束执行清单了')
@@ -92,24 +148,22 @@ class TodoService:
     @staticmethod
     def todo_run(todo_json, socketio_instance=None):
         # # 每次请求是不同的线程，意味着可能存在资源共享问题
-        if not TodoService._is_thread_todo_running:
-            files = TodoService.get_unrepeated_file(todo_json)
-            if len(files) == 0:
-                raise TodoExecuteException('空清单，无法执行')
+        if TodoService._is_thread_todo_running: raise TodoExecuteException('已经有线程执行清单中')
 
-            BaseController.stop_listen = False
-            Thread(target=TodoService._thread_todo_runner, args=(todo_json, socketio_instance)).start()
-            return True
-        else:
-            raise TodoExecuteException('已经有线程执行清单中')
-            # return jsonify( {'success': False, 'status': PLAYBACK_STATUS_ALREADY_RUNNING, 'data': '已经有线程执行清单中'})
+        files = TodoService.get_unrepeated_file(todo_json)
+
+        if len(files) == 0: raise TodoExecuteException('空清单，无法执行')
+
+        BaseController.stop_listen = False
+        Thread(target=TodoService._thread_todo_runner, args=(todo_json, socketio_instance)).start()
+        return True
 
     @staticmethod
     def get_all_todos():
         todo_path = os.path.join(get_user_folder(), 'todo.json')
         if not os.path.exists(todo_path):
             with open(todo_path, 'w', encoding='utf8') as f:
-                todo_dict = {'采集清单': {"enable": True, "files": []}}
+                todo_dict = {'test': {"enable": True, "files": []}}
                 f.write(json.dumps(todo_dict))
             return todo_dict
         with open(todo_path, 'r', encoding='utf8') as f:
@@ -144,7 +198,8 @@ class TodoService:
             TodoService._is_thread_todo_running = False
             return True
 
-    def remove_todo_by_name(self): pass
+    def remove_todo_by_name(self):
+        pass
 
     @staticmethod
     def save_todo(data):
@@ -182,7 +237,11 @@ class TodoService:
 
         TodoService.save_todo(data)
 
+
 if __name__ == '__main__':
+    tds = TodoService.get_all_todos()
+    print(tds)
+
     # 定义要修改的文件名和新文件名
     # old_filename = "月莲_卡扎莱宫_须弥_5个.json"
     # new_filename = "月莲_卡扎莱宫_须弥_5个.json"
@@ -195,5 +254,5 @@ if __name__ == '__main__':
     #     # 添加更多要移除的文件名称
     # ]
     # TodoService.removeFiles(files_to_remove)
-    data = TodoService.remove_none_exists_files()
-    logger.debug(data)
+    # data = TodoService.remove_none_exists_files()
+    # logger.debug(data)

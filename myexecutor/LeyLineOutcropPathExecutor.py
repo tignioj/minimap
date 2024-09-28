@@ -31,16 +31,13 @@ class LeyLineOutcropPoint(Point):
         self.events = events
 
 class LeyLineOutcropPath(BasePath):
-    def __init__(self, name, country, positions: List[LeyLineOutcropPoint], anchor_name=None, enable=None):
+    def __init__(self, name, country, positions: List[LeyLineOutcropPoint], anchor_name=None):
         super().__init__(name=name, country=country, positions=positions, anchor_name=anchor_name)
-        self.enable=enable
-        self.note = None  # 自定义备注
-        # TODO：指定委托所在的位置，用于搜索；对于战斗类型通常是最后一个点的位置，其他的不一定
-        # self.mission_position = None  #
 
 class LeyLineOutcropPathExecutor(BasePathExecutor):
-    def __init__(self, json_file_path, debug_enable=None):
-        super().__init__(json_file_path=json_file_path, debug_enable=debug_enable)
+    def __init__(self, json_file_path, debug_enable=None, fight_team=None, fight_duration=None):
+        super().__init__(json_file_path=json_file_path, debug_enable=debug_enable,
+                         fight_team=fight_team, fight_duration=fight_duration)
         self.reward_ok = False
 
     LEYLINE_TYPE_MONEY = 'money'
@@ -61,7 +58,6 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
             return LeyLineOutcropPath(
                 name=json_dict['name'], country=json_dict['country'], positions=points,
                 anchor_name=json_dict['anchor_name'],
-                enable=json_dict.get('enable', True)  # 未记录完成的委托标记为False
             )
 
     __leyline_type = None
@@ -234,15 +230,6 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         msg = f"执行地脉任务结束, 总时长{time.time() - start_time}"
         emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, msg)
         logger.debug(msg)
-
-    def start_fight(self):
-        self.log('开始自动战斗')
-        self.fight_controller.start_fighting()
-
-
-    def stop_fight(self):
-        self.log('停止自动战斗')
-        self.fight_controller.stop_fighting()
 
     def wait_until_fight_finished(self):
         leyline_fight_timeout = LeyLineConfig.get(

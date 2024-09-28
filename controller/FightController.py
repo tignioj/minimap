@@ -43,7 +43,8 @@ class FightController(BaseController):
         from controller.OCRController import OCRController
         self.ocr = OCRController()
 
-    def get_teamname_from_string(self, file_name):
+    @staticmethod
+    def get_teamname_from_string(file_name):
         team_name = file_name[file_name.index("(") + 1:file_name.rindex(")")]
         return team_name
 
@@ -151,7 +152,6 @@ class FightController(BaseController):
         return self.characters_name.index(name) + 1
 
     def character_fight(self, character_with_skills):
-        # 切人
         character = character_with_skills['name']
         character_number = self.get_character_number(character)
         skills = character_with_skills['skills']
@@ -202,11 +202,15 @@ class FightController(BaseController):
             if self.stop_fight: raise StopFightException()
             self.character_fight(character_with_skill)
 
-    def execute_infinity(self):
+    def execute_infinity(self, stop_on_no_enemy=False):
         try:
             while not self.stop_fight:
+                if stop_on_no_enemy and not self.has_enemy():
+                    self.stop_fight = True
+                    raise StopFightException("已经没有敌人")
                 self.execute()
-        except CharacterDieException as e: pass
+        except CharacterDieException as e:
+            self.logger.debug(e.args)
         except StopFightException as e:
             self.logger.debug(e.args)
             # 打断所有动作， 恢复状态
@@ -225,7 +229,7 @@ class FightController(BaseController):
         except StopListenException as e:
             self.logger.debug(e.args)
 
-    def start_fighting(self):
+    def start_fighting(self, stop_on_no_enemy=False):
         self.stop_fight = False
         if self.fighting_thread:
             raise StopFightException("已经有线程正在执行，请先停止！")
@@ -240,7 +244,7 @@ class FightController(BaseController):
         else:
             self.load_characters_with_skills_from_file()
 
-        self.fighting_thread = threading.Thread(target=self.execute_infinity)
+        self.fighting_thread = threading.Thread(target=self.execute_infinity, args=(stop_on_no_enemy,))
         self.fighting_thread.start()
 
     def stop_fighting(self):
@@ -302,16 +306,42 @@ class FightController(BaseController):
             self.crazy_f()
         self.logger.debug("万叶拾取结束")
 
+    def has_enemy(self):
+        """
+        判断是否有敌人
+        按下L按过0.1秒检测派蒙，如果没有派蒙说明已经在读条，判断为脱战, 否则判断为有敌人
+        :return:
+        """
+        self.log('正在检测敌人')
+        self.kb_press_and_release("l")
+        time.sleep(0.1)
+        has = self.gc.has_paimon()
+        if has:
+            self.log('有敌人')
+            return True
+        else:
+            # 打断读条
+            self.log('没有敌人')
+            self.kb_press_and_release(self.Key.space)
+            return False
+
+
+
+
+
 
 if __name__ == '__main__':
+    # FightController.has_enemy()
     # from myutils.configutils import get_user_folder, PathExecutorConfig
 
     from pynput.keyboard import Listener, Key
 
     # file_name = '那维莱特_莱伊拉_迪希雅_行秋(龙莱迪行).txt'
     # file_name = '那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt'
-    file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
-    fc = FightController(file_name)
+    # file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
+    # file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
+    fc = FightController(None)
+    fc.execute_infinity()
     # fc.switch_character('纳西妲')
     # def _on_press(key):
     #     try:

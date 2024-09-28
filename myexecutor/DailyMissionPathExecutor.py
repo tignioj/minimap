@@ -85,12 +85,6 @@ class DailyMissionPath(BasePath):
         # self.mission_position = None  #
 
 class DailyMissionPathExecutor(BasePathExecutor):
-    def __init__(self, json_file_path, debug_enable=None):
-        self.next_point: DailyMissionPoint = None
-        super().__init__(json_file_path=json_file_path, debug_enable=debug_enable)
-        # self.fight_controller = FightController('那维莱特_莱伊拉_迪希雅_行秋(龙莱迪行).txt')
-        # self.fight_controller = FightController('那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt')
-        self.fight_controller = FightController(None)
 
     @staticmethod
     def load_basepath_from_json_file(json_file_path) -> DailyMissionPath:
@@ -236,16 +230,6 @@ class DailyMissionPathExecutor(BasePathExecutor):
         if not self.base_path.enable:
             raise UnfinishedException(f"未完成路线:{self.base_path.name}，跳过")
         super().on_execute_before(from_index=from_index)
-
-    def start_fight(self):
-        self.log('开始自动战斗')
-        self.fight_controller.start_fighting()
-
-
-    def stop_fight(self):
-        self.log('停止自动战斗')
-        self.fight_controller.stop_fighting()
-
 
     def wait_until_fight_finished(self):
         daily_task_fight_timeout = DailyMissionConfig.get(

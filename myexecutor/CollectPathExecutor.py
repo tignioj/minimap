@@ -24,7 +24,7 @@ class CollectPoint(Point):
     MOVE_MODE_UP_DOWN_GRAB_LEAF = 'up_down_grab_leaf'  # 视角上下晃动抓四叶印
     ACTION_NAHIDA_COLLECT = 'nahida_collect'
 
-    def __init__(self, x,y,type=None, action=None,move_mode=Point.MOVE_MODE_NORMAL, nahida_collect=False, crazy_f=False):
+    def __init__(self, x,y,type=None, action=None,move_mode=Point.MOVE_MODE_NORMAL):
         super().__init__(x=x,y=y,type=type,move_mode=move_mode,action=action)
         # self.nahida_collect = nahida_collect
         # self.crazy_f = crazy_f
@@ -32,35 +32,17 @@ class CollectPoint(Point):
 class CollectPath(BasePath): pass
 
 class CollectPathExecutor(BasePathExecutor):
-    def __init__(self, json_file_path,debug_enable=None):
-        super().__init__(json_file_path=json_file_path,debug_enable=debug_enable)
+    # 因为纳西妲长e最多扫6个采集物，所以有些地方可能要连续扫2次，此类情况要等待cd。这里记录上一次扫码结束时间
+    nahida_collect_last_time = 0
 
-        # TODO 这里父类已经定义过了，子类再写一遍原因是希望IDE给点类型提示。后续希望改成泛型
-        self.next_point: CollectPoint = None
-        self.prev_point: CollectPoint = None
+    # def __init__(self, json_file_path,debug_enable=None):
+    #     super().__init__(json_file_path=json_file_path,debug_enable=debug_enable)
+    #
+    #     # TODO 这里父类已经定义过了，子类再写一遍原因是希望IDE给点类型提示。后续希望改成泛型
+    #     self.next_point: CollectPoint = None
+    #     self.prev_point: CollectPoint = None
 
-        # 因为纳西妲长e最多扫6个采集物，所以有些地方可能要连续扫2次，此类情况要等待cd。这里记录上一次扫码结束时间
-        self.nahida_collect_last_time = 0
 
-    @staticmethod
-    def load_basepath_from_json_file(json_file_path) -> CollectPath:
-        with open(json_file_path, encoding="utf-8") as r:
-            json_dict = json.load(r)
-            points: List[CollectPoint] = []
-            for point in json_dict.get('positions', []):
-                p = CollectPoint(x=point.get('x'),
-                                 y=point.get('y'),
-                                 type=point.get('type', Point.TYPE_PATH),
-                                 move_mode=point.get('move_mode', Point.MOVE_MODE_NORMAL),
-                                 action=point.get('action'),
-                                 # nahida_collect=point.get('nahida_collect'),
-                                 # crazy_f=point.get('crazy_f')
-                                 )
-                points.append(p)
-            return CollectPath(name=json_dict.get('name', 'undefined'),
-                            country=json_dict.get('country','蒙德'),
-                            positions=points,
-                            anchor_name=json_dict.get('anchor_name', '传送锚点'))
     def view_down(self):
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, 20000, 0, 0)
         time.sleep(0.01)

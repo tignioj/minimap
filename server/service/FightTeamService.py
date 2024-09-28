@@ -110,7 +110,7 @@ class FightTeamService:
             except:pass
         self.__get_team_file_path(filename)
         self.fight_controller = FightController(filename)
-        self.fight_controller.start_fighting()
+        self.fight_controller.start_fighting(True)
         return f"成功运行{filename}"
 
     def stop_fighting(self):
@@ -155,7 +155,7 @@ class FightTeamService:
         team_name = self.fight_controller.get_teamname_from_string(filename)
         characters = self.fight_controller.get_characters_from_string(filename)
         self.fight_controller.load_characters_with_skills_from_memory(characters_name=characters, text=text, team_name=team_name)
-        self.fight_controller.start_fighting()
+        self.fight_controller.start_fighting(False)
         return f"正在从临时内容中运行{filename}"
 
 

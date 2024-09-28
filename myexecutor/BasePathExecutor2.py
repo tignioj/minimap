@@ -92,7 +92,6 @@ class BasePath:
         # 传送锚点/七天神像/副本名称
         self.anchor_name = anchor_name
 
-
 class BasePathExecutor(BaseController):
     @staticmethod
     def load_basepath_from_json_file(json_file_path) -> BasePath:
@@ -111,7 +110,7 @@ class BasePathExecutor(BaseController):
                             positions=points,
                             anchor_name=json_dict.get('anchor_name', '传送锚点'))
 
-    def __init__(self, json_file_path=None, debug_enable=None):
+    def __init__(self, json_file_path=None, fight_team:str=None, fight_duration:int=None, debug_enable=None):
         super().__init__(debug_enable=debug_enable)
         if debug_enable is None: debug_enable = DebugConfig.get(DebugConfig.KEY_DEBUG_ENABLE, False)
         if json_file_path is None: raise Exception(f"无法加载json对象")
@@ -122,7 +121,12 @@ class BasePathExecutor(BaseController):
             return
         self.ocr = OCRController(debug_enable=debug_enable)
         self.map_controller = MapController(tracker=self.tracker, debug_enable=debug_enable)  # 传送
-        self.fight_controller = FightController(None)
+
+        from myutils.configutils import FightConfig
+        if fight_team is None: fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
+        if fight_team is None: raise Exception("请先配置队伍!")
+        self.fight_controller = FightController(fight_team)
+        if fight_duration is None: self.fight_duration = FightConfig.get(FightConfig.KEY_FIGHT_DURATION, 12, min_val=1, max_val=1000)
 
         self.debug_enable = debug_enable
 
@@ -220,6 +224,13 @@ class BasePathExecutor(BaseController):
     def _thread_object_detection(self):
         pass
 
+    def start_fight(self):
+        self.log(f'开始自动战斗{self.fight_controller.team_name}')
+        self.fight_controller.start_fighting(stop_on_no_enemy=True)
+
+    def stop_fight(self):
+        self.log('停止自动战斗')
+        self.fight_controller.stop_fighting()
     def debug(self, *args):
         if self.stop_listen: return
         self.logger.debug(args)
