@@ -64,10 +64,14 @@ class FightPathExecutor(BasePathExecutor):
     def on_move_after(self, point):
         super().on_move_after(point)  # 父类有开盾方法，直接调用
         if point.type == point.TYPE_TARGET:
+            start_wait = time.time()
             self.start_fight()
-            time.sleep(self.fight_duration)
+            while time.time() - start_wait < self.fight_duration:
+                # 检测是否战斗结束
+                time.sleep(1)
+                if self.fight_controller.stop_fight:
+                    break
             self.stop_fight()
-            time.sleep(0.1)
             self.fight_controller.wanye_pickup()
 
     def on_execute_before(self, from_index=None):

@@ -25,8 +25,8 @@ class UIController(BaseController):
         """
         start_wait = time.time()
         while not self.gc.has_paimon() and time.time() - start_wait < 5:
-            self.kb_press(self.Key.esc)
-            time.sleep(0.2)
+            time.sleep(1)
+            self.ui_close_button()
 
         if self.gc.has_paimon():
             self.logger.debug('回到了大世界界面')
@@ -45,7 +45,7 @@ class TeamUIController(UIController):
         result = self.ocr.find_text_and_click('队伍配置')
         while not result:
             self.kb_press_and_release(self.Key.esc)
-            time.sleep(1.3)
+            time.sleep(1.5)
             result = self.ocr.find_text_and_click('队伍配置')
 
         self.log('等待加载中...')
@@ -139,7 +139,8 @@ class TeamUIController(UIController):
 
 if __name__ == '__main__':
     tui = TeamUIController()
-    target_team = '钟芙万流'
-    # target_team = '采集队'
+    tui.navigation_to_world_page()
+    # target_team = '钟芙万流'
+    target_team = '采集队'
     tui.switch_team(target_team)
     tui.navigation_to_world_page()

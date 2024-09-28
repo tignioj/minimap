@@ -58,6 +58,9 @@ class TodoService:
         if TodoService._last_selected_team != fight_team:
             # 战斗状态下无法切换队伍, 所以每次切换队伍都要去七天神像
             # 如果发现仍然在战斗状态，则回七天神像后再切换队伍
+            from controller.UIController import TeamUIController
+            tuic = TeamUIController()
+            tuic.navigation_to_world_page()
             if FightController(None).has_enemy():
                 MapController().go_to_seven_anemo_for_revive()
             from myutils.configutils import FightConfig
@@ -65,8 +68,6 @@ class TodoService:
                 fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
             if fight_team is None:
                 raise TeamNotFoundException("未选择队伍!")
-            from controller.UIController import TeamUIController
-            tuic = TeamUIController()
             try:
                 team_alias = FightController.get_teamname_from_string(fight_team)
             except Exception as e:
@@ -75,7 +76,6 @@ class TodoService:
 
             if len(team_alias.strip()) == 0:
                 raise TeamNotFoundException(f"{fight_team}队伍未设置简称，无法切换,请在括号内写入队伍简称!")
-
             result = tuic.switch_team(team_alias)
             tuic.navigation_to_world_page()
             if not result:
