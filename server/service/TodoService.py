@@ -130,6 +130,7 @@ class TodoService:
                         todo_json = json.load(f)
                 from server.dto.DataClass import Todo
                 # 加载json并执行
+                TodoService._last_selected_team = None
                 for todo in todo_json:
                     todo_obj = Todo.from_dict(todo)
                     try:
