@@ -205,9 +205,11 @@ class FightController(BaseController):
     def execute_infinity(self, stop_on_no_enemy=False):
         try:
             while not self.stop_fight:
-                if stop_on_no_enemy and not self.has_enemy():
-                    self.stop_fight = True
-                    raise StopFightException("已经没有敌人")
+                if stop_on_no_enemy:
+                    time.sleep(0.5)  # 给出一定的时间进入战斗，否则仍然能读条，可能会导致误判
+                    if self.has_enemy():
+                        self.stop_fight = True
+                        raise StopFightException("已经没有敌人")
                 self.execute()
         except CharacterDieException as e:
             self.logger.debug(e.args)
@@ -310,6 +312,8 @@ class FightController(BaseController):
         """
         判断是否有敌人
         按下L按过0.1秒检测派蒙，如果没有派蒙说明已经在读条，判断为脱战, 否则判断为有敌人
+        经过测试不能检测太快，刚进入战斗的瞬间，系统仍然可以一小段条，这样会导致误判
+        因此在调用本方法时，确保足够的时间进入战斗状态
         :return:
         """
         self.log('正在检测敌人')
