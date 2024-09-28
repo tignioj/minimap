@@ -60,11 +60,11 @@ class TodoService:
             # 如果发现仍然在战斗状态，则回七天神像后再切换队伍
             if FightController(None).has_enemy():
                 MapController().go_to_seven_anemo_for_revive()
-            TodoService._last_selected_team = fight_team
             from myutils.configutils import FightConfig
             if fight_team is None or len(fight_team) == 0:
                 fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
-            if fight_team is None: raise TeamNotFoundException("未选择队伍!")
+            if fight_team is None:
+                raise TeamNotFoundException("未选择队伍!")
             from controller.UIController import TeamUIController
             tuic = TeamUIController()
             try:
@@ -80,6 +80,7 @@ class TodoService:
             tuic.navigation_to_world_page()
             if not result:
                 raise TeamNotFoundException(f"{fight_team}:无法切换队伍!")
+            TodoService._last_selected_team = fight_team
 
     @staticmethod
     def run_one_todo(todo, socketio_instance=None):

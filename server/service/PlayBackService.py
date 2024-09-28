@@ -82,7 +82,7 @@ class PlayBackService:
             PlayBackService.playing_thread_running = True
             try:
                 if socketio_instance:
-                    socketio_instance.emit(SOCKET_EVENT_PLAYBACK_START, f'开始执行{jsondict.get("name")}, 指定队伍为{jsondict.get("fight_team")}')
+                    socketio_instance.emit(SOCKET_EVENT_PLAYBACK_START, f'开始执行{jsondict.get("name")}')
                 start_time = time.time()
                 json_object = json.dumps(jsondict, indent=4, ensure_ascii=False)
                 from myutils.configutils import resource_path
@@ -97,7 +97,10 @@ class PlayBackService:
                 executor = PlayBackService.executor_map.get(executor_text)
                 bp = executor(json_file_path=temp_json_path, fight_team=fight_team, fight_duration=fight_duration)
                 if socketio_instance:
-                    socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行{jsondict.get("name")}, 队伍{jsondict.get("fight_team")}')
+                    if fight_team or len(fight_team) == 0:
+                        socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行{jsondict.get("name")}, 队伍为默认队伍')
+                    else:
+                        socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行{jsondict.get("name")}, 队伍为{fight_team}')
                 bp.execute(from_index=from_index)
                 if socketio_instance: socketio_instance.emit(SOCKET_EVENT_PLAYBACK_END, f"{jsondict.get('name')}执行结束，用时:{time.time() - start_time}")
             except StopListenException as e:
