@@ -225,9 +225,9 @@ class BasePathExecutor(BaseController):
     def _thread_object_detection(self):
         pass
 
-    def start_fight(self):
+    def start_fight(self, stop_on_no_enemy=True):
         self.log(f'开始自动战斗{self.fight_controller.team_name}')
-        self.fight_controller.start_fighting(stop_on_no_enemy=True)
+        self.fight_controller.start_fighting(stop_on_no_enemy=stop_on_no_enemy)
 
     def stop_fight(self):
         self.log('停止自动战斗')

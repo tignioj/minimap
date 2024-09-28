@@ -237,11 +237,18 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
         start_time = time.time()
         time.sleep(0.5)
-        self.start_fight()
+        # 有些委托一开始是检测不到战斗状态的，因此禁用 '检测脱战状态则结束战斗'的功能
+        # 例如奔狼领的小宝，活动范围非常广，必须要在原地战斗一会才能吸引小宝的仇恨
+        # 而且委托有特殊的检测结束机制, 就是判断绿色的对勾
+        self.start_fight(stop_on_no_enemy=False)
         while time.time()-start_time < daily_task_fight_timeout:
             if self.stop_listen: break
             time.sleep(0.2)
             self.log(f"正在检测委托是否完成, 剩余{daily_task_fight_timeout-(time.time()-start_time)}秒")
+            if self.fight_controller.stop_fight:
+                self.log('已经停止战斗')
+                break
+
             if self.gc.has_mission_ok():
                 self.log("检测到绿色小箭头，委托已完成!")
                 break
