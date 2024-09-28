@@ -252,6 +252,13 @@ class BaseController:
         self.set_ms_position((finalx, finaly))  # 确保鼠标在最终位置
         self.ms_release(Button.left)
 
+    def zoom_out(self, delta=5):
+        for _ in range(abs(int(delta))):
+            self.ms_scroll(0, -1)
+    def zoom_in(self, delta=5):
+        for _ in range(abs(int(delta))):
+            self.ms_scroll(0, 1)
+
     def ms_press(self, button):
         self.__ms.press(button)
 
