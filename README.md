@@ -52,6 +52,12 @@ cd server
 python MinimapServer.py
 ```
 
+### 子模块更新
+如果远程子模块更新，可以在项目根目录下执行以下命令更新指定模块,例如GUI更新
+```shell
+git submodule update --remote  server/web 
+```
+
 # 环境说明
 ## opencv环境
 ```
