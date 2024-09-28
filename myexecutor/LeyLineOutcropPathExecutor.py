@@ -236,7 +236,8 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
             LeyLineConfig.KEY_LEYLINE_OUTCROP_TASK_FIGHT_TIMEOUT, default=20, min_val=10,max_val=400)
         start_time = time.time()
         time.sleep(0.5)
-        self.start_fight()
+        # 地脉战斗结束可以检测奖励花，无需检测敌人
+        self.start_fight(stop_on_no_enemy=False)
         while time.time()-start_time < leyline_fight_timeout:
             if self.stop_listen: return
             time.sleep(1)
