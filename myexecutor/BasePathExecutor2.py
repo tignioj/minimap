@@ -126,7 +126,8 @@ class BasePathExecutor(BaseController):
         if fight_team is None: fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
         if fight_team is None: raise Exception("请先配置队伍!")
         self.fight_controller = FightController(fight_team)
-        if fight_duration is None: self.fight_duration = FightConfig.get(FightConfig.KEY_FIGHT_DURATION, 12, min_val=1, max_val=1000)
+        if fight_duration is None: fight_duration = FightConfig.get(FightConfig.KEY_FIGHT_DURATION, 12, min_val=1, max_val=1000)
+        self.fight_duration = fight_duration
 
         self.debug_enable = debug_enable
 
