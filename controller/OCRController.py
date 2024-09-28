@@ -13,11 +13,27 @@ class OCRResult:
     def __init__(self, corner,text,percent):
         self.corner = corner
         self.text = text
-        self.percent =  percent
+        self.percent = percent
+        self.center = self.get_line_center(corner)
+
+    def get_line_center(self, rect):
+        """
+        获取行文字的中心点坐标
+        :param rect:
+        :return:
+        """
+        left_top = rect[0]
+        right_top = rect[1]
+        right_bottom = rect[2]
+        left_bottom = rect[3]
+        # print(left_top, right_top, right_bottom, left_bottom)
+
+        center_x = (left_top[0] + right_top[0]) / 2
+        center_y = (left_top[1] + left_bottom[1]) / 2
+        return center_x, center_y
+
     def __str__(self):
         return str(self.text)
-
-
 
 # @cache
 class OCRController(BaseController):
@@ -52,13 +68,19 @@ class OCRController(BaseController):
 
 
     def click(self, x, y):
+        """
+        点击根据游戏内坐标转为屏幕坐标
+        :param x:
+        :param y:
+        :return:
+        """
         pos = self.gc.get_screen_position((x, y))
         self.log((x, y), "->", pos)
         self.set_ms_position(pos)
         self.mouse_left_click()
 
     def click_ocr_result(self, ocr_item:OCRResult):
-        center = self.get_line_center(ocr_item.corner)
+        center = ocr_item.center
         self.click(center[0], center[1])
 
     def get_line_center(self, rect):
@@ -114,14 +136,12 @@ class OCRController(BaseController):
         if click_all:
             self.log(f"点击所有匹配的文本")
             for match in match_texts:
-                x, y = self.get_line_center(match.corner)
-                self.click(x, y)
+                self.click_ocr_result(match)
                 self.log(f"已经执行点击'{target_text}'操作")
         else:
             self.log(f"点击第{index + 1}个匹配的文本")
             match = match_texts[index]
-            x, y = self.get_line_center(match.corner)
-            self.click(x, y)
+            self.click_ocr_result(match)
             self.log(f"已经执行点击'{target_text}'操作")
         return True
 
