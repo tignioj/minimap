@@ -84,7 +84,11 @@ class TodoService:
 
     @staticmethod
     def run_one_todo(todo, socketio_instance=None):
-        socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行清单{todo.name}, 指定队伍为{todo.fight_team}')
+        fight_team = todo.fight_team
+        if fight_team is None or len(fight_team) == 0:
+            socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行清单{todo.name}, 未指定队伍，使用默认队伍')
+        else:
+            socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行清单{todo.name}, 指定队伍为{todo.fight_team}')
         # 切换队伍
         TodoService.change_team(todo.fight_team)
         for file in todo.files:

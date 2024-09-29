@@ -41,7 +41,7 @@ class FightController(BaseController):
         self.fight_mapper = FightMapperImpl(character_name=None)
         self.load_characters_with_skills_from_file()
         from controller.OCRController import OCRController
-        self.ocr = OCRController()
+        self.ocr = OCRController(debug_enable=self.debug_enable)
 
     @staticmethod
     def get_teamname_from_string(file_name):
@@ -151,7 +151,7 @@ class FightController(BaseController):
             raise CharacterNotFoundException(f"你指定的角色{name}不在队伍${self.characters_name}中")
         return self.characters_name.index(name) + 1
 
-    def character_fight(self, character_with_skills):
+    def character_fight(self, character_with_skills, start_fight_time,stop_on_no_enemy ):
         character = character_with_skills['name']
         character_number = self.get_character_number(character)
         skills = character_with_skills['skills']
@@ -159,6 +159,11 @@ class FightController(BaseController):
         self.logger.debug(f'character{character}, num {character_number}, skills {skills}')
         try:
             self.switch_character(character)
+            # 5秒后才开始检测，确保充分进入战斗状态
+            if time.time() - start_fight_time > 5 and stop_on_no_enemy:
+                if not self.has_enemy():
+                    self.stop_fight = True
+                    raise StopFightException("切人后:未发现敌人，结束战斗")
             self.current_character = character
             self.fight_mapper.character_name = character
             for skill in skills:
@@ -197,20 +202,16 @@ class FightController(BaseController):
         else:
             print(f"{method_name} does not exist")
 
-    def execute(self):
+    def execute(self,  stop_on_no_enemy=False):
+        start_time = time.time()
         for character_with_skill in self.characters_with_skills:
             if self.stop_fight: raise StopFightException()
-            self.character_fight(character_with_skill)
+            self.character_fight(character_with_skill, start_fight_time=start_time, stop_on_no_enemy=stop_on_no_enemy)
 
     def execute_infinity(self, stop_on_no_enemy=False):
         try:
             while not self.stop_fight:
-                if stop_on_no_enemy:
-                    time.sleep(0.5)  # 给出一定的时间进入战斗，否则仍然能读条，可能会导致误判
-                    if self.has_enemy():
-                        self.stop_fight = True
-                        raise StopFightException("已经没有敌人")
-                self.execute()
+                self.execute(stop_on_no_enemy)
         except CharacterDieException as e:
             self.logger.debug(e.args)
         except StopFightException as e:
@@ -230,6 +231,8 @@ class FightController(BaseController):
             self.team_name = None
         except StopListenException as e:
             self.logger.debug(e.args)
+
+        self.stop_fight = True
 
     def start_fighting(self, stop_on_no_enemy=False):
         self.stop_fight = False
@@ -311,20 +314,22 @@ class FightController(BaseController):
     def has_enemy(self):
         """
         判断是否有敌人
-        按下L按过0.1秒检测派蒙，如果没有派蒙说明已经在读条，判断为脱战, 否则判断为有敌人
+        按下L按过0.15秒检测派蒙，如果没有派蒙说明已经在读条，判断为脱战, 否则判断为有敌人
         经过测试不能检测太快，刚进入战斗的瞬间，系统仍然可以一小段条，这样会导致误判
         因此在调用本方法时，确保足够的时间进入战斗状态
+        TODO 本方法目前还不靠谱，需要结合YOLO判断敌人血量和箭头
         :return:
         """
         self.log('正在检测敌人')
         self.kb_press_and_release("l")
-        time.sleep(0.1)
+        time.sleep(0.15)
         has = self.gc.has_paimon()
         if has:
             self.log('有敌人')
             return True
         else:
             # 打断读条
+            # cv2.imwrite(f'sc{time.time()}.jpg', self.gc.screenshot)
             self.log('没有敌人')
             self.kb_press_and_release(self.Key.space)
             return False
@@ -345,7 +350,12 @@ if __name__ == '__main__':
     # file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
     # file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
     fc = FightController(None)
-    fc.execute_infinity()
+    # fc.execute_infinity()
+    fc.has_enemy()
+    # while True:
+    #     time.sleep(1)
+    #     has = fc.has_enemy()
+    #     print(has)
     # fc.switch_character('纳西妲')
     # def _on_press(key):
     #     try:
