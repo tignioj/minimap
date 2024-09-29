@@ -332,6 +332,7 @@ class FightController(BaseController):
             # cv2.imwrite(f'sc{time.time()}.jpg', self.gc.screenshot)
             self.log('没有敌人')
             self.kb_press_and_release("l")  # 不要使用空格,避免下一个角色无法释放技能
+            time.sleep(0.02)
             return False
 
 
