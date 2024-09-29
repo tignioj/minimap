@@ -130,6 +130,7 @@ class LeyLineConfig(_BaseConfig):
     KEY_LEYLINE_OUTCROP_TASK_EXECUTE_TIMEOUT = 'leyline_outcrop_task_execute_timeout'
     KEY_LEYLINE_OUTCROP_TASK_FIGHT_TIMEOUT = 'leyline_outcrop_task_fight_timeout'
     KEY_LEYLINE_ENABLE_WANYE_PICKUP_AFTER_REWARD = 'leyline_enable_wanye_pickup_after_reward'
+    KEY_LEYLINE_FIGHT_TEAM = 'leyline_fight_team'
 
 
 class ServerConfig(_BaseConfig):

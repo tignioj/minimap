@@ -26,3 +26,16 @@ class LeyLineOutcropController(ServerBaseController):
         socketio_instance = current_app.extensions['socketio']
         LeyLineOutcropService.stop(socketio_instance=socketio_instance)
         return LeyLineOutcropController.success('已发送停止信号')
+
+    @staticmethod
+    @leyline_outcrop_bp.post('/leyline_outcrop/set_config')
+    def set_config():
+        json_dict = request.get_json()
+        LeyLineOutcropService.set_config(json_dict)
+        return LeyLineOutcropController.success('设置成功')
+
+    @staticmethod
+    @leyline_outcrop_bp.route('/leyline_outcrop/get_config')
+    def get_config():
+        data = LeyLineOutcropService.get_config()
+        return LeyLineOutcropController.success(data=data)

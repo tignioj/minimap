@@ -1,17 +1,14 @@
-import threading
 import time
 from controller.BaseController import StopListenException
 from controller.MapController2 import MapController, LocationException
-from myexecutor.BasePathExecutor2 import BasePathExecutor, Point, BasePath, ExecuteTerminateException
-import os,cv2
-import numpy as np
+from myexecutor.BasePathExecutor2 import BasePathExecutor, Point, BasePath
+import os
 from typing import List
 import json
 from capture.capture_factory import capture
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("leyline_outcrop_executor")
-from controller.FightController import FightController, CharacterDieException
-from myutils.configutils import LeyLineConfig
+from myutils.configutils import LeyLineConfig, FightConfig
 class MoveToLocationTimeoutException(Exception): pass
 
 # TODO: 委托会挡住图标, 只能放大
@@ -194,9 +191,32 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         leyline_execute_timeout:int = LeyLineConfig.get(
             LeyLineConfig.KEY_LEYLINE_OUTCROP_TASK_EXECUTE_TIMEOUT, default=500, min_val=60, max_val=3600)
 
+        # 战斗队伍配置
+        fight_team = LeyLineConfig.get(LeyLineConfig.KEY_LEYLINE_FIGHT_TEAM)
+        if fight_team is None or len(fight_team) == 0: fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
+        if fight_team is None:
+            emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, f'请先配置队伍')
+            raise Exception("请先配置队伍!")
+
+        # 切换队伍
+        from controller.UIController import TeamUIController, TeamNotFoundException
+        tuic = TeamUIController()
+        tuic.last_selected_team = None
+        try:
+            tuic.navigation_to_world_page()
+            tuic.switch_team(fight_team)
+            tuic.navigation_to_world_page()
+        except TeamNotFoundException as e:
+            emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, str(e.args))
+
+
+        # 单次战斗超时配置
+        fight_timeout = LeyLineConfig.get(LeyLineConfig.KEY_LEYLINE_OUTCROP_TASK_FIGHT_TIMEOUT)
+        if fight_timeout is None: fight_timeout = FightConfig.get(FightConfig.KEY_FIGHT_TIMEOUT, 12, min_val=1, max_val=1000)
+        if fight_timeout is None: fight_timeout = 20
+
         start_time = time.time()
         try:
-
             map_controller = MapController()
             map_controller.open_middle_map()
             map_controller.turn_off_custom_tag()
@@ -211,7 +231,9 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
                     msg = f"开始执行地脉任务:{closest}"
                     logger.debug(msg)
                     emit(SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, msg)
-                    LeyLineOutcropPathExecutor(closest).execute()  # 可能会抛出体力耗尽异常
+                    LeyLineOutcropPathExecutor(json_file_path=closest,
+                                               fight_team=fight_team,
+                                               fight_duration=fight_timeout).execute()  # 可能会抛出体力耗尽异常
                 closet_missions = LeyLineOutcropPathExecutor.get_screen_world_mission_json(map_controller)
 
         except MoveToLocationTimeoutException as e:

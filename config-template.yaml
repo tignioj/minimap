@@ -79,7 +79,7 @@ daily_task_fight_timeout: 40
 # 每日委托破坏单个柱子(攀高危险)最长执行时间，允许范围(10~400)秒
 daily_task_destroy_timeout: 20
 
-# 委托指定队伍
+# 委托指定队伍，空白则使用默认队伍
 daily_task_fight_team: ''
 
 
@@ -92,6 +92,9 @@ leyline_outcrop_task_execute_timeout: 1000
 leyline_outcrop_task_fight_timeout: 40
 # 领取地脉奖励后，是否使用万叶拾取材料（需要队伍中有万叶）true表示开启，false表示关闭
 leyline_enable_wanye_pickup_after_reward: true
+# 地脉指定队伍, 空白则使用默认队伍
+leyline_fight_team: ''
+
 
 host: 127.0.0.1
 port: 5000
