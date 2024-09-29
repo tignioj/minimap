@@ -65,7 +65,7 @@ class FightPathExecutor(BasePathExecutor):
         super().on_move_after(point)  # 父类有开盾方法，直接调用
         if point.type == point.TYPE_TARGET:
             start_wait = time.time()
-            self.start_fight()
+            self.start_fight(stop_on_no_enemy=True)
             while time.time() - start_wait < self.fight_duration:
                 # 检测是否战斗结束
                 time.sleep(1)

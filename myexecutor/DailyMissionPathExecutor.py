@@ -292,7 +292,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
         daily_task_destroy_timeout = DailyMissionConfig.get(
             DailyMissionConfig.KEY_DAILY_TASK_DESTROY_TIMEOUT, default=20, min_val=10, max_val=400)
 
-        self.start_fight()
+        self.start_fight(stop_on_no_enemy=False)
         start_time = time.time()
         while time.time()-start_time < daily_task_destroy_timeout:
             if self.stop_listen: break
