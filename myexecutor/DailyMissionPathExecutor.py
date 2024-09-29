@@ -243,7 +243,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
                     logger.debug(msg)
                     emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, msg)
 
-                    de = DailyMissionPathExecutor(json_file_path=closet_missions, fight_team=fight_team, fight_duration=fight_timeout)
+                    de = DailyMissionPathExecutor(json_file_path=closest, fight_team=fight_team, fight_duration=fight_timeout)
                     de.execute()
 
                 closet_missions = DailyMissionPathExecutor.get_screen_world_mission_json(map_controller)
