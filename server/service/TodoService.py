@@ -8,6 +8,7 @@ from myutils.configutils import get_user_folder
 from myutils.fileutils import getjson_path_byname
 
 
+
 # TODO: 按顺序执行
 # TODO: 重复执行
 # TODO: 导入、导出清单？
@@ -17,9 +18,6 @@ class TodoException(Exception): pass
 
 
 class TodoExecuteException(Exception): pass
-
-class TeamNotFoundException(Exception): pass
-
 
 todo_runner_lock = Lock()
 from mylogger.MyLogger3 import MyLogger
@@ -31,7 +29,6 @@ from server.service.PlayBackService import SOCKET_EVENT_PLAYBACK_EXCEPTION, SOCK
 
 class TodoService:
     _is_thread_todo_running = False
-    _last_selected_team = None
 
     def get_todo_by_name(self):
         pass
@@ -52,35 +49,16 @@ class TodoService:
 
     @staticmethod
     def change_team(fight_team):
-        from controller.MapController2 import MapController
-        from controller.FightController import FightController
+        from controller.UIController import TeamUIController
+        from myutils.configutils import FightConfig
+        if fight_team is None or len(fight_team) == 0:
+            fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
+        if fight_team is None: raise TodoException("未选择队伍!")
 
-        if TodoService._last_selected_team != fight_team:
-            # 战斗状态下无法切换队伍, 所以每次切换队伍都要去七天神像
-            # 如果发现仍然在战斗状态，则回七天神像后再切换队伍
-            from controller.UIController import TeamUIController
-            tuic = TeamUIController()
-            tuic.navigation_to_world_page()
-            if FightController(None).has_enemy():
-                MapController().go_to_seven_anemo_for_revive()
-            from myutils.configutils import FightConfig
-            if fight_team is None or len(fight_team) == 0:
-                fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
-            if fight_team is None:
-                raise TeamNotFoundException("未选择队伍!")
-            try:
-                team_alias = FightController.get_teamname_from_string(fight_team)
-            except Exception as e:
-                logger.error(e.args)
-                raise TeamNotFoundException(f"{fight_team}无法解析队伍简称!")
-
-            if len(team_alias.strip()) == 0:
-                raise TeamNotFoundException(f"{fight_team}队伍未设置简称，无法切换,请在括号内写入队伍简称!")
-            result = tuic.switch_team(team_alias)
-            tuic.navigation_to_world_page()
-            if not result:
-                raise TeamNotFoundException(f"{fight_team}:无法切换队伍!")
-            TodoService._last_selected_team = fight_team
+        tuic = TeamUIController()
+        tuic.navigation_to_world_page()
+        tuic.switch_team(fight_team)
+        tuic.navigation_to_world_page()
 
     @staticmethod
     def run_one_todo(todo, socketio_instance=None):
@@ -90,7 +68,12 @@ class TodoService:
         else:
             socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行清单{todo.name}, 指定队伍为{todo.fight_team}')
         # 切换队伍
-        TodoService.change_team(todo.fight_team)
+        from controller.UIController import TeamNotFoundException
+        try:
+            TodoService.change_team(todo.fight_team)
+        except TeamNotFoundException as e:
+            raise TodoException(e.args)
+
         for file in todo.files:
             json_file_path = getjson_path_byname(file)
             # socket_emit(SOCKET_EVENT_PLAYBACK, msg=f'正在执行{json_file_name}')
@@ -134,12 +117,14 @@ class TodoService:
                         todo_json = json.load(f)
                 from server.dto.DataClass import Todo
                 # 加载json并执行
-                TodoService._last_selected_team = None
+
+                from controller.UIController import TeamUIController
+                TeamUIController.last_selected_team = None
                 for todo in todo_json:
                     todo_obj = Todo.from_dict(todo)
                     try:
                         if todo_obj.enable: TodoService.run_one_todo(todo_obj, socketio_instance=socketio_instance)
-                    except TeamNotFoundException as e:
+                    except TodoException as e:
                         logger.error(e)
                         socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, str(e.args))
             except StopListenException as e:

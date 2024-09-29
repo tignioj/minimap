@@ -1,5 +1,4 @@
 import os.path
-import sys
 import time
 
 import cv2
@@ -15,7 +14,7 @@ class RecognizableCapture(GenShinCaptureObj):
     def __init__(self):
         super(RecognizableCapture, self).__init__()
         template_path = os.path.join(resource_path, 'template')
-        self.icon_paimon = cv2.imread(os.path.join(template_path, 'paimeng_icon_trim.png'), cv2.IMREAD_GRAYSCALE)
+        self.__icon_paimon_org = cv2.imread(os.path.join(template_path, 'paimeng_icon_trim.png'), cv2.IMREAD_GRAYSCALE)
 
         # 1080p截图下来的图片, 做模板匹配的时候要缩放
         # TODO: 换成游戏内截图而非手动截图
@@ -130,8 +129,8 @@ class RecognizableCapture(GenShinCaptureObj):
         # 匹配器
         self.bf_matcher = cv2.BFMatcher()
 
-        kp, des = self.sift.detectAndCompute(self.icon_paimon, None)  # 判断是否在大世界
-        self.map_paimon = { 'img': self.icon_paimon, 'des': des, 'kp': kp }
+        kp, des = self.sift.detectAndCompute(self.__icon_paimon_org, None)  # 判断是否在大世界
+        self.map_paimon = { 'img': self.__icon_paimon_org, 'des': des, 'kp': kp}
         self.__paimon_appear_delay = 1  # 派蒙出现后，多少秒才可以进行匹配
         # 如果要求首次不进行计时器检查，则需要设置一个0的计时器
         self.__paimon_appear_delay_timer = Timer(0)  # 派蒙延迟计时器
@@ -263,9 +262,10 @@ class RecognizableCapture(GenShinCaptureObj):
         # has_down = self.__has_icon(self.get_user_status_area(), self.icon_user_status_down)
         # return has_up and not has_down
 
-    def has_paimon(self):
+    def has_paimon(self, delay:bool=True)->bool:
         """
         判断小地图左上角区域是否有小派蒙图标,如果没有说明不在大世界界面（可能切地图或者菜单界面了)
+        :param delay: 是否延迟，派蒙图标如果没有加载完全时，此时小地图拿去匹配会得到低质量匹配从而造成频繁全局匹配
         :return:
         """
         # 将图像转换为灰度
@@ -290,8 +290,10 @@ class RecognizableCapture(GenShinCaptureObj):
 
         # // FIXED BUG: 可能截取到质量差的派蒙图片, 此时会错误的进行全局匹配
         # 设计当出现派蒙由False转为True时，延迟0.5秒再返回True
+        gm_len = len(good_matches)
+        if not delay: return gm_len > 7
 
-        if len(good_matches) >= 7:
+        if gm_len > 7:
             if self.__paimon_appear_delay_timer is None:
                 self.__paimon_appear_delay_timer = Timer(self.__paimon_appear_delay)
                 self.__paimon_appear_delay_timer.start()
@@ -408,8 +410,10 @@ if __name__ == '__main__':
         t = time.time()
         # rc.update_screenshot_if_none()
         # print(rc.has_origin_resin_in_top_bar(),time.time()-t)
-        pos = rc.get_icon_position(rc.icon_team_selector)
-        print(pos, time.time()-t)
+        # pos = rc.get_icon_position(rc.icon_team_selector)
+        print(rc.has_paimon(delay=True), time.time()-t)
+        # print(rc.has_paimon2(), time.time()-t)
+        # print(pos, time.time()-t)
         # print(rc.has_origin_resin_in_top_bar(), time.time() - t)
         # print(rc.has_paimon(), time.time()-t)
         # rc.check_icon()

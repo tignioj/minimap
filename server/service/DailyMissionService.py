@@ -44,6 +44,48 @@ class DailyMissionService:
                 logger.exception(msg, exc_info=True)
                 socketio_instance.emit(SOCKET_EVENT_DAILY_MISSION_EXCEPTION, msg)
 
+    @staticmethod
+    def valid_number(num, min_value, max_value):
+        valid = int(num)
+        if valid < min_value:valid = min_value
+        elif valid > max_value:valid = max_value
+        return valid
+
+    @staticmethod
+    def get_config():
+        from myutils.configutils import DailyMissionConfig, FightConfig
+        et = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_EXECUTE_TIMEOUT)
+        ft = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TIMEOUT)
+        dt = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_DESTROY_TIMEOUT)
+        fight_team = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TEAM)
+        # default_fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
+        # if fight_team is None or len(fight_team) == 0:
+        #     fight_team = default_fight_team
+        return {
+            'daily_task_execute_timeout': et,
+            'daily_task_fight_timeout': ft,
+            'daily_task_destroy_timeout': dt,
+            'daily_task_fight_team': fight_team
+        }
+
+    @staticmethod
+    def set_config(json_dict):
+        from myutils.configutils import DailyMissionConfig
+        et = json_dict.get('daily_task_execute_timeout', 40)
+        ft = json_dict.get('daily_task_fight_timeout', 20)
+        dt = json_dict.get('daily_task_destroy_timeout', 20)
+
+        fight_team = json_dict.get('daily_task_fight_team')
 
 
+        DailyMissionConfig.set(DailyMissionConfig.KEY_DAILY_TASK_EXECUTE_TIMEOUT,
+                               DailyMissionService.valid_number(et, 60, 3600))
+        DailyMissionConfig.set(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TIMEOUT,
+                               DailyMissionService.valid_number(ft, 10, 400))
+        DailyMissionConfig.set(DailyMissionConfig.KEY_DAILY_TASK_DESTROY_TIMEOUT,
+                               DailyMissionService.valid_number(dt, 10, 400))
+
+        DailyMissionConfig.set(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TEAM, fight_team)
+
+        DailyMissionConfig.save_config()
 

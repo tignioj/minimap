@@ -79,6 +79,9 @@ daily_task_fight_timeout: 40
 # 每日委托破坏单个柱子(攀高危险)最长执行时间，允许范围(10~400)秒
 daily_task_destroy_timeout: 20
 
+# 委托指定队伍
+daily_task_fight_team: ''
+
 
 
 ############################ 地脉配置 ##############################

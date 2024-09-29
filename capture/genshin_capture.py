@@ -65,7 +65,7 @@ class GenShinCaptureObj(ObservableCapture):
     def update_screenshot(self):
         screenshot = self.get_screenshot(use_alpha=True)
         self.screenshot = screenshot
-        self.paimon_area = screenshot[0:100, 10:120]
+        self.paimon_area = screenshot[0:150, 10:150]
         self.user_status_area = screenshot[self.user_status_area_offset[0]:self.user_status_area_offset[1],
                                 self.user_status_area_offset[2]:self.user_status_area_offset[3]]
         self.user_status_key_area = screenshot[self.user_status_area_offset[0]+45:self.user_status_area_offset[1]+5,
@@ -230,8 +230,8 @@ if __name__ == '__main__':
         gc.update_screenshot_if_none()
         # img_box = gc.screenshot[int(gc.h * 0.45):int(gc.h * 0.55), int(gc.w * 0.50):int(gc.w * 0.75)]
         # img_box = gc.screenshot[int(gc.h * 0.45):int(gc.h * 0.55), int(gc.w * 0.50):int(gc.w * 0.75)]
-        img_box = gc.pick_up_area
-        cv2.imshow('pickup', img_box)
+        # img_box = gc.pick_up_area
+        # cv2.imshow('pickup', img_box)
         # cv2.imshow('minimap', gc.get_mini_map())
         # cv2.imshow('close', gc.close_button_area)
         # cv2.imwrite('icon_close.jpg', gc.close_button_area)

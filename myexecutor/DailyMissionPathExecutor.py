@@ -105,10 +105,14 @@ class DailyMissionPathExecutor(BasePathExecutor):
                             anchor_name=json_dict.get('anchor_name', '传送锚点'),
                             enable=json_dict.get('enable', True))
 
-
     # 2. 模板匹配查找屏幕中的所有的任务的坐标
     # 3. 请求一次屏幕中心的世界坐标，和当前缩放
     # 4. 2和3的结果做运算，得到实际坐标
+
+    # def __init__(self, json_file_path=None, fight_team:str=None, fight_timeout:int=None, debug_enable=None):
+    #     super().__init__(json_file_path=json_file_path, fight_team=fight_team, fight_duration=fight_timeout, debug_enable=debug_enable)
+
+
 
     @staticmethod
     def get_specify_point_closest_mission_json(target_point):
@@ -194,10 +198,35 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
     @staticmethod
     def execute_all_mission(emit=lambda val1,val2:None):  # 传一个空实现的方法，免去判断函数是否为空
-        from server.service.DailyMissionService import  SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END
+        from server.service.DailyMissionService import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END
         from controller.MapController2 import MapController
-        daily_task_execute_timeout = DailyMissionConfig.get(
-            DailyMissionConfig.KEY_DAILY_TASK_EXECUTE_TIMEOUT, 500, min_val=60, max_val=3600)
+        from myutils.configutils import FightConfig, DailyMissionConfig
+
+        # 读取委托配置
+        daily_task_execute_timeout = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_EXECUTE_TIMEOUT, 500, min_val=60, max_val=3600)
+
+        # 战斗队伍配置
+        fight_team = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TEAM)
+        if fight_team is None or len(fight_team) == 0: fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
+        if fight_team is None:
+            emit(SOCKET_EVENT_DAILY_MISSION_END, f'请先配置队伍')
+            raise Exception("请先配置队伍!")
+
+        # 切换队伍
+        from controller.UIController import TeamUIController, TeamNotFoundException
+        tuic = TeamUIController()
+        tuic.last_selected_team = None
+        try:
+            tuic.navigation_to_world_page()
+            tuic.switch_team(fight_team)
+            tuic.navigation_to_world_page()
+        except TeamNotFoundException as e:
+            emit(SOCKET_EVENT_DAILY_MISSION_END, str(e.args))
+
+        # 单次战斗超时配置
+        fight_timeout = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TIMEOUT)
+        if fight_timeout is None: fight_timeout = FightConfig.get(FightConfig.KEY_FIGHT_TIMEOUT, 12, min_val=1, max_val=1000)
+        if fight_timeout is None: fight_timeout = 20
 
         map_controller = MapController()
         start_time = time.time()
@@ -213,7 +242,9 @@ class DailyMissionPathExecutor(BasePathExecutor):
                     msg = f"开始执行战斗委托:{closest}"
                     logger.debug(msg)
                     emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, msg)
-                    DailyMissionPathExecutor(closest).execute()
+
+                    de = DailyMissionPathExecutor(json_file_path=closet_missions, fight_team=fight_team, fight_duration=fight_timeout)
+                    de.execute()
 
                 closet_missions = DailyMissionPathExecutor.get_screen_world_mission_json(map_controller)
         except ExecuteTimeOutException as e:

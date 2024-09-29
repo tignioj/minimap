@@ -323,12 +323,13 @@ class FightController(BaseController):
         self.log('正在检测敌人')
         self.kb_press_and_release("l")
         time.sleep(0.15)
-        has = self.gc.has_paimon()
+        has = self.gc.has_paimon(delay=False)
         if has:
             self.log('有敌人')
             return True
         else:
             # 打断读条
+            # import cv2
             # cv2.imwrite(f'sc{time.time()}.jpg', self.gc.screenshot)
             self.log('没有敌人')
             self.kb_press_and_release("l")  # 不要使用空格,避免下一个角色无法释放技能
@@ -352,11 +353,11 @@ if __name__ == '__main__':
     # file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
     fc = FightController(None)
     # fc.execute_infinity()
-    fc.has_enemy()
-    # while True:
-    #     time.sleep(1)
-    #     has = fc.has_enemy()
-    #     print(has)
+    # fc.has_enemy()
+    while True:
+        time.sleep(1)
+        has = fc.has_enemy()
+        print(has)
     # fc.switch_character('纳西妲')
     # def _on_press(key):
     #     try:

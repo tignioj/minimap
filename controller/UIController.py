@@ -33,7 +33,13 @@ class UIController(BaseController):
         else:
             self.logger.error('无法回到大世界界面')
 
+
+
+class TeamNotFoundException(Exception): pass
+
 class TeamUIController(UIController):
+    last_selected_team = None
+
     def __init__(self):
         super().__init__(True)
 
@@ -115,7 +121,26 @@ class TeamUIController(UIController):
             success = True
         return success
 
-    def switch_team(self, target_team):
+    def switch_team(self, fight_team):
+        from controller.FightController import FightController
+
+
+        # 解析队伍名称
+        try: team_alias = FightController.get_teamname_from_string(fight_team)
+        except Exception as e:
+            raise TeamNotFoundException(f"{fight_team}无法解析队伍简称!")
+
+        if len(team_alias.strip()) == 0:
+            raise TeamNotFoundException(f"{fight_team}队伍未设置简称，无法切换,请在括号内写入队伍简称!")
+        target_team = team_alias
+
+        if TeamUIController.last_selected_team == fight_team:
+            return
+
+        # 如果发现仍然在战斗状态，则回七天神像后再切换队伍
+        from controller.MapController2 import MapController
+        if FightController(None).has_enemy(): MapController().go_to_seven_anemo_for_revive()
+
         self.open_team_selector()
         self.team_selector_scroll_to_top()
         time.sleep(0.5)
@@ -130,17 +155,18 @@ class TeamUIController(UIController):
             self.ocr.find_text_and_click('确认')
             time.sleep(0.8)
             self.ocr.find_text_and_click('出战')
-            return True
+            self.last_selected_team = fight_team
         else:
-            self.logger.error(f'超时失败:{target_team}')
-            return False
+            msg =f'超时失败:{target_team}'
+            self.logger.error(msg)
+            raise TeamNotFoundException(msg)
 
 
 
 if __name__ == '__main__':
     tui = TeamUIController()
     tui.navigation_to_world_page()
-    # target_team = '钟芙万流'
-    target_team = '采集队'
+    target_team = '钟离_芙宁娜_枫原万叶_流浪者_(钟芙万流).txt'
+    # target_team = '纳西妲_钟离_芙宁娜_枫原万叶_(采集队).txt'
     tui.switch_team(target_team)
     tui.navigation_to_world_page()

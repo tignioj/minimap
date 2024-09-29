@@ -27,3 +27,17 @@ class DailyMissionController(ServerBaseController):
         socketio_instance = current_app.extensions['socketio']
         DailyMissionService.stop(socketio_instance=socketio_instance)
         return DailyMissionController.success('已发送停止信号')
+
+
+    @staticmethod
+    @daily_mission_bp.post('/daily_mission/set_config')
+    def set_config():
+        json_dict = request.get_json()
+        DailyMissionService.set_config(json_dict)
+        return DailyMissionController.success('设置成功')
+
+    @staticmethod
+    @daily_mission_bp.route('/daily_mission/get_config')
+    def get_config():
+        data = DailyMissionService.get_config()
+        return DailyMissionController.success(data=data)

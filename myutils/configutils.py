@@ -118,9 +118,10 @@ class PathExecutorConfig(_BaseConfig):
 
 class FightConfig(_BaseConfig):
     KEY_DEFAULT_FIGHT_TEAM = 'default_fight_team'
-    KEY_FIGHT_DURATION = 'fight_duration'
+    KEY_FIGHT_TIMEOUT = 'fight_duration'
 
 class DailyMissionConfig(_BaseConfig):
+    KEY_DAILY_TASK_FIGHT_TEAM = 'daily_task_fight_team'
     KEY_DAILY_TASK_EXECUTE_TIMEOUT = 'daily_task_execute_timeout'
     KEY_DAILY_TASK_FIGHT_TIMEOUT = 'daily_task_fight_timeout'
     KEY_DAILY_TASK_DESTROY_TIMEOUT = 'daily_task_destroy_timeout'

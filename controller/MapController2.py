@@ -139,17 +139,6 @@ class MapController(BaseController):
         self.log("正在关闭大地图")
         self.ui_close_button()
 
-    def zoom_out(self, delta=5):
-        for _ in range(abs(int(delta))):
-            # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
-            # time.sleep(0.01)  # 短暂等待，防止事件过于密集
-            self.ms_scroll(0, -1)
-
-    def zoom_in(self, delta=5):
-        for _ in range(abs(int(delta))):
-            # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, delta, 0)
-            self.ms_scroll(0, 1)
-
 
     # 2. 切换到固定的缩放大小
     def scales_adjust(self, percentage=None):
@@ -158,7 +147,7 @@ class MapController(BaseController):
         max_scale = 61
         if percentage:
             self.zoom_out(max_scale)
-            time.sleep(0.2)
+            time.sleep(0.3)
             self.ui_map_scale = percentage
             self.zoom_in(int(max_scale*percentage))
 
@@ -166,7 +155,7 @@ class MapController(BaseController):
             # 如果人为改变了地图的scale，是没办法感知的, 因此必须要每次都调整。
             self.ui_map_scale = 0.5
             self.zoom_out(max_scale)
-            time.sleep(0.2)
+            time.sleep(0.3)
             self.zoom_in(int(max_scale*self.ui_map_scale))
 
         time.sleep(0.5)
