@@ -97,7 +97,7 @@ class PlayBackService:
                 executor = PlayBackService.executor_map.get(executor_text)
                 bp = executor(json_file_path=temp_json_path, fight_team=fight_team, fight_duration=fight_duration)
                 if socketio_instance:
-                    if fight_team or len(fight_team) == 0:
+                    if fight_team is None or len(fight_team) == 0:
                         socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行{jsondict.get("name")}, 队伍为默认队伍')
                     else:
                         socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行{jsondict.get("name")}, 队伍为{fight_team}')
