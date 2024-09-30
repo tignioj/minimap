@@ -254,7 +254,7 @@ class MiniMap:
                     global_match_pos, good_match_count = get_match_position_with_good_match_count(small_image, keypoints_small, descriptors_small, sift_map.kep, sift_map.des,
                                                           self.flann_matcher)
                 except MatchException as e:
-                    self.logger.debug(f'{map_name}匹配失败:{e.args}')
+                    self.logger.error(f'{map_name}匹配失败:{e.args}')
                     return
                 with self.set_good_count_lock:
                     if global_match_pos is not None:
