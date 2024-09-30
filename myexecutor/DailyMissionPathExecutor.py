@@ -194,8 +194,8 @@ class DailyMissionPathExecutor(BasePathExecutor):
         logger.debug("前往清泉镇七天神像")
         map_controller.teleport((x, y), country, "七天神像")
 
-    # 5. 遍历实际坐标，遍历所有已存放的委托列表, 查找最近的一个委托
 
+    # 5. 遍历实际坐标，遍历所有已存放的委托列表, 查找最近的一个委托
     @staticmethod
     def execute_all_mission(emit=lambda val1,val2:None):  # 传一个空实现的方法，免去判断函数是否为空
         from server.service.DailyMissionService import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END
@@ -205,34 +205,37 @@ class DailyMissionPathExecutor(BasePathExecutor):
         # 读取委托配置
         daily_task_execute_timeout = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_EXECUTE_TIMEOUT, 500, min_val=60, max_val=3600)
 
-        # 战斗队伍配置
-        fight_team = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TEAM)
-        if fight_team is None or len(fight_team) == 0: fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
-        if fight_team is None:
-            emit(SOCKET_EVENT_DAILY_MISSION_END, f'请先配置队伍')
-            raise Exception("请先配置队伍!")
-
-        # 切换队伍
-        from controller.UIController import TeamUIController, TeamNotFoundException
-        tuic = TeamUIController()
-        tuic.last_selected_team = None
-        try:
-            tuic.navigation_to_world_page()
-            tuic.switch_team(fight_team)
-            tuic.navigation_to_world_page()
-        except TeamNotFoundException as e:
-            emit(SOCKET_EVENT_DAILY_MISSION_END, str(e.args))
-
         # 单次战斗超时配置
         fight_timeout = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TIMEOUT)
         if fight_timeout is None: fight_timeout = FightConfig.get(FightConfig.KEY_FIGHT_TIMEOUT, 12, min_val=1, max_val=1000)
         if fight_timeout is None: fight_timeout = 20
 
+        # 战斗队伍配置
+        from controller.UIController import TeamUIController, TeamNotFoundException
+        tuic = TeamUIController()
+        tuic.last_selected_team = None
+
+        fight_team = DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TEAM)
+        if fight_team is None or len(fight_team) == 0: fight_team = FightConfig.get(
+            FightConfig.KEY_DEFAULT_FIGHT_TEAM)
+        if fight_team is None:
+            emit(SOCKET_EVENT_DAILY_MISSION_END, f'请先配置队伍')
+            raise Exception("请先配置队伍!")
+
         map_controller = MapController()
         start_time = time.time()
         try:
-            # 递归执行委托，直到完成
+            # 循环执行委托，直到完成
             closet_missions = DailyMissionPathExecutor.get_screen_world_mission_json(map_controller)
+            if len(closet_missions) > 0:  # 当检测到有委托才切换队伍，否则不切换
+                # 切换队伍
+                try:
+                    tuic.navigation_to_world_page()
+                    tuic.switch_team(fight_team)
+                    tuic.navigation_to_world_page()
+                except TeamNotFoundException as e:
+                    emit(SOCKET_EVENT_DAILY_MISSION_END, str(e.args))
+
             while len(closet_missions) > 0:  # 不断执行委托直到屏幕上查找到的战斗委托为空
                 msg = f"查找到战斗委托:{closet_missions}"
                 logger.debug(msg)

@@ -190,24 +190,13 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         from server.service.LeyLineOutcropService import SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, SOCKET_EVENT_LEYLINE_OUTCROP_END
         leyline_execute_timeout:int = LeyLineConfig.get(
             LeyLineConfig.KEY_LEYLINE_OUTCROP_TASK_EXECUTE_TIMEOUT, default=500, min_val=60, max_val=3600)
-
         # 战斗队伍配置
         fight_team = LeyLineConfig.get(LeyLineConfig.KEY_LEYLINE_FIGHT_TEAM)
-        if fight_team is None or len(fight_team) == 0: fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
+        if fight_team is None or len(fight_team) == 0: fight_team = FightConfig.get(
+            FightConfig.KEY_DEFAULT_FIGHT_TEAM)
         if fight_team is None:
             emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, f'请先配置队伍')
             raise Exception("请先配置队伍!")
-
-        # 切换队伍
-        from controller.UIController import TeamUIController, TeamNotFoundException
-        tuic = TeamUIController()
-        tuic.last_selected_team = None
-        try:
-            tuic.navigation_to_world_page()
-            tuic.switch_team(fight_team)
-            tuic.navigation_to_world_page()
-        except TeamNotFoundException as e:
-            emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, str(e.args))
 
 
         # 单次战斗超时配置
@@ -222,7 +211,19 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
             map_controller.turn_off_custom_tag()
 
             closet_missions = LeyLineOutcropPathExecutor.get_screen_world_mission_json(map_controller)
-            while len(closet_missions) > 0:  # 不断执行委托直到屏幕上查找到的战斗委托为空
+            if len(closet_missions) > 0:
+                # 切换队伍
+                from controller.UIController import TeamUIController, TeamNotFoundException
+                tuic = TeamUIController()
+                tuic.last_selected_team = None
+                try:
+                    tuic.navigation_to_world_page()
+                    tuic.switch_team(fight_team)
+                    tuic.navigation_to_world_page()
+                except TeamNotFoundException as e:
+                    emit(SOCKET_EVENT_LEYLINE_OUTCROP_END, str(e.args))
+
+            while len(closet_missions) > 0:  # 不断执行地脉直到屏幕上查找到的地脉为空
                 msg = f"查找到地脉:{closet_missions}"
                 logger.debug(msg)
                 emit(SOCKET_EVENT_LEYLINE_OUTCROP_UPDATE, msg)

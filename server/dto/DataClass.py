@@ -6,6 +6,7 @@ from typing import List
 class Todo:
     name: str = None
     enable: bool = True
+    team_enable: bool = True
     fight_duration: int = 20
     from_index: int = 0
     fight_team: str = ""

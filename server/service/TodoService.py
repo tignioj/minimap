@@ -68,11 +68,12 @@ class TodoService:
         else:
             socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在执行清单{todo.name}, 指定队伍为{todo.fight_team}')
         # 切换队伍
-        from controller.UIController import TeamNotFoundException
-        try:
-            TodoService.change_team(todo.fight_team)
-        except TeamNotFoundException as e:
-            raise TodoException(e.args)
+        if todo.team_enable:
+            socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f'正在切换队伍')
+            from controller.UIController import TeamNotFoundException
+            try: TodoService.change_team(todo.fight_team)
+            except TeamNotFoundException as e:
+                raise TodoException(e.args)
 
         for file in todo.files:
             json_file_path = getjson_path_byname(file)
