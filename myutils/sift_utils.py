@@ -59,27 +59,22 @@ def get_match_position(small_image, keypoints_small, descriptors_small, keypoint
 
 def get_match_position_with_good_match_count(small_image, keypoints_small, descriptors_small, keypoints_large, descriptors_large,
                      matcher):
-    try:
-        # 获取匹配点的坐标
-        src_pts, dst_pts, good_match_count = get_match_pts_and_dts(small_image, keypoints_small, descriptors_small, keypoints_large, descriptors_large,
-                         matcher)
-        # 使用RANSAC找到变换矩阵
-        M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 3.0)
-        if M is None:
-            logger.debug("透视变换失败！！")
-            return None, None
+    # 获取匹配点的坐标
+    src_pts, dst_pts, good_match_count = get_match_pts_and_dts(small_image, keypoints_small, descriptors_small, keypoints_large, descriptors_large,
+                     matcher)
+    # 使用RANSAC找到变换矩阵
+    M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 3.0)
+    if M is None:
+        raise MatchException("透视变换失败！！")
 
-        # 计算小地图的中心点
-        h, w = small_image.shape[:2]
-        center_point = np.array([[w / 2, h / 2]], dtype='float32')
-        center_point = np.array([center_point])
-        transformed_center = cv2.perspectiveTransform(center_point, M)
-        # 打印小地图在大地图中的中心坐标
-        # print("Center of the small map in the large map: ", transformed_center)
-        return transformed_center[0][0], good_match_count
-    except MatchException as e:
-        logger.error(e)
-    return None,None
+    # 计算小地图的中心点
+    h, w = small_image.shape[:2]
+    center_point = np.array([[w / 2, h / 2]], dtype='float32')
+    center_point = np.array([center_point])
+    transformed_center = cv2.perspectiveTransform(center_point, M)
+    # 打印小地图在大地图中的中心坐标
+    # print("Center of the small map in the large map: ", transformed_center)
+    return transformed_center[0][0], good_match_count
 
 def get_match_corner(small_image, keypoints_small, descriptors_small, keypoints_large, descriptors_large,
                      matcher):

@@ -12,7 +12,9 @@ from myutils.configutils import resource_path
 from myutils.kp_gen import load
 from myutils.timerutils import RateLimiterAsync
 from myutils.imgutils import crop_img
-from myutils.sift_utils import get_match_position, get_match_position_with_good_match_count, get_match_corner
+from myutils.sift_utils import get_match_position, get_match_position_with_good_match_count, get_match_corner, \
+    MatchException
+
 gs = capture
 from mylogger.MyLogger3 import MyLogger
 from myutils.configutils import MapConfig, DebugConfig, PathExecutorConfig
@@ -247,13 +249,17 @@ class MiniMap:
             def match(map_name):
                 sift_map = self.get_sift_map(block_size=2048, map_name=map_name)
                 keypoints_small, descriptors_small = sift_map.sift.detectAndCompute(small_image, None)
-
-                global_match_pos, good_match_count = get_match_position_with_good_match_count(small_image, keypoints_small, descriptors_small, sift_map.kep, sift_map.des,
-                                                      self.flann_matcher)
+                self.logger.debug(f'开始尝试匹配{map_name}')
+                try:
+                    global_match_pos, good_match_count = get_match_position_with_good_match_count(small_image, keypoints_small, descriptors_small, sift_map.kep, sift_map.des,
+                                                          self.flann_matcher)
+                except MatchException as e:
+                    self.logger.debug(f'{map_name}匹配失败:{e.args}')
+                    return
                 with self.set_good_count_lock:
                     if global_match_pos is not None:
                         if good_match_count > self.good_match_count:
-                            self.logger.debug(f'有更好的匹配结果在{map_name}, good match数量为{good_match_count}，替代旧的匹配结果{self.map_2048.map_name}')
+                            self.logger.debug(f'{map_name}匹配成功, good match数量为{good_match_count}，替代旧的匹配结果{self.map_2048.map_name}')
                             # 如何减少错误匹配? 目前是增大good match阈值
                             self.good_match_count = good_match_count
                             self.choose_map(map_name)
@@ -422,7 +428,7 @@ class MiniMap:
         self.__cvshow('imgKp1', imgKp1)
 
         if not capture.has_paimon():
-            self.logger.debug('未找到左上角小地图旁边的派蒙，无法获取位置')
+            self.logger.error('未找到左上角小地图旁边的派蒙，无法获取位置')
             return None
 
         if self.local_map_descriptors is None or self.local_map_keypoints is None or len(self.local_map_descriptors) == 0 or len(self.local_map_keypoints) == 0:
