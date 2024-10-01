@@ -1,4 +1,5 @@
 import os.path
+import sys
 import time
 
 import cv2
@@ -124,6 +125,20 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_team_selector_org = cv2.imread(os.path.join(template_path, "button_team_selector.png"), cv2.IMREAD_GRAYSCALE)
         self.icon_team_selector = self.__icon_team_selector_org.copy()
 
+        # 对话状态-眼睛
+        self.__icon_dialog_eyes_org = cv2.imread(os.path.join(template_path, "icon_dialog_eyes.png"), cv2.IMREAD_GRAYSCALE)
+        self.icon_dialog_eyes = self.__icon_dialog_eyes_org.copy()
+
+        # 对话选项-消息
+        self.__icon_dialog_message_org = cv2.imread(os.path.join(template_path, 'icon_dialog_message.png'), cv2.IMREAD_GRAYSCALE)
+        self.icon_dialog_message = self.__icon_dialog_message_org.copy()
+
+        # 对话选项-探索派遣
+
+        # 对话选项-领取每日委托
+
+
+
 
         self.sift = cv2.SIFT.create()
         # 匹配器
@@ -226,6 +241,9 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_mission_ok = cv2.resize(self.__icon_mission_ok_org, None, fx=scale, fy=scale)
 
         self.icon_team_selector = cv2.resize(self.__icon_team_selector_org, None, fx=scale,fy=scale)
+
+        self.icon_dialog_eyes = cv2.resize(self.__icon_dialog_eyes_org, None, fx=scale, fy=scale)
+        self.icon_dialog_message = cv2.resize(self.__icon_dialog_message_org, None, fx=scale, fy=scale)
 
     def has_mission_ok(self):
         """
@@ -411,7 +429,8 @@ if __name__ == '__main__':
         # rc.update_screenshot_if_none()
         # print(rc.has_origin_resin_in_top_bar(),time.time()-t)
         # pos = rc.get_icon_position(rc.icon_team_selector)
-        print(rc.has_paimon(delay=True), time.time()-t)
+        print(rc.get_icon_position(rc.icon_dialog_message))
+        # print(rc.has_paimon(delay=True), time.time()-t)
         # print(rc.has_paimon2(), time.time()-t)
         # print(pos, time.time()-t)
         # print(rc.has_origin_resin_in_top_bar(), time.time() - t)
