@@ -37,7 +37,9 @@ class OCRResult:
 
 # @cache
 class OCRController(BaseController):
-    def __init__(self, debug_enable=False):
+    def __init__(self, debug_enable=None):
+        from myutils.configutils import DebugConfig
+        if debug_enable is None: debug_enable = DebugConfig.get(DebugConfig.KEY_DEBUG_ENABLE, False)
         self.debug_enable = debug_enable
         self.gc = capture
         super().__init__(debug_enable, self.gc)
