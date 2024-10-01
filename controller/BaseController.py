@@ -141,13 +141,19 @@ class BaseController:
 
     def ui_close_button(self):
         """
-        右上角关闭按钮, 用于关闭地图、关闭烹饪界面
+        尝试点击关闭按钮, 用于关闭地图、关闭烹饪界面
         :return:
         """
-        pos = (self.gc.w - 60, 40)
-        pos = self.gc.get_screen_position(pos)
-        self.__ms.position = pos
-        self.mouse_left_click()
+        # 这也太多关闭按钮图标了，晕了
+        if self.click_if_appear(self.gc.icon_close_while_arrow): pass
+        elif self.click_if_appear(self.gc.button_close_gray_arrow): pass
+        elif self.click_if_appear(self.gc.icon_close_tob_bar): pass
+        elif self.click_if_appear(self.gc.icon_close_tob_bar): pass
+        else:
+            pos = (self.gc.w - 60, 40)
+            pos = self.gc.get_screen_position(pos)
+            self.__ms.position = pos
+            self.mouse_left_click()
 
     def ms_click(self, button):
         self.__ms.click(button)
