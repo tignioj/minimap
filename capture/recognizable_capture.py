@@ -130,14 +130,20 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_dialog_eyes = self.__icon_dialog_eyes_org.copy()
 
         # 对话选项-消息
+        # 此图标1280*720p状态下0.85阈值模板匹配无法识别
         self.__icon_dialog_message_org = cv2.imread(os.path.join(template_path, 'icon_dialog_message.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_dialog_message = self.__icon_dialog_message_org.copy()
 
-        # 对话选项-探索派遣
+        # 历练点
+        self.__button_icon_encounter_point_gift_org = cv2.imread(os.path.join(template_path, 'button_icon_encounter_point_gift.png'), cv2.IMREAD_GRAYSCALE)
+        self.button_icon_encounter_point_gift = self.__button_icon_encounter_point_gift_org.copy()
 
-        # 对话选项-领取每日委托
+        self.__img_advanture_handbook_left_top_corner_org = cv2.imread(os.path.join(template_path, 'img_adventure_handbook_left_top_corner.png'),
+                                                                       cv2.IMREAD_GRAYSCALE)
+        self.img_advanture_handbook_left_top_corner = self.__img_advanture_handbook_left_top_corner_org.copy()
 
-
+        self.__icon_button_retry_org = cv2.imread(os.path.join(template_path, 'icon_button_retry.png'), cv2.IMREAD_GRAYSCALE)
+        self.icon_button_retry = self.__icon_button_retry_org.copy()
 
 
         self.sift = cv2.SIFT.create()
@@ -153,9 +159,10 @@ class RecognizableCapture(GenShinCaptureObj):
 
         self.__icon_fit_resolution()
 
+    def has_template_icon_in_screen(self, icon, threshold=0.85):
+        return self.has_template_icon(self.get_screenshot(), icon, threshold)
 
-
-    def __has_icon(self, image, icon, threshold=0.65):
+    def has_template_icon(self, image, icon, threshold=0.65):
         # 读取目标图片
         gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         # 模板匹配
@@ -245,6 +252,12 @@ class RecognizableCapture(GenShinCaptureObj):
         self.icon_dialog_eyes = cv2.resize(self.__icon_dialog_eyes_org, None, fx=scale, fy=scale)
         self.icon_dialog_message = cv2.resize(self.__icon_dialog_message_org, None, fx=scale, fy=scale)
 
+        self.button_icon_encounter_point_gift = cv2.resize(self.__button_icon_encounter_point_gift_org, None, fx=scale, fy=scale)
+
+        self.img_advanture_handbook_left_top_corner = cv2.resize(self.__img_advanture_handbook_left_top_corner_org, None, fx=scale, fy=scale)
+
+        self.icon_button_retry = cv2.resize(self.__icon_button_retry_org, None, fx=scale, fy=scale)
+
     def has_mission_ok(self):
         """
         每日委托完成时，会有一个绿色的小箭头在小地图下面短暂停留
@@ -257,24 +270,24 @@ class RecognizableCapture(GenShinCaptureObj):
         # if key == ord('q'):
         #     cv2.destroyAllWindows()
         #     sys.exit(0)
-        return self.__has_icon(mission_area, self.icon_mission_ok, threshold=0.9)
+        return self.has_template_icon(mission_area, self.icon_mission_ok, threshold=0.9)
 
     def has_origin_resin_in_top_bar(self):
         self.update_screenshot_if_none()
         top_bar = self.screenshot[0:102, int(self.w*0.5):self.w]
         # cv2.imshow('top_bar', top_bar)
         # cv2.waitKey(2)
-        return self.__has_icon(top_bar, self.icon_origin_resin, 0.75)
+        return self.has_template_icon(top_bar, self.icon_origin_resin, 0.75)
 
     def is_swimming(self):
-        return self.__has_icon(self.get_user_status_area(),self.icon_user_status_swim)
+        return self.has_template_icon(self.get_user_status_area(), self.icon_user_status_swim)
     def is_climbing(self):
-        has_space = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_space)
-        has_x = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
+        has_space = self.has_template_icon(self.get_user_status_key_area(), self.icon_user_status_key_space)
+        has_x = self.has_template_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
         return has_space and has_x
     def is_flying(self):
-        has_space = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_space)
-        has_x = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
+        has_space = self.has_template_icon(self.get_user_status_key_area(), self.icon_user_status_key_space)
+        has_x = self.has_template_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
         return has_space and not has_x
         # has_up = self.__has_icon(self.get_user_status_area(), self.icon_user_status_swim)
         # has_down = self.__has_icon(self.get_user_status_area(), self.icon_user_status_down)
@@ -363,14 +376,14 @@ class RecognizableCapture(GenShinCaptureObj):
         img = self.screenshot[self.h-130:self.h-10, 0:120]
         # cv2.imshow('map_setting_gear', img)
         # cv2.waitKey(2)
-        return self.__has_icon(img, self.icon_map_setting_gear,0.8)
+        return self.has_template_icon(img, self.icon_map_setting_gear, 0.8)
 
     def notice_update_event(self):
         super().notice_update_event()
         self.__icon_fit_resolution()
 
     def has_tob_bar_close_button(self): # 注意，Map侧边切换国家的关闭按钮不是同一个按钮
-        return self.__has_icon(self.get_tobbar_area(), self.icon_close_tob_bar) or self.__has_icon(self.get_tobbar_area(), self.icon_close_while_arrow)
+        return self.has_template_icon(self.get_tobbar_area(), self.icon_close_tob_bar) or self.has_template_icon(self.get_tobbar_area(), self.icon_close_while_arrow)
 
     def has_revive_eggs(self):
         """
@@ -380,36 +393,36 @@ class RecognizableCapture(GenShinCaptureObj):
         # img_box = self.screenshot[int(self.w*0.25):int(self.w*0.75), int(self.h*0.25):int(self.h*0.75)]
         self.update_screenshot_if_none()
         img_box = self.screenshot[int(self.h*0.25):int(self.h*0.45), int(self.w*0.25):int(self.w*0.75)]
-        return self.__has_icon(img_box, self.icon_eggs)
+        return self.has_template_icon(img_box, self.icon_eggs)
 
     def has_reward(self):
         self.update_screenshot_if_none()
-        return self.__has_icon(self.screenshot, self.icon_reward, threshold=0.8)
+        return self.has_template_icon(self.screenshot, self.icon_reward, threshold=0.8)
 
     def has_map_sidebar_toggle(self):
         self.update_screenshot_if_none()
-        return (self.__has_icon(self.screenshot, self.icon_map_star, threshold=0.8)
-                or self.__has_icon(self.screenshot, self.icon_map_tea, threshold=0.8))
+        return (self.has_template_icon(self.screenshot, self.icon_map_star, threshold=0.8)
+                or self.has_template_icon(self.screenshot, self.icon_map_tea, threshold=0.8))
 
     def has_gear(self):
         self.update_screenshot_if_none()
-        return self.__has_icon(self.pick_up_area, self.icon_gear, threshold=0.8)
+        return self.has_template_icon(self.pick_up_area, self.icon_gear, threshold=0.8)
 
     def has_key(self):
         self.update_screenshot_if_none()
-        return self.__has_icon(self.pick_up_area, self.icon_key, threshold=0.8)
+        return self.has_template_icon(self.pick_up_area, self.icon_key, threshold=0.8)
 
     def has_cook_hat(self):
         self.update_screenshot_if_none()
-        return self.__has_icon(self.pick_up_area, self.icon_cook_hat, threshold=0.8)
+        return self.has_template_icon(self.pick_up_area, self.icon_cook_hat, threshold=0.8)
 
     def check_icon(self):
         t = time.time()
-        down = self.__has_icon(self.get_user_status_area(), self.icon_user_status_down)
-        up = self.__has_icon(self.get_user_status_area(), self.icon_user_status_up)
-        swim = self.__has_icon(self.get_user_status_area(), self.icon_user_status_swim)
-        space = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_space)
-        x = self.__has_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
+        down = self.has_template_icon(self.get_user_status_area(), self.icon_user_status_down)
+        up = self.has_template_icon(self.get_user_status_area(), self.icon_user_status_up)
+        swim = self.has_template_icon(self.get_user_status_area(), self.icon_user_status_swim)
+        space = self.has_template_icon(self.get_user_status_key_area(), self.icon_user_status_key_space)
+        x = self.has_template_icon(self.get_user_status_key_area(), self.icon_user_status_key_x)
         print(f'down: {down}, up: {up}, swim: {swim}, space: {space}, x: {x}, cost: {time.time() -t }')
 
         cv2.imshow('status area',self.get_user_status_area())
@@ -429,7 +442,9 @@ if __name__ == '__main__':
         # rc.update_screenshot_if_none()
         # print(rc.has_origin_resin_in_top_bar(),time.time()-t)
         # pos = rc.get_icon_position(rc.icon_team_selector)
-        print(rc.get_icon_position(rc.icon_dialog_message))
+        # print(rc.has_template_icon_in_screen(rc.img_advanture_handbook_left_top_corner))
+        print(rc.has_template_icon_in_screen(rc.icon_button_retry))
+        # print(rc.get_icon_position(rc.button_icon_encounter_point_gift))
         # print(rc.has_paimon(delay=True), time.time()-t)
         # print(rc.has_paimon2(), time.time()-t)
         # print(pos, time.time()-t)
