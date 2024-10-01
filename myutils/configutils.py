@@ -125,6 +125,7 @@ class DailyMissionConfig(_BaseConfig):
     KEY_DAILY_TASK_EXECUTE_TIMEOUT = 'daily_task_execute_timeout'
     KEY_DAILY_TASK_FIGHT_TIMEOUT = 'daily_task_fight_timeout'
     KEY_DAILY_TASK_DESTROY_TIMEOUT = 'daily_task_destroy_timeout'
+    KEY_DAILY_TASK_KAISELIN = 'daily_task_kaiselin'
 
 class LeyLineConfig(_BaseConfig):
     KEY_LEYLINE_OUTCROP_TASK_EXECUTE_TIMEOUT = 'leyline_outcrop_task_execute_timeout'

@@ -1,33 +1,51 @@
 import threading
 from mylogger.MyLogger3 import MyLogger
+from server.controller.DailyMissionController import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END, \
+    SOCKET_EVENT_DAILY_MISSION_EXCEPTION
+
 logger = MyLogger("daily_mission_service")
 
-SOCKET_EVENT_DAILY_MISSION_START = 'socket_event_daily_mission_start'
-SOCKET_EVENT_DAILY_MISSION_UPDATE = 'socket_event_daily_mission_update'
-SOCKET_EVENT_DAILY_MISSION_END = 'socket_event_daily_mission_end'
-SOCKET_EVENT_DAILY_MISSION_EXCEPTION = 'socket_event_daily_mission_exception'
 
-class DailyMissionException(Exception):pass
+class DailyMissionException(Exception): pass
+
+
 class DailyMissionService:
-    daily_mission_running = False
-    __daily_mission_thread: threading.Thread = None
-    lock = threading.Lock()
 
-
+    __daily_mission_thread = None
+    daily_mission_lock = threading.Lock()
 
     @staticmethod
-    def run(socketio_instance=None):
-        with DailyMissionService.lock:
+    def start_daily_mission(socketio_instance=None):
+        with DailyMissionService.daily_mission_lock:
             if DailyMissionService.__daily_mission_thread and DailyMissionService.__daily_mission_thread.is_alive():
-                raise DailyMissionException("每日委托已经在运行中")
-            from controller.BaseController import BaseController
-            BaseController.stop_listen = False
-            from myexecutor.DailyMissionPathExecutor import DailyMissionPathExecutor
+                raise DailyMissionException("已经有任务正在运行中, 请先停止")
+            def run():
+                from controller.BaseController import BaseController
+                BaseController.stop_listen = False
+                from myexecutor.DailyMissionPathExecutor import DailyMissionPathExecutor
+                try:
+                    DailyMissionPathExecutor.execute_all_mission(emit=socketio_instance.emit)
+                finally:
+                    DailyMissionService.__daily_mission_thread = None
 
-            DailyMissionService.__daily_mission_thread = threading.Thread(
-                target=DailyMissionPathExecutor.execute_all_mission, args=(socketio_instance.emit,))
+            DailyMissionService.__daily_mission_thread = threading.Thread(target=run)
             DailyMissionService.__daily_mission_thread.start()
             return "成功创建每日委托线程,正在执行中"
+
+    @staticmethod
+    def start_claim_reward(socketio_instance=None):
+        if DailyMissionService.__daily_mission_thread and DailyMissionService.__daily_mission_thread.is_alive():
+            raise DailyMissionException("已经有任务正在运行中, 请先停止")
+        def run():
+            from myexecutor.DailyRewardExecutor import DailyRewardExecutor
+            from controller.BaseController import BaseController
+            BaseController.stop_listen = False
+            try: DailyRewardExecutor.one_key_claim_reward(emit=socketio_instance.emit)
+            finally: DailyMissionService.__daily_mission_thread = None
+
+        DailyMissionService.__daily_mission_thread = threading.Thread(target=run)
+        DailyMissionService.__daily_mission_thread.start()
+        socketio_instance.emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '成功创建领取奖励线程')
 
     @staticmethod
     def stop(socketio_instance=None):
@@ -47,8 +65,10 @@ class DailyMissionService:
     @staticmethod
     def valid_number(num, min_value, max_value):
         valid = int(num)
-        if valid < min_value:valid = min_value
-        elif valid > max_value:valid = max_value
+        if valid < min_value:
+            valid = min_value
+        elif valid > max_value:
+            valid = max_value
         return valid
 
     @staticmethod
@@ -77,7 +97,6 @@ class DailyMissionService:
 
         fight_team = json_dict.get('daily_task_fight_team')
 
-
         DailyMissionConfig.set(DailyMissionConfig.KEY_DAILY_TASK_EXECUTE_TIMEOUT,
                                DailyMissionService.valid_number(et, 60, 3600))
         DailyMissionConfig.set(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TIMEOUT,
@@ -88,4 +107,3 @@ class DailyMissionService:
         DailyMissionConfig.set(DailyMissionConfig.KEY_DAILY_TASK_FIGHT_TEAM, fight_team)
 
         DailyMissionConfig.save_config()
-

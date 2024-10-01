@@ -1,7 +1,9 @@
 import time
 from myexecutor.BasePathExecutor2 import BasePathExecutor, ExecuteTerminateException
 from mylogger.MyLogger3 import MyLogger
-logger = MyLogger(__name__)
+from server.controller.DailyMissionController import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END
+
+logger = MyLogger('daily_reward_executor')
 class DailyRewardExecutor(BasePathExecutor):
 
 
@@ -11,9 +13,9 @@ class DailyRewardExecutor(BasePathExecutor):
         前往凯瑟琳处
         :return:
         """
+        from myutils.configutils import DailyMissionConfig
         from myutils.fileutils import getjson_path_byname
-        # p = getjson_path_byname('奖励_凯瑟琳_须弥_1个_20241001_234749.json')
-        p = getjson_path_byname('奖励_凯瑟琳_枫丹_1个_20241002_000026.json')
+        p = getjson_path_byname(DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_KAISELIN, '奖励_凯瑟琳_须弥_1个_20241001_234749.json'))
         DailyRewardExecutor(json_file_path=p).execute()
 
     @staticmethod
@@ -49,12 +51,33 @@ class DailyRewardExecutor(BasePathExecutor):
                 break
         dc.explore_reward_dialog()
 
+    @staticmethod
+    def one_key_claim_reward(emit=lambda val1,val2:logger.debug(val2)):
+        # 写一个空的lambda方法便于调试, 服务器运行时会传递一个方法
+
+        from controller.BaseController import BaseController, StopListenException
+        try:
+            if not BaseController.stop_listen:
+                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '正在点击历练点奖励')
+                DailyRewardExecutor.click_encounter_point_gift()
+            if not BaseController.stop_listen:
+                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '正在前往枫丹凯瑟琳处')
+                DailyRewardExecutor.go_to_kaiselin()
+            if not BaseController.stop_listen:
+                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '正在领取奖励')
+                DailyRewardExecutor.claim_reward()
+                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '结束领取')
+        except StopListenException as e:
+            emit(SOCKET_EVENT_DAILY_MISSION_END, '中断任务')
+
+
     def on_nearby(self, coordinates):
         if len(self.gc.get_icon_position(self.gc.icon_dialog_eyes))>0:
             raise ExecuteTerminateException("已经到达")
 
 
 if __name__ == '__main__':
-    DailyRewardExecutor.click_encounter_point_gift()
-    DailyRewardExecutor.go_to_kaiselin()
-    DailyRewardExecutor.claim_reward()
+    # DailyRewardExecutor.click_encounter_point_gift()
+    # DailyRewardExecutor.go_to_kaiselin()
+    # DailyRewardExecutor.claim_reward()
+    DailyRewardExecutor.one_key_claim_reward()

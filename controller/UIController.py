@@ -24,9 +24,9 @@ class UIController(BaseController):
         :return:
         """
         start_wait = time.time()
-        while not self.gc.has_paimon() and time.time() - start_wait < 5:
-            time.sleep(1)
+        while not self.gc.has_paimon(delay=False) and time.time() - start_wait < 5:
             self.ui_close_button()
+            time.sleep(1)
 
         if self.gc.has_paimon():
             self.logger.debug('回到了大世界界面')
@@ -185,4 +185,5 @@ if __name__ == '__main__':
     # tui.switch_team(target_team)
     # tui.navigation_to_world_page()
     uic = UIController()
-    uic.navigate_to_adventure_handbook_page()
+    # uic.navigate_to_adventure_handbook_page()
+    uic.navigation_to_world_page()
