@@ -33,6 +33,20 @@ class UIController(BaseController):
         else:
             self.logger.error('无法回到大世界界面')
 
+    def navigate_to_adventure_handbook_page(self):
+        """
+        前往冒险之证页面
+        :return:
+        """
+        if not self.gc.has_template_icon_in_screen(self.gc.img_advanture_handbook_left_top_corner):
+            self.navigation_to_world_page()
+
+        while not self.gc.has_template_icon_in_screen(self.gc.img_advanture_handbook_left_top_corner):
+            self.kb_press_and_release(self.Key.f1)
+            time.sleep(2)
+        self.logger.debug('已经打开冒险之证页面')
+
+
 
 
 class TeamNotFoundException(Exception): pass
@@ -164,9 +178,11 @@ class TeamUIController(UIController):
 
 
 if __name__ == '__main__':
-    tui = TeamUIController()
-    tui.navigation_to_world_page()
-    target_team = '钟离_芙宁娜_枫原万叶_流浪者_(钟芙万流).txt'
+    # tui = TeamUIController()
+    # tui.navigation_to_world_page()
+    # target_team = '钟离_芙宁娜_枫原万叶_流浪者_(钟芙万流).txt'
     # target_team = '纳西妲_钟离_芙宁娜_枫原万叶_(采集队).txt'
-    tui.switch_team(target_team)
-    tui.navigation_to_world_page()
+    # tui.switch_team(target_team)
+    # tui.navigation_to_world_page()
+    uic = UIController()
+    uic.navigate_to_adventure_handbook_page()
