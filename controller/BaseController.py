@@ -173,17 +173,26 @@ class BaseController:
                 if time.time() - start_time > float(timeout):
                     raise TimeoutError("超时未找到图标")
                 positions = self.gc.get_icon_position(icon)
+                time.sleep(0.02)
 
-        is_ok = False
-        for (idx, position) in enumerate(positions):
-            if index is None:
-                self.click_screen(position)
-                is_ok = True
-            elif idx == index:
-                self.click_screen(position)
-                is_ok = True
+        if len(positions) == 0: return False
 
-        return is_ok
+        try:
+            if index is None: index = 0
+            self.click_screen(positions[index])
+            return True
+        except IndexError:
+            return False
+
+        # is_ok = False
+        # for (idx, position) in enumerate(positions):
+        #     if index is None:
+        #         self.click_screen(position)
+        #         is_ok = True
+        #     elif idx == index:
+        #         self.click_screen(position)
+        #         is_ok = True
+        # return is_ok
 
     def click_screen(self, pos, button:Button=Button.left):
         """
@@ -335,7 +344,7 @@ class BaseController:
 
 if __name__ == '__main__':
     bc = BaseController()
-    bc.crazy_f()
+    # bc.crazy_f()
 
         # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, 120, 0)
     # bc.crazy_f()
