@@ -33,7 +33,7 @@ class DialogController(BaseController):
         先进入对话框然后点击每日委托
         :return:
         """
-        if self.f_dialog():
+        if self.f_dialog() or len(self.gc.get_icon_position(self.gc.icon_dialog_eyes))> 0:
             time.sleep(1)
             # 出现了对话眼睛
             start_time = time.time()
@@ -49,11 +49,11 @@ class DialogController(BaseController):
         先进入对话框然后点击探索派遣
         :return:
         """
-        if self.f_dialog():
+        if self.f_dialog() or len(self.gc.get_icon_position(self.gc.icon_dialog_eyes))> 0:
             time.sleep(1)
             # 出现了对话眼睛
             start_time = time.time()
-            from UIController import UIController
+            from controller.UIController import UIController
             uic = UIController()
             while not self.gc.has_paimon(delay=False) and time.time()-start_time < 15:
                 if len(self.gc.get_icon_position(self.gc.icon_dialog_eyes))> 0:
@@ -62,16 +62,22 @@ class DialogController(BaseController):
                 else:
                     if self.ocr.find_text_and_click('全部领取'):
                         self.logger.debug('成功点击全部领取')
-                        if self.ocr.find_text_and_click('再次派遣'):
-                            self.logger.debug('成功点击再次派遣')
-                            uic.navigation_to_world_page()
-                    else:
-                        self.logger.debug('没有找到全部领取, 退出')
+                    if self.click_if_appear(self.gc.icon_button_retry):
+                        self.logger.debug('成功点击再次派遣')
                         uic.navigation_to_world_page()
+                        break
+
                 time.sleep(0.1)
                 self.click_screen((5, self.gc.h-5))
                 time.sleep(1)
 
 if __name__ == '__main__':
     dialog = DialogController()
+    # dialog.daily_reward_dialog()
+    # time.sleep(2)
+    # start_wait = time.time()
+    # 等待对话框重新出现
+    # while time.time() - start_wait < 8:
+    #     if len(dialog.gc.get_icon_position(dialog.gc.icon_dialog_message)) > 0:
+    #         break
     dialog.explore_reward_dialog()
