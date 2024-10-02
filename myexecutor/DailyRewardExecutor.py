@@ -15,7 +15,7 @@ class DailyRewardExecutor(BasePathExecutor):
         """
         from myutils.configutils import DailyMissionConfig
         from myutils.fileutils import getjson_path_byname
-        p = getjson_path_byname(DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_KAISELIN, '奖励_凯瑟琳_须弥_1个_20241001_234749.json'))
+        p = getjson_path_byname(DailyMissionConfig.get(DailyMissionConfig.KEY_DAILY_TASK_KAISELIN))
         DailyRewardExecutor(json_file_path=p).execute()
 
     @staticmethod
