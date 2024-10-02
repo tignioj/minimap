@@ -38,7 +38,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         self.reward_ok = False
 
     LEYLINE_TYPE_MONEY = 'money'
-    LEYLINE_TYPE_EXPERIENCE = 'experience'
+    LEYLINE_TYPE_EXPERIENCE = 'exp'
 
     @staticmethod
     def load_basepath_from_json_file(json_file_path) -> LeyLineOutcropPath:

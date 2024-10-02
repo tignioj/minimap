@@ -45,8 +45,9 @@ class DialogController(BaseController):
             if self.ocr.find_text_and_click('每日委托'):
                 self.logger.debug('成功点击每日委托')
             else:
-                self.click_screen((self.gc.w-30, self.gc.h-30))
-            time.sleep(1)
+                if not self.gc.has_paimon(delay=False):
+                    self.click_screen((self.gc.w-30, self.gc.h-30))
+            time.sleep(1.5)
 
     def explore_reward_dialog(self):
         """
@@ -84,7 +85,7 @@ class DialogController(BaseController):
 
 if __name__ == '__main__':
     dialog = DialogController()
-    # dialog.daily_reward_dialog()
+    dialog.daily_reward_dialog()
     # time.sleep(2)
     # start_wait = time.time()
     # 等待对话框重新出现

@@ -43,12 +43,10 @@ class DailyRewardExecutor(BasePathExecutor):
         from controller.DialogController import DialogController
         dc = DialogController()
         dc.daily_reward_dialog()
-        time.sleep(2)
         start_wait = time.time()
         # 等待对话框重新出现
-        while time.time() - start_wait < 5:
-            if len(dc.gc.get_icon_position(dc.gc.icon_dialog_message)) > 0:
-                break
+        while time.time() - start_wait < 6:
+            if dc.gc.has_template_icon_in_screen(dc.gc.icon_dialog_message): break
         dc.explore_reward_dialog()
 
     @staticmethod
@@ -79,5 +77,5 @@ class DailyRewardExecutor(BasePathExecutor):
 if __name__ == '__main__':
     # DailyRewardExecutor.click_encounter_point_gift()
     # DailyRewardExecutor.go_to_kaiselin()
-    # DailyRewardExecutor.claim_reward()
-    DailyRewardExecutor.one_key_claim_reward()
+    DailyRewardExecutor.claim_reward()
+    # DailyRewardExecutor.one_key_claim_reward()

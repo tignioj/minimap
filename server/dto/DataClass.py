@@ -11,6 +11,23 @@ class Todo:
     from_index: int = 0
     fight_team: str = ""
     files: List[str] = field(default_factory=list)
+    frequency:int = 0
+    lastExecutionDate: str= "2024-10-2"
+
+    @classmethod
+    def from_dict(cls, data):
+        if not isinstance(data, dict):
+            raise ValueError("无效的数据格式")
+        if 'name' not in data:
+            raise ValueError("缺少必要的字段name")
+        return cls(**data)
+
+
+@dataclass
+class OneDragon:
+    name: str = None
+    value: str = None
+    checked: bool = False
 
     @classmethod
     def from_dict(cls, data):
@@ -30,7 +47,9 @@ if __name__ == '__main__':
         "enable": False,
         "fight_duration": 30,
         "fight_team": "团队A",
-        "files": ["文件1.txt", "文件2.txt"]
+        "files": ["文件1.txt", "文件2.txt"],
+        "frequency": 1,
+        "lastExecutionDate": "2024-10-3"
     }
     todo = Todo.from_dict(todo_data)
 

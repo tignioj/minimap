@@ -28,7 +28,7 @@ class UIController(BaseController):
             self.ui_close_button()
             time.sleep(1)
 
-        if self.gc.has_paimon():
+        if self.gc.has_paimon(delay=False):
             self.logger.debug('回到了大世界界面')
         else:
             self.logger.error('无法回到大世界界面')

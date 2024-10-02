@@ -15,6 +15,7 @@ from server.controller.FightTeamController import fight_team_bp
 from server.controller.ServerOCRController import ocr_bp
 from server.controller.DailyMissionController import daily_mission_bp
 from server.controller.LeyLineOutCropController import leyline_outcrop_bp
+from server.controller.OneDragonController import one_dragon_bp
 
 from engineio.async_drivers import threading  # pyinstaller打包flask的时候要导入
 
@@ -80,6 +81,7 @@ def create_app():
     app.register_blueprint(ocr_bp)
     app.register_blueprint(daily_mission_bp)
     app.register_blueprint(leyline_outcrop_bp)
+    app.register_blueprint(one_dragon_bp)
 
 
     return app

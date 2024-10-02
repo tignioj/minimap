@@ -22,7 +22,9 @@
             "月莲_觉王之殿右上_须弥_2个_20240814_115423.json"
         ],
         "name": "采集清单",
-        "team_enable": false
+        "team_enable": false,
+        "frequency": 1,
+        "lastExecutionDate" : "2024-10-02" 
     },
     {
         "enable": true,
@@ -36,7 +38,9 @@
             "树王圣体菇_无郁稠林_右下角地面_须弥_6个_20240912_192410.json"
         ],
         "name": "树王圣体菇",
-        "team_enable": false
+        "team_enable": false,
+        "frequency": 1,
+        "lastExecutionDate" : "2024-10-02"
     },
     {
         "enable": false,
@@ -51,7 +55,8 @@
             "盗宝团_归离园东南_璃月_2个_20240907_025502.json"
         ],
         "name": "盗宝团",
-        "team_enable": true
+        "team_enable": true,
+        "frequency": 1
     },
     {
         "enable": true,
@@ -81,7 +86,9 @@
         ],
         "name": "海灵芝",
         "team_enable": false,
-        "fight_duration": 20
+        "fight_duration": 20,
+        "frequency": 1,
+        "lastExecutionDate" : "2024-10-02"
     },
     {
         "enable": false,
@@ -109,6 +116,8 @@
             "丘丘萨满_望风山地2_蒙德_2个_20240822_001412.json"
         ],
         "name": "萨满",
-        "team_enable": true
+        "team_enable": true,
+        "frequency": 1, 
+        "lastExecutionDate" : "2024-10-02"
     }
 ]

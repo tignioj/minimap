@@ -15,7 +15,7 @@ class LeyLineOutcropController(ServerBaseController):
         # jsondict = request.json
         socketio_instance = current_app.extensions['socketio']
         try:
-            LeyLineOutcropService.run(leyline_type=leyline_type,socketio_instance=socketio_instance)
+            LeyLineOutcropService.start_leyline(leyline_type=leyline_type,socketio_instance=socketio_instance)
             return LeyLineOutcropController.success('准备执行地脉任务')
         except LeyLineOutcropException as e:
             return LeyLineOutcropController.error(message=e.args)

@@ -28,7 +28,8 @@ from server.service.PlayBackService import SOCKET_EVENT_PLAYBACK_EXCEPTION, SOCK
     SOCKET_EVENT_PLAYBACK_UPDATE
 
 class TodoService:
-    _is_thread_todo_running = False
+    _is_thread_todo_running: bool = False
+    todo_runner_thread = None
 
     def get_todo_by_name(self):
         pass
@@ -112,10 +113,6 @@ class TodoService:
                 return
             try:
                 TodoService._is_thread_todo_running = True
-                if not todo_json:
-                    todo_path = os.path.join(get_user_folder(), 'todo.json')
-                    with open(todo_path, 'r', encoding='utf8') as f:
-                        todo_json = json.load(f)
                 from server.dto.DataClass import Todo
                 # 加载json并执行
 
@@ -136,18 +133,26 @@ class TodoService:
                 TodoService._is_thread_todo_running = False
                 logger.debug('结束执行清单了')
                 socketio_instance.emit(SOCKET_EVENT_PLAYBACK_END, '结束执行清单了')
+                TodoService.todo_runner_thread = None
 
     @staticmethod
     def todo_run(todo_json, socketio_instance=None):
         # # 每次请求是不同的线程，意味着可能存在资源共享问题
         if TodoService._is_thread_todo_running: raise TodoExecuteException('已经有线程执行清单中')
 
+        if not todo_json:
+            todo_path = os.path.join(get_user_folder(), 'todo.json')
+            with open(todo_path, 'r', encoding='utf8') as f:
+                todo_json = json.load(f)
+
         files = TodoService.get_unrepeated_file(todo_json)
 
         if len(files) == 0: raise TodoExecuteException('空清单，无法执行')
 
         BaseController.stop_listen = False
-        Thread(target=TodoService._thread_todo_runner, args=(todo_json, socketio_instance)).start()
+        TodoService.todo_runner_thread = Thread(target=TodoService._thread_todo_runner, args=(todo_json, socketio_instance))
+        TodoService.todo_runner_thread.start()
+
         return True
 
     @staticmethod

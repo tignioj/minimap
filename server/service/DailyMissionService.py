@@ -11,13 +11,13 @@ class DailyMissionException(Exception): pass
 
 class DailyMissionService:
 
-    __daily_mission_thread = None
+    daily_mission_thread = None
     daily_mission_lock = threading.Lock()
 
     @staticmethod
     def start_daily_mission(socketio_instance=None):
         with DailyMissionService.daily_mission_lock:
-            if DailyMissionService.__daily_mission_thread and DailyMissionService.__daily_mission_thread.is_alive():
+            if DailyMissionService.daily_mission_thread and DailyMissionService.daily_mission_thread.is_alive():
                 raise DailyMissionException("已经有任务正在运行中, 请先停止")
             def run():
                 from controller.BaseController import BaseController
@@ -26,36 +26,36 @@ class DailyMissionService:
                 try:
                     DailyMissionPathExecutor.execute_all_mission(emit=socketio_instance.emit)
                 finally:
-                    DailyMissionService.__daily_mission_thread = None
+                    DailyMissionService.daily_mission_thread = None
 
-            DailyMissionService.__daily_mission_thread = threading.Thread(target=run)
-            DailyMissionService.__daily_mission_thread.start()
+            DailyMissionService.daily_mission_thread = threading.Thread(target=run)
+            DailyMissionService.daily_mission_thread.start()
             return "成功创建每日委托线程,正在执行中"
 
     @staticmethod
     def start_claim_reward(socketio_instance=None):
-        if DailyMissionService.__daily_mission_thread and DailyMissionService.__daily_mission_thread.is_alive():
+        if DailyMissionService.daily_mission_thread and DailyMissionService.daily_mission_thread.is_alive():
             raise DailyMissionException("已经有任务正在运行中, 请先停止")
         def run():
             from myexecutor.DailyRewardExecutor import DailyRewardExecutor
             from controller.BaseController import BaseController
             BaseController.stop_listen = False
             try: DailyRewardExecutor.one_key_claim_reward(emit=socketio_instance.emit)
-            finally: DailyMissionService.__daily_mission_thread = None
+            finally: DailyMissionService.daily_mission_thread = None
 
-        DailyMissionService.__daily_mission_thread = threading.Thread(target=run)
-        DailyMissionService.__daily_mission_thread.start()
+        DailyMissionService.daily_mission_thread = threading.Thread(target=run)
+        DailyMissionService.daily_mission_thread.start()
         socketio_instance.emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '成功创建领取奖励线程')
 
     @staticmethod
     def stop(socketio_instance=None):
         from controller.BaseController import BaseController
         BaseController.stop_listen = True
-        if DailyMissionService.__daily_mission_thread:
+        if DailyMissionService.daily_mission_thread:
             try:
                 socketio_instance.emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, "正在停止线程，请稍后")
-                DailyMissionService.__daily_mission_thread.join()
-                DailyMissionService.__daily_mission_thread = None
+                DailyMissionService.daily_mission_thread.join()
+                DailyMissionService.daily_mission_thread = None
                 socketio_instance.emit(SOCKET_EVENT_DAILY_MISSION_END, "成功停止")
             except Exception as e:
                 msg = f"每日委托线程没有开始或者已经终止,不需要停止{e.args}"
