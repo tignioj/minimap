@@ -9,7 +9,6 @@ logger = MyLogger('one_dragon_service')
 # ]
 from server.dto.DataClass import OneDragon
 
-
 class OneDragonService:
     @staticmethod
     def start_one_dragon(one_dragon_list=None,socketio_instance=None):
@@ -35,4 +34,10 @@ class OneDragonService:
                 from server.service.DailyMissionService import DailyMissionService
                 DailyMissionService.start_claim_reward(socketio_instance=socketio_instance)
                 DailyMissionService.daily_mission_thread.join()
+
+    @staticmethod
+    def stop_one_dragon(socketio_instance=None):
+        from controller.BaseController import BaseController
+        BaseController.stop_listen = True
+
 
