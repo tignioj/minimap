@@ -41,8 +41,8 @@ class _BaseConfig:
     @classmethod
     def get(cls,key, default=None, min_val=None, max_val=None):
         value = cls.get_yaml_object().get(key, default)
-        if value is None:
-            value = cls.get_yaml_object()
+        if value is None and cls._yaml_template_obj is not None:
+            value = cls._yaml_template_obj.get(key, default)
 
         if min_val is not None and max_val is not None:
             if value < min_val: value = min_val
@@ -128,6 +128,7 @@ class DailyMissionConfig(_BaseConfig):
     KEY_DAILY_TASK_KAISELIN = 'daily_task_kaiselin'
 
 class LeyLineConfig(_BaseConfig):
+    KEY_LEYLINE_TYPE = 'leyline_type'
     KEY_LEYLINE_OUTCROP_TASK_EXECUTE_TIMEOUT = 'leyline_outcrop_task_execute_timeout'
     KEY_LEYLINE_OUTCROP_TASK_FIGHT_TIMEOUT = 'leyline_outcrop_task_fight_timeout'
     KEY_LEYLINE_ENABLE_WANYE_PICKUP_AFTER_REWARD = 'leyline_enable_wanye_pickup_after_reward'
@@ -160,6 +161,7 @@ if __name__ == '__main__':
     # set_config('default_fight_team', '1.txt')
     # print(get_config('default_fight_team'))
     # mc = MapConfig.get_all_map()
-    print(_BaseConfig.get(ServerConfig.KEY_HOST))
+    # print(_BaseConfig.get(ServerConfig.KEY_HOST))
+    print(LeyLineConfig.get(LeyLineConfig.KEY_LEYLINE_TYPE))
     # get_user_folder()
 

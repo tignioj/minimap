@@ -97,6 +97,9 @@ leyline_enable_wanye_pickup_after_reward: true
 # 地脉指定队伍, 空白则使用默认队伍
 leyline_fight_team: ''
 
+# 地脉类型 money为摩拉, exp 为经验
+leyline_type: 'exp'
+
 
 host: 127.0.0.1
 port: 5000
