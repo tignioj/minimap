@@ -18,13 +18,13 @@ class UIController(BaseController):
         """
         pass
 
-    def navigation_to_world_page(self):
+    def navigation_to_world_page(self, timeout=5):
         """
         回到游戏大世界界面
         :return:
         """
         start_wait = time.time()
-        while not self.gc.has_paimon(delay=False) and time.time() - start_wait < 5:
+        while not self.gc.has_paimon(delay=False) and time.time() - start_wait < timeout:
             self.ui_close_button()
             time.sleep(1)
 

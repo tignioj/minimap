@@ -27,6 +27,8 @@ class DialogController(BaseController):
             if self.click_if_appear(self.gc.icon_dialog_message, index=-1):
                 self.logger.debug('点击最后一个选项')
             else: self.kb_press_and_release(self.Key.space)
+        elif self.ocr.find_text_and_click('点击后继续'):
+            time.sleep(0.5)
 
     def daily_reward_dialog(self):
         """
@@ -85,7 +87,10 @@ class DialogController(BaseController):
 
 if __name__ == '__main__':
     dialog = DialogController()
-    dialog.daily_reward_dialog()
+    while True:
+        time.sleep(1)
+        # dialog.skip_dialog()
+    # dialog.daily_reward_dialog()
     # time.sleep(2)
     # start_wait = time.time()
     # 等待对话框重新出现

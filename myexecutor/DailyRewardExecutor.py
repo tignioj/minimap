@@ -3,6 +3,8 @@ from myexecutor.BasePathExecutor2 import BasePathExecutor, ExecuteTerminateExcep
 from mylogger.MyLogger3 import MyLogger
 from server.controller.DailyMissionController import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END
 
+# TODO: 有可能在终点处没有和凯瑟琳对话导致无法领取奖励
+
 logger = MyLogger('daily_reward_executor')
 class DailyRewardExecutor(BasePathExecutor):
 
@@ -41,9 +43,12 @@ class DailyRewardExecutor(BasePathExecutor):
     @staticmethod
     def claim_reward():
         from controller.DialogController import DialogController
+        from controller.UIController import UIController
         dc = DialogController()
         dc.daily_reward_dialog()
         start_wait = time.time()
+        # 回到大世界页面
+        UIController().navigation_to_world_page()
         # 等待对话框重新出现
         while time.time() - start_wait < 6:
             if dc.gc.has_template_icon_in_screen(dc.gc.icon_dialog_message): break
@@ -78,4 +83,6 @@ if __name__ == '__main__':
     # DailyRewardExecutor.click_encounter_point_gift()
     # DailyRewardExecutor.go_to_kaiselin()
     DailyRewardExecutor.claim_reward()
-    # DailyRewardExecutor.one_key_claim_reward()
+    while True:
+        DailyRewardExecutor.one_key_claim_reward()
+        time.sleep(1)
