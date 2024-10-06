@@ -46,8 +46,8 @@ class MinimapServer(MiniMapInter):
 
     def create_cached_local_map(self, center=None,use_middle_map=False): return ServerAPI.create_cached_local_map(center_pos=center, use_middle_map=use_middle_map)
 
-    def get_ocr_result(self):
-        return ServerAPI.get_ocr_result()
+    def get_ocr_result(self, mss_mode=False):
+        return ServerAPI.get_ocr_result(mss_mode=mss_mode)
 
     def get_ocr_fight_team(self):
         return ServerAPI.get_ocr_fight_team()

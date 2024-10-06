@@ -138,13 +138,14 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__button_icon_encounter_point_gift_org = cv2.imread(os.path.join(template_path, 'button_icon_encounter_point_gift.png'), cv2.IMREAD_GRAYSCALE)
         self.button_icon_encounter_point_gift = self.__button_icon_encounter_point_gift_org.copy()
 
+        # 冒险书边框左上角
         self.__img_advanture_handbook_left_top_corner_org = cv2.imread(os.path.join(template_path, 'img_adventure_handbook_left_top_corner.png'),
                                                                        cv2.IMREAD_GRAYSCALE)
         self.img_advanture_handbook_left_top_corner = self.__img_advanture_handbook_left_top_corner_org.copy()
 
+        # 重试按钮
         self.__icon_button_retry_org = cv2.imread(os.path.join(template_path, 'icon_button_retry.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_button_retry = self.__icon_button_retry_org.copy()
-
 
         self.sift = cv2.SIFT.create()
         # 匹配器
@@ -334,10 +335,14 @@ class RecognizableCapture(GenShinCaptureObj):
             self.__paimon_appear_delay_timer = None
         return False
 
-    def get_icon_position(self, icon, threshold=0.85):
-        self.update_screenshot_if_none()
+    def get_icon_position(self, icon, image=None, threshold=0.85):
+        if image is None:
+            self.update_screenshot_if_none()
+            original_image = self.screenshot.copy()
+        else:
+            original_image = image
+
         gray_template = icon
-        original_image = self.screenshot.copy()
         gray_original = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
         # 获取模板图像的宽度和高度
         w, h = gray_template.shape[::-1]
@@ -443,7 +448,7 @@ if __name__ == '__main__':
         # print(rc.has_origin_resin_in_top_bar(),time.time()-t)
         # pos = rc.get_icon_position(rc.icon_team_selector)
         # print(rc.has_template_icon_in_screen(rc.img_advanture_handbook_left_top_corner))
-        print(rc.has_template_icon_in_screen(rc.icon_button_retry))
+        # print(rc.has_template_icon_in_screen(rc.icon_button_retry))
         # print(rc.get_icon_position(rc.button_icon_encounter_point_gift))
         # print(rc.has_paimon(delay=True), time.time()-t)
         # print(rc.has_paimon2(), time.time()-t)

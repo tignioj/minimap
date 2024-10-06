@@ -46,19 +46,20 @@ class OCRController(BaseController):
         self.ocr_result:List[OCRResult] = []
         from myutils.timerutils import RateLimiter
         self.ocr_update_limiter = RateLimiter(0.2)
-        self.ocr_update_limiter.execute(self.update_ocr_result)
+        self.ocr_update_limiter.execute(lambda :None)
 
-    def get_ocr_result(self)->List[OCRResult]:
-        self.ocr_update_limiter.execute(self.update_ocr_result)
+    def get_ocr_result(self,mss_mode=False)->List[OCRResult]:
+        if mss_mode: self.update_ocr_result(mss_mode=mss_mode)
+        else: self.ocr_update_limiter.execute(self.update_ocr_result)
 
         return self.ocr_result
 
-    def update_ocr_result(self):
+    def update_ocr_result(self, mss_mode=False):
         """
         OCR是一比巨大的开销，添加时间间隔防止调用卡顿
         :return:
         """
-        result = MinimapInterface.get_ocr_result()
+        result = MinimapInterface.get_ocr_result(mss_mode)
         if not result: return
 
         result = result[0]
@@ -101,12 +102,12 @@ class OCRController(BaseController):
         center_y = (left_top[1] + left_bottom[1]) / 2
         return center_x, center_y
 
-    def find_match_text(self, target_text, match_all=False)->List[OCRResult]:
+    def find_match_text(self, target_text, match_all=False, mss_mode=False)->List[OCRResult]:
         try:
             if self.stop_listen or target_text is None: return []
             self.log(f"正在查找'{target_text}'")
             # img = self.gc.get_screenshot()
-            result = self.get_ocr_result()
+            result = self.get_ocr_result(mss_mode=mss_mode)
             match_texts:List[OCRResult] = []
             for item in result:
                 if target_text in item.text:
@@ -116,16 +117,17 @@ class OCRController(BaseController):
         except Exception as e:
             self.logger.error(e.args)
 
-    def find_text_and_click(self, target_text, match_all=False, index=0, click_all=False):
+    def find_text_and_click(self, target_text, match_all=False, index=0, click_all=False, mss_mode=False):
         """
         找到屏幕中匹配的文字并点击
+        注意：b服游戏登陆界面的窗口名称不是原神，而是'bilibili游戏 登录', 因此登录页面无法调用点击方法
         :param target_text:
         :param match_all: 是否完全匹配文本
         :param index: 出现多个选项时候，点击的索引
         :param click_all: 点击所有匹配的文本，此选项优先于index
         :return:
         """
-        match_texts = self.find_match_text(target_text, match_all)
+        match_texts = self.find_match_text(target_text, match_all, mss_mode)
 
         l = len(match_texts)
         if index < 0 or l == 0: return False
@@ -148,14 +150,23 @@ class OCRController(BaseController):
         return True
 
 
-    def is_text_in_screen(self, *args):
+    def is_text_in_screen(self, *args, match_all=False):
+        """
+        :param args:
+        :param match_all: 全文匹配某个指定的文本
+        :return:
+        """
         if self.stop_listen or args is None: return
         self.log(f"在屏幕中查找{args}")
         result = self.get_ocr_result()
         for item in result:
             for arg in args:
-                if arg in item.text:
-                    self.logger.debug(f"屏幕上出现文本{arg},原文是{item.text}")
+                if match_all:
+                    if arg == item.text:
+                        return True
+                else:
+                    if arg in item.text:
+                        self.logger.debug(f"屏幕上出现文本{arg},原文是{item.text}")
                     return True
 
         # if result is None: return False

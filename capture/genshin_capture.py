@@ -39,7 +39,9 @@ class GenShinCaptureObj(ObservableCapture):
 
         # 更新截图区域
         self.__update_crop_size()
-        self.screenshot = self.get_screenshot(use_alpha=True)
+        # self.screenshot = self.get_screenshot(use_alpha=True)
+        self.screenshot = None
+
 
     def get_paimon_area(self):
         """
@@ -58,7 +60,7 @@ class GenShinCaptureObj(ObservableCapture):
 
     def update_screenshot_if_none(self):
         if self.screenshot is None:
-            self.screenshot = self.get_screenshot(use_alpha=True)
+            self.update_screenshot()
         else:
             self.rate_limiter_update_screenshot.execute(self.update_screenshot)
 
@@ -120,7 +122,9 @@ class GenShinCaptureObj(ObservableCapture):
         else:
             msg = 'Resolution error, current resolution is: {}x{}, support 16:9 only'.format(self.w, self.h)
             logger.error(msg)
-            raise ResolutionException(msg)
+            # if self.is_active():
+            #     raise ResolutionException(msg)
+            return
 
         # 小地图掩码
         self.circle_mask = np.zeros((self.mini_map_width, self.mini_map_height), np.uint8)
@@ -227,15 +231,16 @@ if __name__ == '__main__':
     while True:
         # b, g, r, alpha = cv2.split(gc.get_screenshot())
         t = time.time()
-        gc.update_screenshot_if_none()
         # img_box = gc.screenshot[int(gc.h * 0.45):int(gc.h * 0.55), int(gc.w * 0.50):int(gc.w * 0.75)]
         # img_box = gc.screenshot[int(gc.h * 0.45):int(gc.h * 0.55), int(gc.w * 0.50):int(gc.w * 0.75)]
         # img_box = gc.pick_up_area
+        cv2.imshow('gc', gc.get_screenshot())
         # cv2.imshow('pickup', img_box)
         # cv2.imshow('minimap', gc.get_mini_map())
         # cv2.imshow('close', gc.close_button_area)
         # cv2.imwrite('icon_close.jpg', gc.close_button_area)
-        # cv2.imshow('sta', gc.get_user_status_area())
+        # sta = gc.get_user_status_area()
+        # cv2.imshow('sta', sta)
         # cv2.imshow('user key', gc.get_user_status_key_area())
         # cv2.imshow('screen', gc.get_screenshot())
         # cv2.imshow('paimon', gc.get_paimon_area())

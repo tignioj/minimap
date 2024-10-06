@@ -25,8 +25,10 @@ def __err(*args):
 from capture.capture_factory import capture
 gs = capture
 
-def get_ocr_result():
-    response = requests.get(f"{ocr_url}/ocr/screen")
+def get_ocr_result(mss_mode=False):
+    if mss_mode:
+        response = requests.get(f"{ocr_url}/ocr/screen_mss")
+    else: response = requests.get(f"{ocr_url}/ocr/screen")
     if response.status_code == 200:
         result = response.json()
         if result.get('success') is True:

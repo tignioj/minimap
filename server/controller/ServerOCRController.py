@@ -33,6 +33,19 @@ ocr_bp = Blueprint('ocrbp', __name__)
 
 class ServerOCRController(ServerBaseController):
     @staticmethod
+    @ocr_bp.get('/ocr/screen_mss')
+    def ocr_result_mss():
+
+        sc = capture.get_screenshot(mss_mode=True)
+        try:
+            # RuntimeError: (PreconditionNotMet) Tensor holds no memory. Call Tensor::mutable_data firstly.
+            result = ocr.ocr(sc, cls=False)
+            # logger.info(result)
+            return ServerOCRController.success(data=result)
+        except Exception as e:
+            logger.error(e)
+            return ServerOCRController.error(e), 500
+    @staticmethod
     @ocr_bp.get('/ocr/screen')
     def ocr_result():
         sc = capture.get_screenshot()
@@ -40,7 +53,7 @@ class ServerOCRController(ServerBaseController):
         try:
             # RuntimeError: (PreconditionNotMet) Tensor holds no memory. Call Tensor::mutable_data firstly.
             result = ocr.ocr(sc, cls=False)
-            logger.info(result)
+            # logger.info(result)
             return ServerOCRController.success(data=result)
         except Exception as e:
             logger.error(e)
