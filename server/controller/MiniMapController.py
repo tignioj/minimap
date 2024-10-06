@@ -14,7 +14,7 @@ logger = MyLogger('minimap_controller')
 
 minimap_bp = Blueprint('minimap', __name__)
 minimap = MiniMap()
-minimap.get_position()
+# minimap.get_position()
 rotate = RotationGIA(False)
 capture.add_observer(rotate)
 capture.add_observer(minimap)

@@ -129,7 +129,7 @@ class MiniMap:
 
 
 
-        self.create_local_map_cache_thread()
+        # self.create_local_map_cache_thread()
 
         # 当前地图全局匹配时，good match的结果, 用于判断是否要切换地图。如果同时匹配多张地图时，先设置第一个出结果的。
         # 后续才出结果的, 则判断是否比先出的质量好, 是的话则选择质量好的, good match由匹配的时候赋值
