@@ -23,6 +23,7 @@ class CollectPoint(Point):
 
     MOVE_MODE_UP_DOWN_GRAB_LEAF = 'up_down_grab_leaf'  # 视角上下晃动抓四叶印
     ACTION_NAHIDA_COLLECT = 'nahida_collect'
+    ACTION_MINING = 'mining'  # 挖矿, 也就是开技能
 
     def __init__(self, x,y,type=None, action=None,move_mode=Point.MOVE_MODE_NORMAL):
         super().__init__(x=x,y=y,type=type,move_mode=move_mode,action=action)
@@ -138,7 +139,12 @@ class CollectPathExecutor(BasePathExecutor):
             self.fight_controller.shield()
         except CharacterDieException as e:
             # self.logger.error(e.args)
-            self.logger.debug("虽然盾辅角色死亡了，但是不需要战斗，不影响采集, 继续行动")
+            if self.next_point.action == CollectPoint.ACTION_MINING:
+                self.map_controller.go_to_seven_anemo_for_revive()
+                raise ExecuteTerminateException()
+            else:
+                self.logger.debug("虽然盾辅角色死亡了，但是不需要战斗，不影响采集, 继续行动（挖矿除外）")
+
 
 
     def on_move_after(self, point: CollectPoint):
@@ -148,6 +154,9 @@ class CollectPathExecutor(BasePathExecutor):
             self.nahida_collect()
         if self.next_point.move_mode == CollectPoint.MOVE_MODE_UP_DOWN_GRAB_LEAF and self.next_point.type == CollectPoint.TYPE_TARGET:
             time.sleep(0.3)  # 通过四叶印到达目的地会有一小段时间悬空，等待降下，否则无法拾取
+        if point.action == CollectPoint.ACTION_MINING:
+            self.logger.debug('长e挖矿')
+            self.fight_controller.mining()
 
 
 if __name__ == '__main__':

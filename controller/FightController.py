@@ -41,6 +41,10 @@ class FightController(BaseController):
         self.fight_mapper = FightMapperImpl(character_name=None)
         self.load_characters_with_skills_from_file()
         from controller.OCRController import OCRController
+
+        # 上次释放挖矿技能时间，技能cd
+        self.last_mine_skill_time = 0
+        
         self.ocr = OCRController(debug_enable=self.debug_enable)
 
     @staticmethod
@@ -258,6 +262,39 @@ class FightController(BaseController):
             self.fighting_thread.join()
             self.fighting_thread = None
 
+    def mining(self):
+        """
+        长e挖矿, 需要钟离或者雷泽
+        :return:
+        """
+        try:
+            start_wait_time = time.time()
+            while self.gc.is_flying() and time.time() - start_wait_time < 12:
+                self.logger.debug("等待飞行结束...")
+                time.sleep(0.5)
+            for character in self.characters_name:
+                if character == "钟离":
+                    self.switch_character('钟离')
+                    cd = time.time() - self.last_mine_skill_time
+                    if cd < 12:  # 钟离长e冷却时长
+                        time.sleep(12 - cd + 0.1)
+                    self.fight_mapper.s(0.05)
+                    self.fight_mapper.e(hold=True)
+                    self.last_mine_skill_time = time.time()
+                elif character == '雷泽':
+                    self.switch_character('雷泽')
+                    if self.last_mine_skill_time is None:
+                        self.last_mine_skill_time = time.time()
+                    else:
+                        cd = time.time() - self.last_mine_skill_time
+                        if cd < 10:  # 雷泽长e冷却时长
+                            time.sleep(10 - cd + 0.1)
+                    self.fight_mapper.e(hold=True)
+                    self.last_mine_skill_time = time.time()
+        except (SwitchCharacterTimeOutException, CharacterNotFoundException) as e:
+            self.logger.error(e.args)
+
+
     def shield(self, adjust_direction=True):
         """
         :param adjust_direction:  专门为钟离优化的参数。True表示向身后开盾，避免前进时候撞到柱子
@@ -329,17 +366,12 @@ class FightController(BaseController):
             return True
         else:
             # 打断读条
-            # import cv2
-            # cv2.imwrite(f'sc{time.time()}.jpg', self.gc.screenshot)
+            import cv2
+            cv2.imwrite(f'sc{time.time()}.jpg', self.gc.screenshot)
             self.log('没有敌人')
             self.kb_press_and_release("l")  # 不要使用空格,避免下一个角色无法释放技能
             time.sleep(0.02)
             return False
-
-
-
-
-
 
 if __name__ == '__main__':
     # FightController.has_enemy()
@@ -355,9 +387,10 @@ if __name__ == '__main__':
     # fc.execute_infinity()
     # fc.has_enemy()
     while True:
-        time.sleep(1)
-        has = fc.has_enemy()
-        print(has)
+        time.sleep(0.1)
+        # has = fc.has_enemy()
+        fc.mining()
+        # print(has)
     # fc.switch_character('纳西妲')
     # def _on_press(key):
     #     try:
