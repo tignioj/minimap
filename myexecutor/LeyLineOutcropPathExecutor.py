@@ -181,7 +181,7 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
     def go_to_seven_anemo(map_controller:MapController):
         x,y, country = 1944.8270,-4954.61, "蒙德"
         logger.debug("前往清泉镇七天神像")
-        map_controller.teleport((x, y), country, "七天神像")
+        map_controller.teleport((x, y), country, "七天神像", start_teleport_time=time.time())
 
     @staticmethod
     def execute_all_mission(leyline_type='money',emit=lambda val1,val2:None):  # 传一个空实现的方法，免去判断函数是否为空

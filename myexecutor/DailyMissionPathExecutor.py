@@ -192,7 +192,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
     def go_to_seven_anemo(map_controller:MapController):
         x,y, country = 1944.8270,-4954.61, "蒙德"
         logger.debug("前往清泉镇七天神像")
-        map_controller.teleport((x, y), country, "七天神像")
+        map_controller.teleport((x, y), country, "七天神像", start_teleport_time=time.time())
 
 
     # 5. 遍历实际坐标，遍历所有已存放的委托列表, 查找最近的一个委托

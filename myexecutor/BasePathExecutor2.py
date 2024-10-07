@@ -603,11 +603,16 @@ class BasePathExecutor(BaseController):
         # 指定了点位，则不传送
         if from_index: return
         # 传送的时候可以顺便缓存局部地图，因此把传送放在第一行
-        self.map_controller.teleport(position=(self.base_path.transmit_point.x,
-                                               self.base_path.transmit_point.y),
-                                     country=self.base_path.country,
-                                     waypoint_name=self.base_path.anchor_name,
-                                     create_local_map_cache=True)
+        from controller.MapController2 import TeleportTimeoutException
+        try:
+            self.map_controller.teleport(position=(self.base_path.transmit_point.x,
+                                                   self.base_path.transmit_point.y),
+                                         country=self.base_path.country,
+                                         waypoint_name=self.base_path.anchor_name,
+                                         create_local_map_cache=True, start_teleport_time=time.time())
+        except TeleportTimeoutException:
+            raise ExecuteTerminateException("传送超时失败，跳过当前路线")
+
     def on_move_before(self, point: Point):
         """
         在下一个点位开始行动之前

@@ -27,6 +27,8 @@ class MoveTimeoutException(Exception):
 class ScaleChangeException(Exception):
     pass
 
+class TeleportTimeoutException(Exception):pass
+
 
 class MapController(BaseController):
 
@@ -314,12 +316,16 @@ class MapController(BaseController):
         self.log('移动鼠标到最终位置{}'.format(waypoint_pos))
         self.set_ms_position(waypoint_pos)
 
-    def teleport(self, position, country, waypoint_name=None, create_local_map_cache=True):
+    def teleport(self, position, country, waypoint_name=None, create_local_map_cache=True, start_teleport_time=None):
         """
         传送到指定锚点
         :param point:
         :return:
         """
+        if start_teleport_time is not None:
+            if time.time() - start_teleport_time > 120:
+                raise TeleportTimeoutException("超过2分钟传送失败, 停止传送")
+
         if self.stop_listen: return
         self.log(f"开始传送到{country}{position}, is_stop_listen = {self.stop_listen}")
         self.open_middle_map()  # 打开地图
@@ -338,14 +344,14 @@ class MapController(BaseController):
                 self.close_middle_map()
                 time.sleep(0.5)
                 self.close_middle_map()
-                self.teleport(position, country, waypoint_name, create_local_map_cache)
+                self.teleport(position, country, waypoint_name, create_local_map_cache,start_teleport_time=start_teleport_time)
                 return
         except (LocationException, MoveTimeoutException, ScaleChangeException) as e:
             self.logger.error(f'移动过程中出现异常，正在重试传送{e}')
             self.close_middle_map()
             time.sleep(0.5)
             self.close_middle_map()
-            self.teleport(position, country, waypoint_name, create_local_map_cache)
+            self.teleport(position, country, waypoint_name, create_local_map_cache, start_teleport_time=start_teleport_time)
             return
 
         # 判断是否成功传送
@@ -362,7 +368,7 @@ class MapController(BaseController):
             if wait_time < 0:
                 self.log("获取落地位置失败！递归传送中！")
                 self.teleport(position, country=country, waypoint_name=waypoint_name,
-                              create_local_map_cache=create_local_map_cache)
+                              create_local_map_cache=create_local_map_cache, start_teleport_time=start_teleport_time)
                 return  # 避免执行后面的语句
 
         if self.stop_listen: return
@@ -370,7 +376,7 @@ class MapController(BaseController):
         self.log(f"判断落地位置是否准确, 目标位置{position}, 当前位置{pos}, 计算距离{diff}")
         if diff > 200:
             self.log("落地误差太大！, 递归传送中！")
-            self.teleport(position, country, waypoint_name, create_local_map_cache)
+            self.teleport(position, country, waypoint_name, create_local_map_cache, start_teleport_time=start_teleport_time)
         else:
             self.log("落地误差符合预期，传送成功!")
 
@@ -382,7 +388,7 @@ class MapController(BaseController):
         self.logger.debug("前往七天神像")
         x,y, country = 287.70, -3805.00, "璃月"
         # x,y, country = 1944.8270,-4954.61, "蒙德"
-        self.teleport((x, y), country, "七天神像")
+        self.teleport((x, y), country, "七天神像", start_teleport_time=time.time())
 
 
     def turn_off_custom_tag(self):
@@ -451,5 +457,5 @@ if __name__ == '__main__':
 
     # 6. 筛选叠层锚点
     # 7. 选择筛选后的锚点并传送
-    mpc.teleport((x, y), country, waypoint_name)
+    mpc.teleport((x, y), country, waypoint_name, start_teleport_time=time.time())
     # mpc.teleport((x,y),country)
