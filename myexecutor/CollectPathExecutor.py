@@ -140,6 +140,7 @@ class CollectPathExecutor(BasePathExecutor):
         except CharacterDieException as e:
             # self.logger.error(e.args)
             if self.next_point.action == CollectPoint.ACTION_MINING:
+                self.logger.debug(f'挖矿中，但是盾辅角色已阵亡，前往七天神像中, 跳过当前路线:{self.base_path.name}')
                 self.map_controller.go_to_seven_anemo_for_revive()
                 raise ExecuteTerminateException()
             else:
@@ -156,7 +157,13 @@ class CollectPathExecutor(BasePathExecutor):
             time.sleep(0.3)  # 通过四叶印到达目的地会有一小段时间悬空，等待降下，否则无法拾取
         if point.action == CollectPoint.ACTION_MINING:
             self.logger.debug('长e挖矿')
-            self.fight_controller.mining()
+            try:
+                self.fight_controller.mining()
+            except CharacterDieException as e:
+                if point.action == CollectPoint.ACTION_MINING:
+                    self.logger.debug(f'挖矿角色已阵亡，前往七天神像中, 跳过当前路线:{self.base_path.name}')
+                    self.map_controller.go_to_seven_anemo_for_revive()
+                    raise ExecuteTerminateException()
 
 
 if __name__ == '__main__':
