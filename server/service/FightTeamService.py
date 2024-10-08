@@ -1,7 +1,7 @@
 import os
 import threading
 
-from myutils.configutils import get_user_folder
+from myutils.configutils import BaseConfig
 
 class FightTeamServiceException(Exception): pass
 from controller.FightController import FightController
@@ -11,7 +11,7 @@ logger = MyLogger('fight_team_service')
 class FightTeamService:
 
     def __init__(self):
-        user_folder = get_user_folder()
+        user_folder = BaseConfig.get_user_folder()
         self.team_folder_path = os.path.join(user_folder, 'team')
         self.fight_controller:FightController = None
 
@@ -69,7 +69,7 @@ class FightTeamService:
         with open(team_file_path, 'w', encoding='utf8') as f:
             f.write(data)
 
-        new_name = os.path.join(get_user_folder(), 'team', new_team_name)
+        new_name = os.path.join(BaseConfig.get_user_folder(), 'team', new_team_name)
 
         # 如果名称没改变，直接返回更新成功
         if new_team_name == team_file_name:

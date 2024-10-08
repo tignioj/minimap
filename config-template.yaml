@@ -1,6 +1,7 @@
 # true表示开启调试，会加载大地图用于展示，速度稍慢
 debug_enable: true
 window_name: '原神'  # 游戏窗口名称
+game_folder: 'E:\game\genshin\Genshin Impact bilibili\games\Genshin Impact Game\YuanShen.exe'
 
 ##########################路径执行器配置#############################
 # [重要选项] 建议1024或者2048

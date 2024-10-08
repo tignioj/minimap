@@ -2,7 +2,7 @@
 /resources/user
 /resources/temp
 
-config.yaml
+account.yaml
 
 /log/
 *_log.txt

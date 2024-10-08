@@ -4,7 +4,7 @@ from threading import Lock, Thread
 
 from controller.BaseController import BaseController, StopListenException
 from server.service.PlayBackService import PlayBackService
-from myutils.configutils import get_user_folder
+from myutils.configutils import BaseConfig
 from myutils.fileutils import getjson_path_byname
 
 
@@ -141,7 +141,7 @@ class TodoService:
         if TodoService._is_thread_todo_running: raise TodoExecuteException('已经有线程执行清单中')
 
         if not todo_json:
-            todo_path = os.path.join(get_user_folder(), 'todo.json')
+            todo_path = os.path.join(BaseConfig.get_user_folder(), 'todo.json')
             with open(todo_path, 'r', encoding='utf8') as f:
                 todo_json = json.load(f)
 
@@ -157,7 +157,7 @@ class TodoService:
 
     @staticmethod
     def get_all_todos():
-        todo_path = os.path.join(get_user_folder(), 'todo.json')
+        todo_path = os.path.join(BaseConfig.get_user_folder(), 'todo.json')
         if not os.path.exists(todo_path):
             with open(todo_path, 'w', encoding='utf8') as f:
                 todo_dict = {'test': {"enable": True, "files": []}}
@@ -200,7 +200,7 @@ class TodoService:
 
     @staticmethod
     def save_todo(data):
-        todo_path = os.path.join(get_user_folder(), 'todo.json')
+        todo_path = os.path.join(BaseConfig.get_user_folder(), 'todo.json')
         with open(todo_path, 'w', encoding='utf8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
         return True

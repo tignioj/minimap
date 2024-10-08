@@ -88,8 +88,8 @@ class FightController(BaseController):
 
         filename = self.filename
         # 1. 读取队伍列表
-        from myutils.configutils import get_user_folder
-        team_folder = os.path.join(get_user_folder(), 'team')
+        from myutils.configutils import BaseConfig
+        team_folder = os.path.join(BaseConfig.get_user_folder(), 'team')
         fight_file = os.path.join(team_folder, filename)
         # 没改变不用重新读取
         if self.lastmod == os.path.getmtime(fight_file):

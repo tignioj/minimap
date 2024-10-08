@@ -4,27 +4,85 @@ from ruamel.yaml import YAML
 yaml = YAML()
 yaml.preserve_quotes = True
 
+# 一个实例对应一个配置，包括todo.json和config.yaml，其余相同
+
 import sys
-config_name = 'config.yaml'
+# config_name = 'config.yaml'
 application_path = '.'
 if getattr(sys, 'frozen', False):
     application_path = os.path.dirname(sys.executable)
     application_path = os.path.join(application_path, '_internal')
-    # config_name = 'config.yaml'
 elif __file__:
     application_path = os.path.dirname(os.path.dirname(__file__))
 
 PROJECT_PATH = application_path
 resource_path = os.path.join(PROJECT_PATH, 'resources')
 
-class _BaseConfig:
+class BaseConfig:
     _yaml_obj = None
     # _yaml_file = "config.dev.yaml"  # 给子类继承
-    _yaml_file = config_name
+    current_instance_name = 'instance1'
+    _yaml_file = f'config-{current_instance_name}.yaml'  # 默认
+    @classmethod
+    def get_yaml_file(cls): return cls._yaml_file
 
     # template
     _yaml_template_obj = None
     _yaml_template_file = 'config-template.yaml'
+
+    @classmethod
+    def get_user_folder(cls):
+        """
+        获取当前实例用户目录
+        :return:
+        """
+        user_folder = os.path.join(resource_path, f'user-{cls.current_instance_name}')
+        if not os.path.exists(user_folder):
+            user_template = os.path.join(resource_path, 'user-template')
+            import shutil
+            shutil.copytree(user_template, user_folder)
+        return user_folder
+
+    # @classmethod
+    # def _create_instance_file(cls):
+    #     account_yaml_path = os.path.join(PROJECT_PATH, 'account.yaml')
+    #     account = YAML()
+    #     with open(account_yaml_path, 'r', encoding='utf8') as f:
+    #         instances = account.load(f)
+    #     import shutil
+    #     yaml_template_file = os.path.join(PROJECT_PATH,cls._yaml_template_file)
+    #     if not os.path.exists(yaml_template_file): raise Exception("config-template.yaml模板配置文件丢失!")
+    #     for key in instances.keys():
+    #         config_instance_path = os.path.join(PROJECT_PATH, f'config-{key}.yaml')
+    #         print(config_instance_path)
+    #         if not os.path.exists(config_instance_path):
+    #             shutil.copy(yaml_template_file, config_instance_path)
+    @classmethod
+    def get_instances(cls):
+        account_yaml_path = os.path.join(PROJECT_PATH, 'account.yaml')
+        account = YAML()
+        with open(account_yaml_path, 'r', encoding='utf8') as f:
+            instances = account.load(f)
+            return instances
+
+    @classmethod
+    def set_instance(cls, instance_name):
+        """
+        设置指定的实例
+        :param instance_name:
+        :return:
+        """
+        if instance_name is None:
+            instance_name = 'instance1'
+        cls.current_instance_name = instance_name
+        cls._yaml_file = f'config-{instance_name}.yaml'
+        cls.reload_config()
+
+        ins = BaseConfig.get_instances()
+        ins['current_instance'] = instance_name
+        with open(os.path.join(PROJECT_PATH, 'account.yaml'), 'w', encoding='utf8') as f:
+            yaml.dump(ins, f)
+
 
     @classmethod
     def _load_if_none(cls):
@@ -66,6 +124,7 @@ class _BaseConfig:
         if not os.path.exists(yaml_template_file):
             raise Exception("config-template.yaml模板配置文件丢失!")
 
+        # 如果文件不存在则创建实例
         if not os.path.exists(yaml_file):
             import shutil
             shutil.copy(yaml_template_file, yaml_file)
@@ -77,8 +136,10 @@ class _BaseConfig:
             cls._yaml_template_obj = yaml.load(f)
 
 
+# 一定要先运行一次，让BaseConfig._yaml_obj不为None，否则其子类都不会继承BaseConfig的_yaml_obj，导致他们的数据不相同
+BaseConfig.reload_config()
 
-class MapConfig(_BaseConfig):
+class MapConfig(BaseConfig):
     _yaml_obj = None
     _yaml_file = 'config.map.yaml'
 
@@ -87,13 +148,13 @@ class MapConfig(_BaseConfig):
         return MapConfig.get_yaml_object()
 
 
-class DebugConfig(_BaseConfig):
+class DebugConfig(BaseConfig):
     KEY_DEBUG_ENABLE = 'debug_enable'
 
-class WindowsConfig(_BaseConfig):
+class WindowsConfig(BaseConfig):
     KEY_WINDOW_NAME = 'window_name'
 
-class PathExecutorConfig(_BaseConfig):
+class PathExecutorConfig(BaseConfig):
     KEY_LOCAL_MAP_SIZE = 'local_map_size'  # 允许范围512 ~ 4096 # 越大越卡
     KEY_SHOW_PATH_VIEWER = 'show_path_viewer'  # 跑点位的时候是否展示路径
     KEY_PATH_VIEWER_WIDTH = 'path_viewer_width'  # 路径展示的宽高，允许范围(50~4096
@@ -116,18 +177,18 @@ class PathExecutorConfig(_BaseConfig):
     KEY_POSITION_MUTATION_MAX_TIME = 'position_mutation_max_time'  # 一段路径中允许位置突变次数，允许范围(0~10)
     KEY_SEARCH_CLOSEST_POINT_MAX_DISTANCE = 'search_closet_point_max_distance'  # 路径突变后搜索最近点位策略，允许范围(80~500)
 
-class FightConfig(_BaseConfig):
+class FightConfig(BaseConfig):
     KEY_DEFAULT_FIGHT_TEAM = 'default_fight_team'
     KEY_FIGHT_TIMEOUT = 'fight_duration'
 
-class DailyMissionConfig(_BaseConfig):
+class DailyMissionConfig(BaseConfig):
     KEY_DAILY_TASK_FIGHT_TEAM = 'daily_task_fight_team'
     KEY_DAILY_TASK_EXECUTE_TIMEOUT = 'daily_task_execute_timeout'
     KEY_DAILY_TASK_FIGHT_TIMEOUT = 'daily_task_fight_timeout'
     KEY_DAILY_TASK_DESTROY_TIMEOUT = 'daily_task_destroy_timeout'
     KEY_DAILY_TASK_KAISELIN = 'daily_task_kaiselin'
 
-class LeyLineConfig(_BaseConfig):
+class LeyLineConfig(BaseConfig):
     KEY_LEYLINE_TYPE = 'leyline_type'
     KEY_LEYLINE_OUTCROP_TASK_EXECUTE_TIMEOUT = 'leyline_outcrop_task_execute_timeout'
     KEY_LEYLINE_OUTCROP_TASK_FIGHT_TIMEOUT = 'leyline_outcrop_task_fight_timeout'
@@ -135,33 +196,28 @@ class LeyLineConfig(_BaseConfig):
     KEY_LEYLINE_FIGHT_TEAM = 'leyline_fight_team'
 
 
-class ServerConfig(_BaseConfig):
+class ServerConfig(BaseConfig):
     KEY_HOST = 'host'
     KEY_PORT = 'port'
 
 def reload_config():
-    _BaseConfig.reload_config()
+    BaseConfig.reload_config()
 
-# def get_bigmap_path(size=2048,version=5.0):
-#     # return os.path.join(resource_path, 'map', f'combined_image_{size}.png')
-#     return os.path.join(resource_path, 'map',f'version{version}', f'map{version}_{size}.png')
-
-
-def get_user_folder():
-    user_folder = os.path.join(resource_path, 'user')
-    if not os.path.exists(user_folder):
-        user_template = os.path.join(resource_path, 'user-template')
-        import shutil
-        shutil.copytree(user_template, user_folder)
-    return user_folder
+# def get_user_folder():
+#     user_folder = os.path.join(resource_path, 'user')
+#     if not os.path.exists(user_folder):
+#         user_template = os.path.join(resource_path, 'user-template')
+#         import shutil
+#         shutil.copytree(user_template, user_folder)
+#     return user_folder
+# BaseConfig._create_instance_file()
 
 if __name__ == '__main__':
-    # df = get_config('default_fight_team')
-    # print(df)
-    # set_config('default_fight_team', '1.txt')
-    # print(get_config('default_fight_team'))
-    # mc = MapConfig.get_all_map()
-    # print(_BaseConfig.get(ServerConfig.KEY_HOST))
-    print(LeyLineConfig.get(LeyLineConfig.KEY_LEYLINE_TYPE))
-    # get_user_folder()
-
+    print(BaseConfig.get_yaml_object() == FightConfig.get_yaml_object())
+    BaseConfig.set_instance("instance2")
+    BaseConfig.reload_config()
+    print(FightConfig.get_yaml_file())
+    print(BaseConfig.get_user_folder())
+    # print(BaseConfig.get_instances())
+    # BaseConfig.set_instance('instance2')
+    # print(LeyLineConfig.get(LeyLineConfig.KEY_LEYLINE_TYPE))
