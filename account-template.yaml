@@ -1,6 +1,6 @@
 # 实例配置，一个实例一个账号
 # 其中server字段表示是什么服务器，例如 bilibili表示b服，official表示国内官方服务器
-current_instance: default
+current_instance: instance1
 
 instances:
   - name: instance1

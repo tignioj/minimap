@@ -30,6 +30,7 @@ class BaseConfig:
     _yaml_template_obj = None
     _yaml_template_file = 'config-template.yaml'
 
+
     @classmethod
     def get_user_folder(cls):
         """
@@ -58,8 +59,19 @@ class BaseConfig:
     #         if not os.path.exists(config_instance_path):
     #             shutil.copy(yaml_template_file, config_instance_path)
     @classmethod
+    def __get_account_yaml_path(cls):
+        p = os.path.join(PROJECT_PATH, 'account.yaml')
+        if not os.path.exists(p):
+            import shutil
+            tp = os.path.join(PROJECT_PATH, 'account-template.yaml')
+            if not os.path.exists(tp): raise Exception("实例配置文件已丢失！")
+            shutil.copy(tp, p)
+        return p
+
+
+    @classmethod
     def get_instances(cls):
-        account_yaml_path = os.path.join(PROJECT_PATH, 'account.yaml')
+        account_yaml_path = cls.__get_account_yaml_path()
         account = YAML()
         with open(account_yaml_path, 'r', encoding='utf8') as f:
             instances = account.load(f)
@@ -80,7 +92,8 @@ class BaseConfig:
 
         ins = BaseConfig.get_instances()
         ins['current_instance'] = instance_name
-        with open(os.path.join(PROJECT_PATH, 'account.yaml'), 'w', encoding='utf8') as f:
+        p = cls.__get_account_yaml_path()
+        with open(p, 'w', encoding='utf8') as f:
             yaml.dump(ins, f)
 
 
