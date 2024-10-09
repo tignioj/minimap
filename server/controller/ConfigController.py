@@ -3,12 +3,12 @@ import os
 from flask import Blueprint, jsonify, request
 from server.controller.ServerBaseController import ServerBaseController
 config_bp = Blueprint('config_bp', __name__)
+from myutils.configutils import AccountConfig, BaseConfig, application_path, reload_config
 
 class ConfigController(ServerBaseController):
     @staticmethod
     @config_bp.route('/config/get')
     def config_get():
-        from myutils.configutils import application_path, BaseConfig
         config_path = os.path.join(application_path, BaseConfig.get_yaml_file())
         with open(config_path, "r", encoding="utf8") as f:
             # return jsonify({'success': True, 'data': f.read()})
@@ -17,7 +17,6 @@ class ConfigController(ServerBaseController):
     @staticmethod
     @config_bp.post('/config/save')
     def config_save():
-        from myutils.configutils import BaseConfig, application_path, reload_config
         config_name = BaseConfig.get_yaml_file()
         config_path = os.path.join(application_path, config_name)
         with open(config_path, "w", encoding="utf8") as f:
@@ -27,15 +26,22 @@ class ConfigController(ServerBaseController):
     @staticmethod
     @config_bp.put('/config/set/<name>')
     def config_set_instance(name):
-        from myutils.configutils import BaseConfig
-        BaseConfig.set_instance(name)
+        AccountConfig.set_instance(name)
         return ConfigController.success(message=f'成功切换实例:{name}')
 
     @staticmethod
     @config_bp.route('/config/instances', methods=['GET'])
     def get_instances():
-        from myutils.configutils import BaseConfig
-        instances = BaseConfig.get_instances()
+        instances = AccountConfig.get_account_obj()
         for instance in instances['instances']:
             instance['password'] = ''
         return ConfigController.success(data=instances)
+
+    @staticmethod
+    @config_bp.route('/config/delete/<instance_name>', methods=['GET'])
+    def delete_config(instance_name):
+        try:
+            AccountConfig.delete_instance(instance_name)
+            return ConfigController.success(f'成功删除"{instance_name}"')
+        except Exception as e:
+            return ConfigController.error(e.args)

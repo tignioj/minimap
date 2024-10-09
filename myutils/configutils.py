@@ -18,32 +18,9 @@ elif __file__:
 PROJECT_PATH = application_path
 resource_path = os.path.join(PROJECT_PATH, 'resources')
 
-class BaseConfig:
-    _yaml_obj = None
-    # _yaml_file = "config.dev.yaml"  # 给子类继承
-    current_instance_name = 'instance1'
-    _yaml_file = f'config-{current_instance_name}.yaml'  # 默认
-    @classmethod
-    def get_yaml_file(cls): return cls._yaml_file
 
-    # template
-    _yaml_template_obj = None
-    _yaml_template_file = 'config-template.yaml'
-
-
-    @classmethod
-    def get_user_folder(cls):
-        """
-        获取当前实例用户目录
-        :return:
-        """
-        user_folder = os.path.join(resource_path, f'user-{cls.current_instance_name}')
-        if not os.path.exists(user_folder):
-            user_template = os.path.join(resource_path, 'user-template')
-            import shutil
-            shutil.copytree(user_template, user_folder)
-        return user_folder
-
+class AccountConfig:
+    __yaml_obj = None
     # @classmethod
     # def _create_instance_file(cls):
     #     account_yaml_path = os.path.join(PROJECT_PATH, 'account.yaml')
@@ -58,8 +35,9 @@ class BaseConfig:
     #         print(config_instance_path)
     #         if not os.path.exists(config_instance_path):
     #             shutil.copy(yaml_template_file, config_instance_path)
+
     @classmethod
-    def __get_account_yaml_path(cls):
+    def get_account_yaml_path(cls):
         p = os.path.join(PROJECT_PATH, 'account.yaml')
         if not os.path.exists(p):
             import shutil
@@ -68,14 +46,54 @@ class BaseConfig:
             shutil.copy(tp, p)
         return p
 
-
     @classmethod
-    def get_instances(cls):
-        account_yaml_path = cls.__get_account_yaml_path()
+    def reload_account_obj(cls):
+        account_yaml_path = cls.get_account_yaml_path()
         account = YAML()
         with open(account_yaml_path, 'r', encoding='utf8') as f:
-            instances = account.load(f)
-            return instances
+            cls.__yaml_obj = account.load(f)
+
+    @classmethod
+    def get_account_obj(cls):
+        # 每次都刷新
+        cls.reload_account_obj()
+        return cls.__yaml_obj
+
+    @classmethod
+    def delete_instance(cls, instance_name):
+        data = cls.get_account_obj()
+        if 'instances' in data:
+            data['instances'] = [instance for instance in data['instances'] if instance.get('name') != instance_name]
+
+        if len(data.get('instances', [])) < 1:
+            raise Exception("删除失败，因为至少要保留一个实例")
+
+        # 检查默认值
+        current = data.get('current_instance')
+        if current == instance_name:
+            data['current_instance'] = data['instances'][0].name
+
+        # 保存修改后的 YAML 文件
+        with open(cls.get_account_yaml_path(), 'w', encoding='utf8') as file:
+            yaml.dump(data, file)
+
+        cls.reload_account_obj()
+
+    @classmethod
+    def get_current_instance_name(cls):
+        obj = cls.get_account_obj()
+        current = obj.get('current_instance', 'instance1')
+        if not cls.instance_exists(current):
+            raise Exception("你要查找的实例不存在配置列表中")
+        return current
+
+    @classmethod
+    def instance_exists(cls, instance_name):
+        data = AccountConfig.get_account_obj()
+        exists = False
+        for ins in data.get('instances', []):
+            if ins.get('name') == instance_name: exists = True
+        return exists
 
     @classmethod
     def set_instance(cls, instance_name):
@@ -84,17 +102,44 @@ class BaseConfig:
         :param instance_name:
         :return:
         """
-        if instance_name is None:
-            instance_name = 'instance1'
-        cls.current_instance_name = instance_name
-        cls._yaml_file = f'config-{instance_name}.yaml'
-        cls.reload_config()
+        if not cls.instance_exists(instance_name): raise Exception(f"你指定的{instance_name}不在实例列表中!")
 
-        ins = BaseConfig.get_instances()
-        ins['current_instance'] = instance_name
-        p = cls.__get_account_yaml_path()
+        data = AccountConfig.get_account_obj()
+        data['current_instance'] = instance_name
+        p = cls.get_account_yaml_path()
         with open(p, 'w', encoding='utf8') as f:
-            yaml.dump(ins, f)
+            yaml.dump(data, f)
+
+        # 重载配置
+        BaseConfig._yaml_file = f'config-{instance_name}.yaml'
+        BaseConfig.reload_config()
+
+        cls.reload_account_obj()
+
+
+class BaseConfig:
+    _yaml_obj = None
+    _yaml_file = f'config-{AccountConfig.get_current_instance_name()}.yaml'  # 默认
+    @classmethod
+    def get_yaml_file(cls): return cls._yaml_file
+
+    # template
+    _yaml_template_obj = None
+    _yaml_template_file = 'config-template.yaml'
+
+
+    @classmethod
+    def get_user_folder(cls):
+        """
+        获取当前实例用户目录
+        :return:
+        """
+        user_folder = os.path.join(resource_path, f'user-{AccountConfig.get_current_instance_name()}')
+        if not os.path.exists(user_folder):
+            user_template = os.path.join(resource_path, 'user-template')
+            import shutil
+            shutil.copytree(user_template, user_folder)
+        return user_folder
 
 
     @classmethod
@@ -151,6 +196,8 @@ class BaseConfig:
 
 # 一定要先运行一次，让BaseConfig._yaml_obj不为None，否则其子类都不会继承BaseConfig的_yaml_obj，导致他们的数据不相同
 BaseConfig.reload_config()
+
+
 
 class MapConfig(BaseConfig):
     _yaml_obj = None
@@ -226,11 +273,12 @@ def reload_config():
 # BaseConfig._create_instance_file()
 
 if __name__ == '__main__':
-    print(BaseConfig.get_yaml_object() == FightConfig.get_yaml_object())
-    BaseConfig.set_instance("instance2")
-    BaseConfig.reload_config()
-    print(FightConfig.get_yaml_file())
-    print(BaseConfig.get_user_folder())
+    # print(BaseConfig.get_yaml_object() == FightConfig.get_yaml_object())
+    # AccountConfig.set_instance("instance2")
+    # BaseConfig.reload_config()
+    # print(FightConfig.get_yaml_file())
+    # print(BaseConfig.get_user_folder())
     # print(BaseConfig.get_instances())
     # BaseConfig.set_instance('instance2')
     # print(LeyLineConfig.get(LeyLineConfig.KEY_LEYLINE_TYPE))
+    AccountConfig.set_instance('instance1')
