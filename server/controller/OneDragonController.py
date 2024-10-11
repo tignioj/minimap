@@ -38,3 +38,24 @@ class OneDragonController(ServerBaseController):
         OneDragonService.stop_one_dragon(socketio_instance=socketio_instance)
         return OneDragonController.success('已发送停止一条龙信号')
 
+    @staticmethod
+    @one_dragon_bp.route('/one_dragon/save', methods=['POST'])
+    def one_dragon_save():
+        from server.service.OneDragonService import OneDragonService
+        try:
+            data = request.get_data(as_text=True)
+            OneDragonService.save_one_dragon(data)
+            return OneDragonController.success('保存成功')
+        except Exception as e:
+            return OneDragonController.error(f'保存失败{e.args}')
+
+    @staticmethod
+    @one_dragon_bp.route('/one_dragon/get', methods=['GET'])
+    def one_dragon_get():
+        from server.service.OneDragonService import OneDragonService
+        try:
+            data = OneDragonService.get_one_dragon_json()
+            return OneDragonController.success(data=data)
+        except Exception as e:
+            return OneDragonController.error(f'获取失败{e.args}')
+

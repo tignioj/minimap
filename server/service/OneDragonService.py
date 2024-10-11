@@ -1,3 +1,5 @@
+import json
+import os
 
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger('one_dragon_service')
@@ -76,4 +78,21 @@ class OneDragonService:
         BaseController.stop_listen = True
         socketio_instance.emit(SOCKET_EVENT_ONE_DRAGON_END,'已停止一条龙')
 
+    @staticmethod
+    def save_one_dragon(data:str):
+        from myutils.configutils import BaseConfig
+        user_folder = BaseConfig.get_user_folder()
+        one_dragon_path = os.path.join(user_folder, 'one_dragon.json')
+        with open(one_dragon_path,'w', encoding='utf8') as f:
+            f.write(data)
+
+    @staticmethod
+    def get_one_dragon_json():
+        from myutils.configutils import BaseConfig, AccountConfig
+        user_folder = BaseConfig.get_user_folder()
+        one_dragon_path = os.path.join(user_folder, 'one_dragon.json')
+        if not os.path.exists(one_dragon_path):
+            raise Exception(f'实例"{AccountConfig.get_current_instance_name()}"还没有配置一条龙')
+        with open(one_dragon_path,'r', encoding='utf8') as f:
+            return json.load(f)
 
