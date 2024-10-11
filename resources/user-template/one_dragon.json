@@ -1,0 +1,6 @@
+[
+  { "name": "清单", "value": "todo" , "checked": false },
+  { "name": "战斗委托", "value": "dailyMission" , "checked": true},
+  { "name": "地脉", "value": "leyLine" , "checked": true},
+  { "name": "领取奖励", "value": "claimReward" , "checked": true}
+]
