@@ -7,6 +7,14 @@ import numpy as np
 
 
 def crop_square_with_padding(image, x, y, square_size):
+    """
+    裁剪图片，超出边界部分用白色背景填充
+    :param image:
+    :param x:
+    :param y:
+    :param square_size:
+    :return:
+    """
     # 读取图像
 
     # 获取图像的高度和宽度
@@ -52,6 +60,17 @@ def crop_square_with_padding(image, x, y, square_size):
     white_background[background_y1:background_y2, background_x1:background_x2] = image[crop_y1:crop_y2, crop_x1:crop_x2]
 
     return white_background
+
+def crop_square(img, d):
+    """
+    从输入图像中裁剪出一个以图像中心为中心的正方形区域，边长为 2*d。
+    :param img:
+    :param d:
+    :return:
+    """
+    height, width = img.shape[:2]
+    center = (height // 2, width // 2)
+    return img[center[0] - d:center[0] + d, center[1] - d:center[1] + d]
 
 def crop_img(large_image, center_x, center_y, crop_size=500, scale=None):
     if large_image is None: return None

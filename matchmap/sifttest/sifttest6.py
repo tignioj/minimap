@@ -3,7 +3,7 @@ import os.path
 import sys
 import time
 from typing import List
-
+import math
 import cv2
 import numpy
 import numpy as np
@@ -11,9 +11,9 @@ from capture.capture_factory import capture
 from myutils.configutils import resource_path
 from myutils.kp_gen import load
 from myutils.timerutils import RateLimiterAsync
-from myutils.imgutils import crop_img
+from myutils.imgutils import crop_img, crop_square
 from myutils.sift_utils import get_match_position, get_match_position_with_good_match_count, get_match_corner, \
-    MatchException
+    MatchException, get_match_pts_and_dts
 
 gs = capture
 from mylogger.MyLogger3 import MyLogger
@@ -30,14 +30,13 @@ import threading
 
 class SiftMap:
 
-    def __init__(self, map_name, block_size,img, des, kep, center, scale=1, sift=None):
+    def __init__(self, map_name, block_size,img, des, kep, center, sift=None):
         self.map_name = map_name
         self.block_size = block_size
         self.img = img
         self.des:numpy.ndarray = des
         self.kep: List[cv2.KeyPoint] = kep
         self.center = center
-        self.scale = scale
         self.sift = sift
         if self.sift is None: self.sift = cv2.SIFT.create()
 class SiftMapNotFoundException(Exception):
@@ -134,6 +133,17 @@ class MiniMap:
         # 当前地图全局匹配时，good match的结果, 用于判断是否要切换地图。如果同时匹配多张地图时，先设置第一个出结果的。
         # 后续才出结果的, 则判断是否比先出的质量好, 是的话则选择质量好的, good match由匹配的时候赋值
         self.good_match_count = 0
+
+        self.__out_circle_radius = 78
+        # self.__out_circle_radius = capture.mini_map_width
+        self.__inner_circle_radius = 14
+        self.alpha_mask = np.zeros((2 * self.__out_circle_radius, 2 * self.__out_circle_radius), dtype=np.float16)
+        for i in range(2 * self.__out_circle_radius):
+            for j in range(2 * self.__out_circle_radius):
+                self.alpha_mask[i, j] = 255 / (226 + 0.203 * math.sqrt(
+                    (self.__out_circle_radius + 0.5 - i) ** 2 + (self.__out_circle_radius + 0.5 - j) ** 2))
+
+        self.__rotation = None
 
     def create_local_map_cache_thread(self):
         self.rate_limiter_async.execute(self.__global_match)
@@ -337,6 +347,12 @@ class MiniMap:
             self.logger.info(f'缓存区域成功, 缓存的中心点像素坐标{pos}, 相对坐标{self.pix_axis_to_relative_axis(pos)}')
             return True
 
+    def get_rotation(self):
+        """
+        :return:
+        """
+        self.get_position()
+        return self.__rotation
 
     def __local_match(self, small_image, keypoints_small, descriptors_small):
         """
@@ -359,17 +375,65 @@ class MiniMap:
         pix_centery = self.PIX_CENTER_AY
         map_2048 = self.map_2048
 
-        if local_map_keypoints is None or local_map_descriptors is None or map_2048 is None:
-            self.logger.debug('当前尚未缓存局部地图的特征点，请稍后再进行局部匹配')
-            return None
+       # 虽然是局部匹配，但是坐标是算法在大地图匹配生成的，因此返回的坐标是全局坐标
+        self.__rotation = None
+        try:
+            if local_map_keypoints is None or local_map_descriptors is None or map_2048 is None:
+                raise MatchException('当前尚未缓存局部地图的特征点，请稍后再进行局部匹配')
 
-        # 虽然是局部匹配，但是坐标是算法在大地图匹配生成的，因此返回的坐标是全局坐标
-        pix_pos = get_match_position(small_image, keypoints_small, descriptors_small, local_map_keypoints,
-                                    local_map_descriptors, self.bf_matcher)
+            src_pts, dst_pts, good_match_count = get_match_pts_and_dts(small_image, keypoints_small, descriptors_small, local_map_keypoints,
+                                           local_map_descriptors, self.bf_matcher)
+
+            # 计算缩放
+            h, w = small_image.shape[:2]
+            small_img_corners = np.float32([[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]]).reshape(-1, 1, 2)
+            # 使用RANSAC找到变换矩阵
+            M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 3.0)
+
+            # 计算小地图的中心点
+            if M is None: raise MatchException("透视变换失败")
+
+            # 将角点映射到大图片中
+            mapped_corners = cv2.perspectiveTransform(small_img_corners, M)
+
+            # 获取裁剪区域
+            x_min = int(min(mapped_corners[:, 0, 0]))
+            x_max = int(max(mapped_corners[:, 0, 0]))
+            # y_min = int(min(mapped_corners[:, 0, 1]))
+            # y_max = int(max(mapped_corners[:, 0, 1]))
+            if x_max - x_min == 0: raise MatchException("计算的角点可能有误，长度不能为0")
+
+            # 计算中心点
+            center_point = np.array([[w / 2, h / 2]], dtype='float32')
+            center_point = np.array([center_point])
+            transformed_center = cv2.perspectiveTransform(center_point, M)
+
+            pix_pos = transformed_center[0][0]
+
+            # 获取缩放,用于计算角度
+            scale = h/(x_max-x_min)
+            # if scale > 0.8: scale = 0.9  # 城内
+            # else: scale = 0.3
+            # print(scale)
+
+            match_result = crop_img(self.map_2048.img, pix_pos[0], pix_pos[1], crop_size=int(capture.mini_map_width*(1/scale))).copy()
+            if match_result is None: raise MatchException("裁剪图片出错")
+            background = cv2.resize(match_result, None, fx=scale, fy=scale)
+            self.__cvshow('background', background)
+            # 计算旋转
+            self.__rotation = self.__calculation_rotation_alpha(small_image, background)
+            self.logger.debug(f'rotation:{self.__rotation}')
+
+        except MatchException as e:
+            self.logger.error(e)
+            pix_pos = None
+
+        # pix_pos = get_match_position(small_image, keypoints_small, descriptors_small, local_map_keypoints, local_map_descriptors, self.bf_matcher)
+
         if pix_pos is None or pix_pos[0] < 0 or pix_pos[1] < 0:
             self.logger.error(f'局部匹配失败, 尝试全局匹配')
             self.create_local_map_cache_thread()
-            return None
+            return None, None
 
         # TODO: 优化：在地图边缘可以直接筛选附近的点位作为缓存而不是全局匹配
         # 如果处于地图边缘，则开始创建全局匹配
@@ -408,13 +472,37 @@ class MiniMap:
             self.__putText(match_result, text, org=(0, 60), color=color)
             self.__cvshow('match_result', match_result)
 
-        return pix_pos
+        return pix_pos, self.__rotation
 
     def __position_out_of_local_map_range(self, pos):
         threshold = 150
         max_pos = self.local_map_size - threshold
         return pos[0] < threshold or pos[1] < threshold or pos[0] > max_pos or pos[1] > max_pos
 
+    def get_position_and_rotation(self, absolute_position=False):
+        """
+        获取相对于中心点的位置,中心点可以在config.yaml中设置
+        :param absolute_position: 是否返回绝对位置
+        :return:
+        """
+        small_image = gs.get_mini_map()
+        keypoints_small, descriptors_small = self.map_2048.sift.detectAndCompute(small_image, None)
+        imgKp1 = cv2.drawKeypoints(small_image, keypoints_small, None, color=(0, 0, 255))
+        self.__cvshow('imgKp1', imgKp1)
+
+        if not capture.has_paimon():
+            self.logger.error('未找到左上角小地图旁边的派蒙，无法获取位置')
+            return None, None
+
+        if self.local_map_descriptors is None or self.local_map_keypoints is None or len(self.local_map_descriptors) == 0 or len(self.local_map_keypoints) == 0:
+            # 非阻塞
+            self.create_local_map_cache_thread()
+            return None, None
+        result_pos, result_rotation = self.__local_match(small_image, keypoints_small, descriptors_small)
+
+        if absolute_position: return result_pos
+        # 坐标变换
+        return self.pix_axis_to_relative_axis(result_pos), result_rotation
 
     def get_position(self, absolute_position=False):
         """
@@ -435,7 +523,7 @@ class MiniMap:
             # 非阻塞
             self.create_local_map_cache_thread()
             return None
-        result_pos = self.__local_match(small_image, keypoints_small, descriptors_small)
+        result_pos, _ = self.__local_match(small_image, keypoints_small, descriptors_small)
 
         if absolute_position: return result_pos
         # 坐标变换
@@ -460,7 +548,54 @@ class MiniMap:
         # self.PIX_CENTER_AY = 2764
         # self.logger.debug(f'坐标中心调整为{self.PIX_CENTER_AX}, {self.PIX_CENTER_AY}')
 
+    def __calculation_rotation_alpha(self, img, background):
+        out_circle_radius = self.__out_circle_radius
+        inner_circle_radius = self.__inner_circle_radius
 
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # background = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
+        # 半径，根据需要修改
+        crop_img = crop_square(img, out_circle_radius)
+        crop_background = crop_square(background, out_circle_radius)
+
+        mask = np.zeros((2 * out_circle_radius, 2 * out_circle_radius), dtype=np.uint8)
+        cv2.circle(mask, (out_circle_radius, out_circle_radius), out_circle_radius, 255, -1)
+        cv2.circle(mask, (out_circle_radius, out_circle_radius), inner_circle_radius, 0, -1)
+
+        masked_img = cv2.bitwise_and(crop_img, mask)
+        masked_background = cv2.bitwise_and(crop_background, mask)
+        # cv2.imshow('mask', masked_img)
+
+        # 减背景操作
+        image_f = masked_img.astype(np.float16)
+        background_f = masked_background.astype(np.float16)
+        diff_img = (30 * ((259 - image_f * self.alpha_mask) / (256 - background_f) - 1)).astype(np.uint8)
+
+        # 开运算操作
+        kernel_d = 4
+        open_diff_img = cv2.morphologyEx(diff_img, cv2.MORPH_OPEN, np.ones((4, 4), dtype=np.uint8))
+        # plt.imshow(open_diff_img,cmap='gray',vmin=0, vmax=255)
+        # cv2.imshow("Difference Image", open_diff_img)
+        self.__cvshow("open_diff_img", open_diff_img)
+
+        # 求质心坐标
+        M = cv2.moments(open_diff_img)
+        if M['m00'] != 0:
+            cx = M['m10'] / M['m00']
+            cy = M['m01'] / M['m00']
+        cv2.circle(img, (int(cx), int(cy)), 2, 255, -1)
+        # plt.imshow(img,cmap='gray',vmin=0, vmax=255)
+        cv2.imshow('gray',img)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+
+        # 求角度
+        dx = cx - out_circle_radius - 0.5
+        dy = out_circle_radius - cy + 0.5
+        angle = np.arctan2(dx, dy)
+        angle = np.degrees(angle)
+
+        return -angle
 if __name__ == '__main__':
     # TODO: BUG 同一个位置，不同分辨率获取的位置有差异！
     # 解决思路：
@@ -468,7 +603,8 @@ if __name__ == '__main__':
     mp = MiniMap(debug_enable=True)
     mp.logger.setLevel(logging.INFO)
     # mp.choose_map('层岩巨渊')
-    mp.choose_map('渊下宫')
+    # mp.choose_map('渊下宫')
+    mp.choose_map('璃月')
     capture.add_observer(mp)
     while True:
         time.sleep(0.05)

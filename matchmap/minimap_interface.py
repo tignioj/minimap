@@ -11,6 +11,9 @@ class MiniMapInter:
     def choose_map(self, map_name): pass
 
     def get_position(self): pass
+
+    def get_position_and_rotation(self): pass
+
     def get_local_map(self): pass
     def get_region_map(self,x, y, width): pass
     def get_rotation(self,use_alpha=False): pass
@@ -29,6 +32,9 @@ class MinimapServer(MiniMapInter):
         :return:
         """
         return ServerAPI.position()
+
+    def get_position_and_rotation(self):
+        return ServerAPI.get_position_and_rotation()
 
     def get_region_map(self, x, y, width, region=None):
         return ServerAPI.get_region_map(x, y, width, region=region)

@@ -529,10 +529,16 @@ class BasePathExecutor(BaseController):
 
     def update_state(self):
         start = time.time()
-        pos = self.tracker.get_position()
-        if pos: self.current_coordinate = pos
-        rot = self.tracker.get_rotation()
-        if rot: self.current_rotation = rot
+        data = self.tracker.get_position_and_rotation()
+        if data is not None:
+            pos = data.get('position')
+            rot = data.get('rotation')
+            if pos is not None: self.current_coordinate = pos
+            if rot is not None: self.current_rotation = rot
+        # rot = self.tracker.get_rotation()
+        # if rot: self.current_rotation = rot
+        else:
+            self.logger.debug(f'存在空值:{data}')
 
         self.last_time_update_user_status = time.time()
         msg = f"更新状态: cost:{time.time() - start},next:{self.next_point}, current pos:{self.current_coordinate}, rotation:{self.current_rotation},is_path_end:{self.is_path_end}, is_object_detected_end:{self._thread_object_detect_finished}"
@@ -588,7 +594,7 @@ class BasePathExecutor(BaseController):
         """
         start_time = time.time()
         while not self.current_coordinate:
-            # self.current_coordinate = self.tracker.get_position() # 已经有其他线程在获取，这里无需调用
+            self.current_coordinate = self.tracker.get_position() # 已经有其他线程在获取，这里无需调用
             if self.stop_listen: return None
             self.logger.debug(f'正在等待位置中，已经等待{time.time() - start_time:}')
             if time.time() - start_time > wait_times:

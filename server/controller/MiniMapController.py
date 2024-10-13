@@ -66,6 +66,17 @@ class MiniMapController(ServerBaseController):
         if pos:
             return MiniMapController.success(data=pos)
         else: return MiniMapController.error()
+
+    @staticmethod
+    @minimap_bp.route('/minimap/get_position_rotation', methods=['GET'])
+    def get_position_and_rotation():
+        absolute_position = request.args.get('absolute_position', 0) == '1'
+        pos, rot = minimap.get_position_and_rotation(absolute_position=absolute_position)
+        data = {'position': pos, 'rotation': rot}
+        if pos:
+            return MiniMapController.success(data=data)
+        else:
+            return MiniMapController.error()
     @staticmethod
     @minimap_bp.route('/minimap/choose_map', methods=['GET'])
     def choose_map():
@@ -76,7 +87,7 @@ class MiniMapController(ServerBaseController):
     @staticmethod
     @minimap_bp.route('/minimap/get_insert_node', methods=['GET'])
     def get_insert_node():
-        pos = minimap.get_position()
+        pos, rot = minimap.get_position_and_rotation()
         if pos is None or minimap.map_2048 is None:
             return MiniMapController.error()
 
@@ -89,6 +100,7 @@ class MiniMapController(ServerBaseController):
         data = {
             'position': pos,
             'move_mode': move_mode,
+            'rotation': rot,
             'map_name': map_name
         }
         return MiniMapController.success(data=data)
@@ -98,8 +110,12 @@ class MiniMapController(ServerBaseController):
     def get_rotation():
         img = capture.get_mini_map()
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        rot = rotate.predict_rotation(img)
-        if rot is not None: return ServerBaseController.success(data=rot)
+        rot = minimap.get_rotation()
+
+        if rot is None: rot = rotate.predict_rotation(img)
+
+        if rot is not None:
+            return ServerBaseController.success(data=rot)
         else: return ServerBaseController.error()
 
     from io import BytesIO

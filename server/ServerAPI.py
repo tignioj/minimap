@@ -80,16 +80,19 @@ def create_cached_local_map(center_pos=None, use_middle_map=False):
     __log(f"创建缓存结果{result}")
 
 def rotation(use_alpha=False):
-    if use_alpha:
-        req = requests.get(f"{url}/minimap/get_rotation/use_alpha")
-    else:
-        req = requests.get(f"{url}/minimap/get_rotation")
+    req = requests.get(f"{url}/minimap/get_rotation")
     if req.status_code == 200:
         result = req.json()
         if result.get('success') is True:
             return result.get('data')
-        else: return None
-
+    return None
+def get_position_and_rotation():
+    req = requests.get(f"{url}/minimap/get_position_rotation")
+    if req.status_code == 200:
+        result = req.json()
+        if result.get('success') is True:
+            return result.get('data')
+    return None
 def get_insert_node():
     req = requests.get(f"{url}/minimap/get_insert_node")
     if req.status_code == 200 and req.json().get('success') is True:
@@ -163,8 +166,12 @@ if __name__ == '__main__':
     while True:
     #     time.sleep(0.05)
         start = time.time()
-        pos = position()
-        rot = rotation()
+        data = get_position_and_rotation()
+        if data is None:
+            print("None")
+            continue
+        pos = data.get('position')
+        rot = data.get('rotation')
     #     # get_ocr_result()
         cost = time.time() - start
         print(f'pos {pos},rotation {rot}, time cost{cost}')
