@@ -15,7 +15,6 @@ class GenShinCaptureObj(ObservableCapture):
         super().__init__(WindowsConfig.get(WindowsConfig.KEY_WINDOW_NAME, '原神'))
         # super().__init__('Genshin Impact')
         # 16:9
-        self.minimap_radius = None
         self.mask = None
         self.paimon_area = None
 

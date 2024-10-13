@@ -120,7 +120,7 @@ class BasePathExecutor(BaseController):
             self.logger.error('空路径，跳过!')
             return
         self.ocr = OCRController(debug_enable=debug_enable)
-        self.map_controller = MapController(tracker=self.tracker, debug_enable=debug_enable)  # 传送
+        self.map_controller = MapController(debug_enable=debug_enable)  # 传送
 
         from myutils.configutils import FightConfig
         if fight_team is None: fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
@@ -529,16 +529,11 @@ class BasePathExecutor(BaseController):
 
     def update_state(self):
         start = time.time()
-        data = self.tracker.get_position_and_rotation()
-        if data is not None:
-            pos = data.get('position')
-            rot = data.get('rotation')
-            if pos is not None: self.current_coordinate = pos
-            if rot is not None: self.current_rotation = rot
+        pos, rot = self.tracker.get_position_and_rotation()
+        if pos is not None: self.current_coordinate = pos
+        if rot is not None: self.current_rotation = rot
         # rot = self.tracker.get_rotation()
         # if rot: self.current_rotation = rot
-        else:
-            self.logger.debug(f'存在空值:{data}')
 
         self.last_time_update_user_status = time.time()
         msg = f"更新状态: cost:{time.time() - start},next:{self.next_point}, current pos:{self.current_coordinate}, rotation:{self.current_rotation},is_path_end:{self.is_path_end}, is_object_detected_end:{self._thread_object_detect_finished}"

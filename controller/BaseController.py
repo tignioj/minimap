@@ -2,6 +2,8 @@ import sys
 import os
 import threading
 import time
+
+import cv2
 from pynput import mouse
 from pynput.mouse import Button
 from pynput.keyboard import Key, Controller
@@ -101,7 +103,9 @@ class BaseController:
     """
     def __init__(self, debug_enable=None, gc=None):
         self.Key = Key
-        self.tracker = MinimapInterface
+        # self.tracker = MinimapInterface
+        from server.service.MinimapService import MinimapService
+        self.tracker = MinimapService
 
         if debug_enable is None:
             debug_enable = DebugConfig.get(DebugConfig.KEY_DEBUG_ENABLE, False)

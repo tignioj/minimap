@@ -32,17 +32,12 @@ class TeleportTimeoutException(Exception):pass
 
 class MapController(BaseController):
 
-    def __init__(self, tracker=None, ocr=None, debug_enable=False):
+    def __init__(self, ocr=None, debug_enable=False):
         super(MapController, self).__init__(debug_enable)
-        if tracker is None:
-            from matchmap.minimap_interface import MinimapInterface
-            tracker = MinimapInterface
         if ocr is None:
             from controller.OCRController import OCRController
             ocr = OCRController(debug_enable)
-
         self.stop_listen = False
-        self.tracker = tracker
         self.debug_enable = debug_enable
         self.ocr = ocr
         self.target_waypoint = None
@@ -410,7 +405,7 @@ class MapController(BaseController):
 
 
 if __name__ == '__main__':
-    # x, y, country, waypoint_name = -7087.9789375, -6178.1590937, '枫丹', '临瀑之城'
+    x, y, country, waypoint_name = -7087.9789375, -6178.1590937, '枫丹', '临瀑之城'
     # x, y, country, waypoint_name = -6333.766653971354, -7277.06206087, '枫丹', None
     # x, y, country, waypoint_name = 2552.0, -5804.0, '蒙德', '传送锚点'
     # x, y, country, waypoint_name = 1949.4441874999993, -4945.9832421875, '蒙德', '传送锚点'  # 蒙德清泉镇
@@ -421,7 +416,7 @@ if __name__ == '__main__':
     # x, y, country, waypoint_name = 1306.567, -6276.533, '蒙德', '塞西莉亚苗圃'  # 稻妻越石村
     # x, y, country, waypoint_name = 1219.2486572265625, 516.2448, '层岩巨渊', '传送锚点'
     # x, y, country, waypoint_name = 1807.72, 1708.72, '渊下宫', '传送锚点'
-    x, y, country, waypoint_name = 2788,906, '渊下宫', '传送锚点'
+    # x, y, country, waypoint_name = 2788,906, '渊下宫', '传送锚点'
     mpc = MapController(debug_enable=True)
     # mpc.turn_off_custom_tag()
     # mpc.go_to_seven_anemo_for_review()

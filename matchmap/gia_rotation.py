@@ -1,3 +1,6 @@
+import threading
+import time
+
 import cv2
 import numpy as np
 from scipy import signal
@@ -74,9 +77,9 @@ class RotationGIA:
     #     self.rotation = 0
     #     self.rotation_confidence = 0
     def cv_show(self, name, img):
-        pass
         if self.debug_enable:
-            cv2.imshow(name, img)
+            cv2.imshow(f'{threading.currentThread().name}-{name}', img)
+            cv2.waitKey(2)
 
     def get_minimap_subtract(self, minimap, matched_map=None, update_position=True):
         minimap = rgb2luma(minimap)
@@ -113,7 +116,7 @@ class RotationGIA:
         # Upscale image and apply Gaussian filter for smoother results
         scale = 2
         image = cv2.GaussianBlur(image, (3, 3), 0)
-        cv2.imshow('image', image)
+        self.cv_show('image', image)
         # Expand circle into rectangle
         remap = cv2.remap(image, *self.RotationRemapData, cv2.INTER_LINEAR)[d * 1 // 10:d * 5 // 10].astype(
             np.float32)
@@ -158,7 +161,6 @@ class RotationGIA:
 
         # Calculate confidence
         self.rotation_confidence = round(peak_confidence(result), 3)
-
         # Convert
         if degree > 180:
             degree = 360 - degree
@@ -168,20 +170,38 @@ class RotationGIA:
 
         # Calculate confidence
         self.rotation_confidence = round(peak_confidence(result), 3)
+        if self.rotation_confidence < 0.6:
+            print('不可靠', self.rotation)
+            return None
         return degree
 
 
-if __name__ == '__main__':
-    yc = RotationGIA(debug_enable=True)
-    from capture.capture_factory import capture
-    gc = capture
-    gc.add_observer(yc)
 
+def testUPdate():
     while True:
-        key = cv2.waitKey(20)
-        if key & 0xFF == ord('q'):
-            break
+        time.sleep(3)
+        yc.update(1920,1080)
+
+
+if __name__ == '__main__':
+    from capture.capture_factory import capture
+    yc = RotationGIA(debug_enable=False)
+    gc = capture
+    # gc.add_observer(yc)
+    # threading.Thread(target=testUPdate).start()
+
+    query_image = gc.get_mini_map(use_alpha=True)
+    # cv2.imwrite("rot_bad.png", query_image)
+    while True:
+        t = time.time()
+        # key = cv2.waitKey(20)
+        # if key & 0xFF == ord('q'):
+        #     break
         query_image = gc.get_mini_map(use_alpha=True)
         # 根据alpha获取实际的角度
         deg3_gray = yc.predict_rotation(cv2.cvtColor(query_image, cv2.COLOR_BGR2GRAY))
-        print(deg3_gray)
+        # b,g,r,a = cv2.split(query_image)
+        # a = -a
+        # deg3_gray = yc.predict_rotation(a)
+        print(time.time() - t, deg3_gray)
+
