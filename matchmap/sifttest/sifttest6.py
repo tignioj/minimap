@@ -583,19 +583,20 @@ class MiniMap:
         if M['m00'] != 0:
             cx = M['m10'] / M['m00']
             cy = M['m01'] / M['m00']
-        cv2.circle(img, (int(cx), int(cy)), 2, 255, -1)
+        # cv2.circle(img, (int(cx), int(cy)), 2, 255, -1)
         # plt.imshow(img,cmap='gray',vmin=0, vmax=255)
-        cv2.imshow('gray',img)
+        # cv2.imshow('gray',img)
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
 
         # 求角度
-        dx = cx - out_circle_radius - 0.5
-        dy = out_circle_radius - cy + 0.5
-        angle = np.arctan2(dx, dy)
-        angle = np.degrees(angle)
+            dx = cx - out_circle_radius - 0.5
+            dy = out_circle_radius - cy + 0.5
+            angle = np.arctan2(dx, dy)
+            angle = np.degrees(angle)
 
-        return -angle
+            return -angle
+        return None
 if __name__ == '__main__':
     # TODO: BUG 同一个位置，不同分辨率获取的位置有差异！
     # 解决思路：
