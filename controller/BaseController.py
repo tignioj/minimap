@@ -16,7 +16,6 @@ PyCharm需要用管理员方式启动，否则游戏内输入无效！
 import logging
 from mylogger.MyLogger3 import MyLogger
 import win32api, win32con
-from matchmap.minimap_interface import MinimapInterface
 from capture.capture_factory import capture
 from myutils.configutils import DebugConfig, PathExecutorConfig
 logger = MyLogger('BaseController')
@@ -103,9 +102,8 @@ class BaseController:
     """
     def __init__(self, debug_enable=None, gc=None):
         self.Key = Key
-        # self.tracker = MinimapInterface
-        from server.service.MinimapService import MinimapService
-        self.tracker = MinimapService
+        from matchmap.minimap_interface import MinimapInterface
+        self.tracker = MinimapInterface
 
         if debug_enable is None:
             debug_enable = DebugConfig.get(DebugConfig.KEY_DEBUG_ENABLE, False)

@@ -59,7 +59,7 @@ class OCRController(BaseController):
         OCR是一比巨大的开销，添加时间间隔防止调用卡顿
         :return:
         """
-        result = MinimapInterface.get_ocr_result(mss_mode)
+        result = self.tracker.get_ocr_result(mss_mode)
         if not result: return
 
         result = result[0]

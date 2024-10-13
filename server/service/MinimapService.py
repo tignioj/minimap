@@ -1,7 +1,6 @@
 
 import cv2
 from capture.capture_factory import capture
-from controller.BaseController import BaseController
 from matchmap.gia_rotation import RotationGIA
 from matchmap.sifttest.sifttest6 import MiniMap
 from mylogger.MyLogger3 import MyLogger
@@ -12,7 +11,6 @@ logger = MyLogger('minimap_service')
 rotate = RotationGIA(False)
 capture.add_observer(rotate)
 capture.add_observer(minimap)
-from matchmap.minimap_interface import MiniMapInter
 
 class MinimapService:
     @classmethod
