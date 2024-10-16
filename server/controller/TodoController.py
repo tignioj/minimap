@@ -3,6 +3,7 @@ from threading import Thread
 import os
 
 from server.controller.ServerBaseController import ServerBaseController
+from server.dto.DataClass import Todo
 
 # 创建一个蓝图
 todo_bp = Blueprint('todo', __name__)
@@ -21,10 +22,23 @@ class TodoController(ServerBaseController):
     @staticmethod
     @todo_bp.post('/todo/save')
     def todo_save():
-        if TodoService.save_todo(request.get_json()):
+        data = []
+        for todo in request.get_json():
+            data.append(Todo.from_dict(todo))
+        if TodoService.save_todo(data):
             return TodoController.success('保存成功')
         else:
             return TodoController.error('保存失败')
+
+    @staticmethod
+    @todo_bp.get('/todo/remove_not_exist_files')
+    def todo_remove_not_exist_files():
+        try:
+            removed = TodoService.remove_none_exists_files()
+            return TodoController.success(f"成功移除{len(removed)}个失效文件:{str(removed)}")
+        except Exception as e:
+            return TodoController.error(f"移除失败:{e.args}")
+
 
     @staticmethod
     @todo_bp.post('/todo/run')

@@ -74,7 +74,8 @@ class FileManagerService:
             json.dump(data, f, ensure_ascii=False, indent=4)
             # f.write(data)
         # 更新清单中的名称
-        TodoService.updateFileName(old_filename=old_filename, new_filename=new_filename)
+        # TodoService.updateFileName(old_filename=old_filename, new_filename=new_filename)
+        TodoService.updateAllFileName(old_filename=old_filename, new_filename=new_filename)
 
         # 删除旧数据
         if old_filename != new_filename:

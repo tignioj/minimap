@@ -113,8 +113,7 @@ class TodoService:
                 todo.lastExecutionDate = last_execute_date_time
                 break
         # 生成可序列化的字典列表
-        todos = [obj.to_dict(obj) for obj in all_todo]
-        TodoService.save_todo(todos)
+        TodoService.save_todo(all_todo)
 
     @staticmethod
     def _thread_todo_runner(todo_json=None, socketio_instance=None):
@@ -139,13 +138,18 @@ class TodoService:
                             # 将字符串转换为日期对象
                             date_obj = datetime.strptime(todo_obj.lastExecutionDate, "%Y-%m-%d")
 
-                            # 加上一天
+                            # 加执行频率
                             next_day = date_obj + timedelta(days = todo_obj.frequency)
 
-                            # 判断是否为今天
-                            is_today = next_day.date() == datetime.now().date()
-                            if is_today:
+                            # 判断是否为今天之前（包括今天）
+                            is_today_or_before_today = next_day.date() <= datetime.now().date()
+                            if is_today_or_before_today:
                                 TodoService.run_one_todo(todo_obj, socketio_instance=socketio_instance)
+                                try:
+                                    TodoService.updatelastExecuteDateTime(todo_obj.name, datetime.now().strftime("%Y-%m-%d"))
+                                    socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f"更新执行时间为:{next_day.date()}")
+                                except Exception as e:
+                                    socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f"更新'清单上次执行时间'出现异常:{e.args}")
                             else:
                                 socketio_instance.emit(SOCKET_EVENT_PLAYBACK_UPDATE, f"未到执行日期，下次执行时间为:{next_day.date()}, 本次跳过")
                     except TodoException as e:
@@ -182,14 +186,12 @@ class TodoService:
         return True
 
     @staticmethod
-    def get_all_todos(user_folder=None)->List[Todo]:
+    def get_all_todos()->List[Todo]:
         """
         获取指定用户目录的todo
-        :param user_folder:
         :return:
         """
-        if user_folder is None: user_folder = BaseConfig.get_user_folder()
-        todo_path = os.path.join(user_folder, 'todo.json')
+        todo_path = os.path.join(BaseConfig.get_user_folder(), 'todo.json')
         if not os.path.exists(todo_path):
             raise TodoException("todo.json文件丢失！")
             # with open(todo_path, 'w', encoding='utf8') as f:
@@ -213,15 +215,15 @@ class TodoService:
         files_removed = []
         # 遍历所有的项目，检查文件路径是否存在，并移除不存在的文件
         for item in data:
-            if "files" in item:
+            if item.files is not None:
                 original_files = item.files
                 item.files = [f for f in original_files if os.path.exists(getjson_path_byname(f))]
-
                 removed_files = set(original_files) - set(item.files)
                 if removed_files:
                     files_removed.append(removed_files)
                     logger.debug(f"Removed nonexistent files {removed_files} from {item.name}")
         TodoService.save_todo(data)
+        return files_removed
 
     @staticmethod
     def todo_stop():
@@ -236,10 +238,11 @@ class TodoService:
         pass
 
     @staticmethod
-    def save_todo(data):
+    def save_todo(data:List[Todo]):
+        todos = [obj.to_dict(obj) for obj in data]
         todo_path = os.path.join(BaseConfig.get_user_folder(), 'todo.json')
         with open(todo_path, 'w', encoding='utf8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+            json.dump(todos, f, ensure_ascii=False, indent=4)
         return True
 
     @staticmethod
@@ -262,7 +265,7 @@ class TodoService:
         data = TodoService.get_all_todos()
         # 遍历所有的项目，寻找并移除指定文件
         for item in data:
-            if "files" in item:
+            if item.files is not None:
                 original_files = item.files
                 item.files = [f for f in original_files if f not in files_to_remove]
 
@@ -272,9 +275,29 @@ class TodoService:
 
         TodoService.save_todo(data)
 
+    @staticmethod
+    def updateAllFileName(old_filename, new_filename):
+        # 更新所有清单
+        from myutils.configutils import AccountConfig, resource_path
+        obj = AccountConfig.get_account_obj()
+        instances = obj.get("instances")
+        import fileinput
+        for instance in instances:
+            f = os.path.join(resource_path, f"user-{instance.get('name')}", "todo.json")
+            with open(f, 'r', encoding='utf-8') as file:
+                content = file.readlines()  # 读取所有行
+
+            with open(f, 'w', encoding='utf-8') as new_file:
+                for line in content:
+                    # 替换字符串并写入新文件
+                    new_file.write(line.replace(old_filename, new_filename))
+
 
 if __name__ == '__main__':
-    TodoService.updatelastExecuteDateTime('123', '2024-01-01')
+    # TodoService.updatelastExecuteDateTime('123', '2024-01-01')
+    # print(datetime.now().strftime("%Y-%m-%d"))
+    TodoService.remove_none_exists_files()
+
 
     # 定义要修改的文件名和新文件名
     # old_filename = "月莲_卡扎莱宫_须弥_5个.json"
