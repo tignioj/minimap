@@ -56,7 +56,8 @@
         ],
         "name": "盗宝团",
         "team_enable": true,
-        "frequency": 1
+        "frequency": 1,
+        "lastExecutionDate" : "2024-10-02"
     },
     {
         "enable": true,

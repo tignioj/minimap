@@ -422,7 +422,7 @@ class MiniMap:
             self.__cvshow('background', background)
             # 计算旋转
             self.__rotation = self.__calculation_rotation_alpha(small_image, background)
-            self.logger.debug(f'rotation:{self.__rotation}')
+            # self.logger.debug(f'rotation:{self.__rotation}')
 
         except MatchException as e:
             self.logger.error(e)
@@ -557,7 +557,6 @@ class MiniMap:
         # 半径，根据需要修改
         crop_img = crop_square(img, out_circle_radius)
         crop_background = crop_square(background, out_circle_radius)
-
         mask = np.zeros((2 * out_circle_radius, 2 * out_circle_radius), dtype=np.uint8)
         cv2.circle(mask, (out_circle_radius, out_circle_radius), out_circle_radius, 255, -1)
         cv2.circle(mask, (out_circle_radius, out_circle_radius), inner_circle_radius, 0, -1)
@@ -610,7 +609,7 @@ if __name__ == '__main__':
     while True:
         time.sleep(0.05)
         t0 = time.time()
-        pos = mp.get_position()
+        pos= mp.get_position_and_rotation()
         # pos = mp.get_user_map_position()
         # pos = mp.get_user_map_scale()
         print(pos,time.time() - t0)

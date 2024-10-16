@@ -22,6 +22,20 @@ class Todo:
             raise ValueError("缺少必要的字段name")
         return cls(**data)
 
+    @classmethod
+    def to_dict(cls, instance):
+        return {
+            'name': instance.name,
+            'enable': instance.enable,
+            'team_enable': instance.team_enable,
+            'fight_duration': instance.fight_duration,
+            'from_index': instance.from_index,
+            'fight_team': instance.fight_team,
+            'files': instance.files,
+            'frequency': instance.frequency,
+            'lastExecutionDate': instance.lastExecutionDate,
+        }
+
 
 @dataclass
 class OneDragon:
