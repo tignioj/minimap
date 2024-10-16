@@ -22,8 +22,8 @@ class FileManagerService:
                 os.remove(file_path)
                 removed_files.append(file)
         # 更新清单
-        TodoService.removeFiles(removed_files)
-
+        # TodoService.removeFiles(removed_files)
+        TodoService.removeAllFiles(removed_files)
         return removed_files
 
     @staticmethod

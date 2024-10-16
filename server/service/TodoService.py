@@ -12,6 +12,7 @@ from myutils.fileutils import getjson_path_byname
 
 
 
+
 # TODO: 按顺序执行
 # TODO: 重复执行
 # TODO: 导入、导出清单？
@@ -292,11 +293,43 @@ class TodoService:
                     # 替换字符串并写入新文件
                     new_file.write(line.replace(old_filename, new_filename))
 
+    @staticmethod
+    def removeAllFiles(removed_files):
+        """
+        删除所有实例的清单中的指定文件
+        :param removed_files:
+        :return:
+        """
+        from myutils.configutils import AccountConfig, resource_path
+        obj = AccountConfig.get_account_obj()
+        if removed_files is None or len(removed_files) == 0: return
+        instances = obj.get("instances", [])
+        for instance in instances:
+            logger.info(f"正在处理清单 {instance.get('name')}")
+            fp = os.path.join(resource_path, f"user-{instance.get('name')}", "todo.json")
+            try:
+                with open(fp, 'r', encoding='utf8') as f:
+                    todos = json.load(f)
+            except FileNotFoundError:
+                print(f"文件未找到: {fp}")
+                continue  # 跳过当前实例，继续下一个
+
+            for todo in todos:
+                result = [item for item in todo['files'] if item not in removed_files]
+                todo['files'] = result
+
+            with open(fp, 'w', encoding='utf8') as f:
+                json.dump(todos, f, ensure_ascii=False, indent=4)
+
+
+
 
 if __name__ == '__main__':
     # TodoService.updatelastExecuteDateTime('123', '2024-01-01')
     # print(datetime.now().strftime("%Y-%m-%d"))
-    TodoService.remove_none_exists_files()
+    # TodoService.remove_none_exists_files()
+    removed_files = ['龙形武士_虹灵的净土_纳塔_2个_20241015_112750.json', '龙形武士_虹灵的净土2_纳塔_4个_20241016_094732.json']
+    TodoService.removeAllFiles(removed_files)
 
 
     # 定义要修改的文件名和新文件名
