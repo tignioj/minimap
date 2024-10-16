@@ -121,10 +121,8 @@ pip install pywin32==306
 - 不得将本软件或其任何部分用于任何形式的商业活动、商业产品或商业服务中。
 - 使用本软件产生的所有问题与本项目与开发者团队无关。
 
-# 感谢
-- https://github.com/infstellar/genshin_impact_assistant: 抄了小地图方向识别
-- https://github.com/Alex-Beng/Yap 速度不错的拾取
-
-# 推荐项目
-- 超多实用工具 https://github.com/babalae/better-genshin-impact
-- 定位 https://github.com/GengGode/cvAutoTrack
+# 感谢以下项目(排名不分先后)
+- https://github.com/infstellar/genshin_impact_assistant
+- https://github.com/Alex-Beng/Yap
+- https://github.com/babalae/better-genshin-impact
+- https://github.com/GengGode/cvAutoTrack
