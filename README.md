@@ -53,9 +53,17 @@ python MinimapServer.py
 ```
 
 ### 子模块更新
-如果远程子模块更新，可以在项目根目录下执行以下命令更新指定模块,例如GUI更新
+一般来说在PyCharm中，直接找到`Update Project`即可(默认快捷键是`Ctrl`+`T`)。
+
+也可以在项目根目录下执行以下命令更新指定模块,例如GUI更新
 ```shell
 git submodule update --remote  server/web 
+```
+
+或者进入子模块目录手动拉取更新
+```text
+cd server/web
+git pull
 ```
 
 # 环境说明
