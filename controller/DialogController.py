@@ -48,7 +48,7 @@ class DialogController(BaseController):
                 self.logger.debug('成功点击每日委托')
             else:
                 if not self.gc.has_paimon(delay=False):
-                    self.click_screen((self.gc.w-30, self.gc.h-30))
+                    self.click_screen((30, self.gc.h-30))
             time.sleep(1.5)
 
     def explore_reward_dialog(self):
@@ -87,8 +87,9 @@ class DialogController(BaseController):
 
 if __name__ == '__main__':
     dialog = DialogController()
-    while True:
-        time.sleep(1)
+    dialog.daily_reward_dialog()
+    # while True:
+    #     time.sleep(1)
         # dialog.skip_dialog()
     # dialog.daily_reward_dialog()
     # time.sleep(2)

@@ -94,6 +94,11 @@ class DailyRewardExecutor(BasePathExecutor):
             time.sleep(0.5)  # 点击任意位置退出领取信息
             uic.click_screen((30, 30))
             time.sleep(0.5)
+            # 可能弹出升级弹窗, 再点击几次
+            uic.click_screen((30, 30))
+            time.sleep(0.5)
+            uic.click_screen((30, 30))
+            time.sleep(0.5)
 
         uic.click_screen((uic.gc.w / 2-100, 30))  # 这个是奖励按钮的位置
         time.sleep(0.5)
@@ -145,8 +150,8 @@ if __name__ == '__main__':
     # DailyRewardExecutor.click_encounter_point_gift()
     # DailyRewardExecutor.go_to_kaiselin()
     # DailyRewardExecutor.claim_reward()
-    # DailyRewardExecutor.one_key_claim_reward()
-    DailyRewardExecutor.claim_reward_battle_pass()
+    DailyRewardExecutor.one_key_claim_reward()
+    # DailyRewardExecutor.claim_reward_battle_pass()
     # while True:
     #     DailyRewardExecutor.one_key_claim_reward()
     #     time.sleep(1)
