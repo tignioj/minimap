@@ -38,6 +38,16 @@ class ConfigController(ServerBaseController):
         return ConfigController.success(data=instances)
 
     @staticmethod
+    @config_bp.route('/config/create_instance', methods=['POST'])
+    def create_instance():
+        data = request.get_json()
+        try:
+            AccountConfig.create_instance(data)
+            return ConfigController.success("成功创建实例")
+        except Exception as e:
+            return ConfigController.error(f"创建实例失败：{e.args}")
+
+    @staticmethod
     @config_bp.route('/config/delete/<instance_name>', methods=['GET'])
     def delete_config(instance_name):
         try:

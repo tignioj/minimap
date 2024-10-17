@@ -1,4 +1,5 @@
 import os
+import shutil
 # 创建 YAML 对象，保留注释
 from ruamel.yaml import YAML
 yaml = YAML()
@@ -17,7 +18,6 @@ elif __file__:
 
 PROJECT_PATH = application_path
 resource_path = os.path.join(PROJECT_PATH, 'resources')
-
 
 class AccountConfig:
     __yaml_obj = None
@@ -68,10 +68,20 @@ class AccountConfig:
         if len(data.get('instances', [])) < 1:
             raise Exception("删除失败，因为至少要保留一个实例")
 
+        # 删除文件夹
+        instance_folder = os.path.join(resource_path, f'user-{instance_name}')
+        if os.path.exists(instance_folder):
+            shutil.rmtree(instance_folder)
+
+        # 删除配置文件
+        instance_yaml_path = os.path.join(application_path, f'config-{instance_name}.yaml')
+        if os.path.exists(instance_yaml_path):
+            os.remove(instance_yaml_path)
+
         # 检查默认值
         current = data.get('current_instance')
         if current == instance_name:
-            data['current_instance'] = data['instances'][0].name
+            data['current_instance'] = data['instances'][0]['name']
 
         # 保存修改后的 YAML 文件
         with open(cls.get_account_yaml_path(), 'w', encoding='utf8') as file:
@@ -116,6 +126,12 @@ class AccountConfig:
 
         cls.reload_account_obj()
 
+    @classmethod
+    def create_instance(cls,data):
+        obj = cls.get_account_obj()
+        obj["instances"].append(data)
+        with open(cls.get_account_yaml_path(), 'w', encoding='utf8') as f:
+            yaml.dump(obj, f)
 
 class BaseConfig:
     _yaml_obj = None
@@ -281,4 +297,5 @@ if __name__ == '__main__':
     # print(BaseConfig.get_instances())
     # BaseConfig.set_instance('instance2')
     # print(LeyLineConfig.get(LeyLineConfig.KEY_LEYLINE_TYPE))
-    AccountConfig.set_instance('instance1')
+    # AccountConfig.set_instance('instance1')
+    AccountConfig.create_instance()
