@@ -75,6 +75,10 @@ class DailyRewardExecutor(BasePathExecutor):
 
 
     def on_nearby(self, coordinates):
+        # 接近凯瑟琳时疯狂按f避免错过对话位置；注意枫丹凯瑟琳会有npc干扰，因此枫丹凯瑟琳不建议开启疯狂f
+        # 由于城内视角已经修复，因此可以考虑蒙德凯瑟琳，凯瑟琳附近无npc干扰
+        if self.next_point.type == self.next_point.TYPE_TARGET:
+            self.kb_press_and_release('f')
         if len(self.gc.get_icon_position(self.gc.icon_dialog_eyes))>0:
             raise ExecuteTerminateException("已经到达")
 
@@ -82,7 +86,8 @@ class DailyRewardExecutor(BasePathExecutor):
 if __name__ == '__main__':
     # DailyRewardExecutor.click_encounter_point_gift()
     # DailyRewardExecutor.go_to_kaiselin()
-    DailyRewardExecutor.claim_reward()
-    while True:
-        DailyRewardExecutor.one_key_claim_reward()
-        time.sleep(1)
+    # DailyRewardExecutor.claim_reward()
+    DailyRewardExecutor.one_key_claim_reward()
+    # while True:
+    #     DailyRewardExecutor.one_key_claim_reward()
+    #     time.sleep(1)
