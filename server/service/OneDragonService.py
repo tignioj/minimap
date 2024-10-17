@@ -2,22 +2,25 @@ import json
 import os
 
 from mylogger.MyLogger3 import MyLogger
-logger = MyLogger('one_dragon_service')
 # todoList = [
 #   { id: 1, name: '清单', value: 'todo' , checked: false },
 #   { id: 2, name: '战斗委托', value: 'dailyMission' , checked: false},
 #   { id: 3, name: '地脉', value: 'leyLine' , checked: false},
 #   { id: 4, name: '领取奖励', value: 'claimReward' , checked: false}
 # ]
+from server.dto.DataClass import OneDragon
+import threading
+from myutils.os_utils import sleep_sys, shutdown_sys
+
+
+class OneDragonException(Exception): pass
+
+logger = MyLogger('one_dragon_service')
+one_dragon_lock = threading.Lock()
 SOCKET_EVENT_ONE_DRAGON_START = 'socket_event_one_dragon_start'
 SOCKET_EVENT_ONE_DRAGON_UPDATE = 'socket_event_one_dragon_update'
 SOCKET_EVENT_ONE_DRAGON_END = 'socket_event_one_dragon_end'
 SOCKET_EVENT_ONE_DRAGON_EXCEPTION = 'socket_event_one_dragon_exception'
-
-from server.dto.DataClass import OneDragon
-class OneDragonException(Exception): pass
-import threading
-one_dragon_lock = threading.Lock()
 
 class OneDragonService:
     one_dragon_thread = None
@@ -53,6 +56,18 @@ class OneDragonService:
                     from server.service.DailyMissionService import DailyMissionService
                     DailyMissionService.start_claim_reward(socketio_instance=socketio_instance)
                     DailyMissionService.daily_mission_thread.join()
+
+                # 系统命令相关
+                # sleep: 休眠
+                # shutdown: 关机
+                elif one_dragon.value == 'sleep':
+                    sleep_sys()
+                    # 下面的操作能执行到吗？
+                    raise OneDragonException('休眠，执行结束')
+                elif one_dragon.value == 'shutdown':
+                    shutdown_sys()
+                    # 下面的操作能执行到吗？
+                    raise OneDragonException('关机，执行结束')
 
         except Exception as e:
             socketio_instance.emit(SOCKET_EVENT_ONE_DRAGON_EXCEPTION, str(e.args))
