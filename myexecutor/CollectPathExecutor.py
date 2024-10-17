@@ -46,7 +46,7 @@ class CollectPathExecutor(BasePathExecutor):
 
     def view_down(self):
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, 20000, 0, 0)
-        time.sleep(0.01)
+        time.sleep(0.02)
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, 20000, 0, 0)
 
     def nahida_collect(self):
@@ -74,8 +74,9 @@ class CollectPathExecutor(BasePathExecutor):
         self.log("开始转圈")
         x, y = 200, 0
         i = 140
-        self.view_down()  # 视角拉到最下面
         self.kb_press("e")
+        time.sleep(0.1)
+        self.view_down()  # 视角拉到最下面
         while i > 0 and not self.stop_listen:
             i -= 1
             print("转圈中")

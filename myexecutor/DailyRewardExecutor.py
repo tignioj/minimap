@@ -4,7 +4,6 @@ from mylogger.MyLogger3 import MyLogger
 from server.controller.DailyMissionController import SOCKET_EVENT_DAILY_MISSION_UPDATE, SOCKET_EVENT_DAILY_MISSION_END
 
 # TODO: 有可能在终点处没有和凯瑟琳对话导致无法领取奖励
-
 logger = MyLogger('daily_reward_executor')
 class DailyRewardExecutor(BasePathExecutor):
 
@@ -41,7 +40,11 @@ class DailyRewardExecutor(BasePathExecutor):
         uic.navigation_to_world_page()
 
     @staticmethod
-    def claim_reward():
+    def claim_reward_kaiselin():
+        """
+        凯瑟琳奖励：领取每日奖励和探索派遣
+        :return:
+        """
         from controller.DialogController import DialogController
         from controller.UIController import UIController
         dc = DialogController()
@@ -53,6 +56,57 @@ class DailyRewardExecutor(BasePathExecutor):
         while time.time() - start_wait < 6:
             if dc.gc.has_template_icon_in_screen(dc.gc.icon_dialog_message): break
         dc.explore_reward_dialog()
+
+    @staticmethod
+    def claim_reward_battle_pass():
+        """
+        领取纪行奖励
+        :return:
+        """
+        from controller.UIController import UIController
+        start_wait = time.time()
+
+        # 回到大世界页面
+        uic = UIController()
+        uic.navigation_to_world_page()
+
+        # 打开纪行页面
+        from controller.OCRController import OCRController
+        ocr = OCRController()
+        uic.kb_press_and_release(uic.Key.f4)
+
+        ok = False
+        while time.time() - start_wait < 10:
+            if ocr.is_text_in_screen("纪行等级"):
+                ok = True
+                break
+            time.sleep(2)
+            uic.kb_press_and_release(uic.Key.f4)
+        if not ok:
+            logger.error("超时无法打开纪行页面")
+            return False
+
+        # 点击导航栏中的任务图标, 由于是固定在顶部中间位置，因此无需识别
+        uic.click_screen((uic.gc.w / 2, 30))  # 这个是任务按钮的位置，直接点击
+        time.sleep(0.5)
+        if ocr.find_text_and_click("一键领取"):
+            logger.debug("任务：成功点击一键领取")
+            time.sleep(0.5)  # 点击任意位置退出领取信息
+            uic.click_screen((30, 30))
+            time.sleep(0.5)
+
+        uic.click_screen((uic.gc.w / 2-100, 30))  # 这个是奖励按钮的位置
+        time.sleep(0.5)
+        if ocr.find_text_and_click("一键领取"):
+            logger.debug("奖励：成功点击一键领取")
+            time.sleep(0.5)  # 点击任意位置退出领取信息
+            uic.click_screen((30, 30))
+            time.sleep(0.5)
+
+        # 回大世界页面
+        uic.navigation_to_world_page()
+        return True
+
 
     @staticmethod
     def one_key_claim_reward(emit=lambda val1,val2:logger.debug(val2)):
@@ -67,9 +121,13 @@ class DailyRewardExecutor(BasePathExecutor):
                 emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '正在前往枫丹凯瑟琳处')
                 DailyRewardExecutor.go_to_kaiselin()
             if not BaseController.stop_listen:
-                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '正在领取奖励')
-                DailyRewardExecutor.claim_reward()
-                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '结束领取')
+                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '正在领取凯瑟琳奖励')
+                DailyRewardExecutor.claim_reward_kaiselin()
+                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '结束领取凯瑟琳奖励')
+            if not BaseController.stop_listen:
+                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '正在领取纪行奖励')
+                DailyRewardExecutor.claim_reward_battle_pass()
+                emit(SOCKET_EVENT_DAILY_MISSION_UPDATE, '结束领取纪行奖励')
         except StopListenException as e:
             emit(SOCKET_EVENT_DAILY_MISSION_END, '中断任务')
 
@@ -87,7 +145,8 @@ if __name__ == '__main__':
     # DailyRewardExecutor.click_encounter_point_gift()
     # DailyRewardExecutor.go_to_kaiselin()
     # DailyRewardExecutor.claim_reward()
-    DailyRewardExecutor.one_key_claim_reward()
+    # DailyRewardExecutor.one_key_claim_reward()
+    DailyRewardExecutor.claim_reward_battle_pass()
     # while True:
     #     DailyRewardExecutor.one_key_claim_reward()
     #     time.sleep(1)
