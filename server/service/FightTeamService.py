@@ -11,9 +11,14 @@ logger = MyLogger('fight_team_service')
 class FightTeamService:
 
     def __init__(self):
-        user_folder = BaseConfig.get_user_folder()
-        self.team_folder_path = os.path.join(user_folder, 'team')
+        # user_folder = BaseConfig.get_user_folder()
+        # self.team_folder_path = os.path.join(user_folder, 'team')
         self.fight_controller:FightController = None
+
+    def get_team_folder(self):
+        user_folder = BaseConfig.get_user_folder()
+        team_folder_path = os.path.join(user_folder, 'team')
+        return team_folder_path
 
     def check_team_content_valid(self, team_file_name, content):
         # 检查内容中选择的角色是否在文件名中给出，没有则抛出异常
@@ -44,7 +49,7 @@ class FightTeamService:
         return True
 
     def create_team(self, team_file_name, content):
-        team_file_path = os.path.join(self.team_folder_path, team_file_name)
+        team_file_path = os.path.join(self.get_team_folder(), team_file_name)
         if os.path.exists(team_file_path):
             raise FightTeamServiceException("已存在同命名文件队伍，创建失败!")
         self.check_team_content_valid(team_file_name, content)
@@ -53,7 +58,7 @@ class FightTeamService:
         return f"成功创建队伍{team_file_name}"
 
     def __get_team_file_path(self, team_file_name):
-        team_file_path = os.path.join(self.team_folder_path, team_file_name)
+        team_file_path = os.path.join(self.get_team_folder(), team_file_name)
         if not os.path.exists(team_file_path):
             raise FightTeamServiceException(f'你要查找的{team_file_name}文件未找到')
         return team_file_path
@@ -99,7 +104,7 @@ class FightTeamService:
 
     def list_teams(self):
         default_team = self.get_default()
-        files = os.listdir(self.team_folder_path)
+        files = os.listdir(self.get_team_folder())
         return {'default': default_team, 'files': files}
 
     def run_teams_from_saved_file(self, filename):
