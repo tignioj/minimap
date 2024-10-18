@@ -10,7 +10,6 @@
             "月莲_须弥_维摩庄右_2个.json",
             "月莲_须弥_降魔山下_7个.json",
             "月莲_须弥_降魔山左下_6个.json",
-            "甜甜花_中央实验室遗址_枫丹_7个_20240924_160238.json",
             "甜甜花_清泉镇_蒙德_11个_20240814_102736.json",
             "风车菊_蒙德_8个_20240814_101536.json",
             "霓裳花_望舒客栈_璃月_7个_20240814_100958.json",
@@ -24,7 +23,7 @@
         "name": "采集清单",
         "team_enable": false,
         "frequency": 1,
-        "lastExecutionDate" : "2024-10-02" 
+        "lastExecutionDate" : "2024-10-02"
     },
     {
         "enable": true,
@@ -118,7 +117,7 @@
         ],
         "name": "萨满",
         "team_enable": true,
-        "frequency": 1, 
+        "frequency": 1,
         "lastExecutionDate" : "2024-10-02"
     }
 ]
