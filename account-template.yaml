@@ -10,6 +10,6 @@ instances:
     password: ''
   - name: instance2
     enable: true
-    server: 'bilibili'
+    server: 'official'
     account: ''
     password: ''
