@@ -30,7 +30,8 @@ class LoginController(BaseController):
             time.sleep(2)
 
         start_wait = time.time()
-        while not self.ocr.is_text_in_screen("进入游戏", "点击进入", match_all=True) and time.time()-start_wait < 50:
+        while not self.ocr.is_text_in_screen("进入游戏", "点击进入", match_all=True) and time.time()-start_wait < 120:
+            if self.stop_listen: return
             self.logger.debug(f'正在载入登录界面, 剩余等待时间:{120-(time.time()-start_wait)}秒')
             time.sleep(2)
 

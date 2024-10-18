@@ -153,24 +153,32 @@ class OneDragonService:
         else:
             raise Exception(f"未知服务器:{server}")
 
+    all_instance_running = False
     @staticmethod
     def run_all_instance(socketio_instance=None):
         from myutils.configutils import AccountConfig
-        obj = AccountConfig.get_account_obj()
-        from controller.BaseController import BaseController
-        instances = obj.get("instances", [])
-        for instance in instances:
-            if instance.get("enable") is True:
-                # 切换当前实例
-                if BaseController.stop_listen is True:
-                    logger.info("中断执行所有实例")
-                    return
-                name = instance.get("name")
-                logger.debug(f'切换实例:{name}')
-                AccountConfig.set_instance(name)
-                one_dragon_list = AccountConfig.get_current_one_dragon()
-                OneDragonService.start_one_dragon(one_dragon_list=one_dragon_list, socketio_instance=socketio_instance)
-                OneDragonService.one_dragon_thread.join()
+
+        if OneDragonService.all_instance_running:
+            raise OneDragonException("已经正在运行所有实例，请勿重复运行")
+        OneDragonService.all_instance_running = True
+        try:
+            obj = AccountConfig.get_account_obj()
+            from controller.BaseController import BaseController
+            instances = obj.get("instances", [])
+            for instance in instances:
+                if instance.get("enable") is True:
+                    # 切换当前实例
+                    if BaseController.stop_listen is True:
+                        logger.info("中断执行所有实例")
+                        return
+                    name = instance.get("name")
+                    logger.debug(f'切换实例:{name}')
+                    AccountConfig.set_instance(name)
+                    one_dragon_list = AccountConfig.get_current_one_dragon()
+                    OneDragonService.start_one_dragon(one_dragon_list=one_dragon_list, socketio_instance=socketio_instance)
+                    OneDragonService.one_dragon_thread.join()
+        finally:
+            OneDragonService.all_instance_running = False
 
 
 if __name__ == '__main__':

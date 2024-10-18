@@ -35,6 +35,8 @@ class OneDragonController(ServerBaseController):
         from server.service.OneDragonService import OneDragonService
         socketio_instance = current_app.extensions['socketio']
         try:
+            from controller.BaseController import BaseController
+            BaseController.stop_listen = False
             OneDragonService.run_all_instance(socketio_instance=socketio_instance)
         except OneDragonException as e:
             return OneDragonController.error(e.args)
