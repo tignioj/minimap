@@ -139,13 +139,14 @@ class OneDragonService:
         if len(account.strip()) == 0 or len(password.strip()) == 0 or len(server.strip()) == 0:
             raise Exception("账户或者密码或者服务器为空")
 
-        from controller.LoginController import open_game, user_pwd_input
+        from controller.LoginController import LoginController
+        login = LoginController()
         if server == "official":
             # 先关掉游戏
             OneDragonService.close_game()
             time.sleep(1)
-            open_game()
-            user_pwd_input(account, password)
+            login.open_game()
+            login.user_pwd_input(account, password)
 
         elif server == "bilibili":
             raise Exception(f"暂时不支持服务器:{server}")
@@ -156,10 +157,14 @@ class OneDragonService:
     def run_all_instance(socketio_instance=None):
         from myutils.configutils import AccountConfig
         obj = AccountConfig.get_account_obj()
+        from controller.BaseController import BaseController
         instances = obj.get("instances", [])
         for instance in instances:
             if instance.get("enable") is True:
                 # 切换当前实例
+                if BaseController.stop_listen is True:
+                    logger.info("中断执行所有实例")
+                    return
                 name = instance.get("name")
                 logger.debug(f'切换实例:{name}')
                 AccountConfig.set_instance(name)

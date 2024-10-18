@@ -14,8 +14,11 @@ class FightTeamController(ServerBaseController):
     @staticmethod
     @fight_team_bp.get('/fight_team/list')
     def get_fight_team_list():
-        team_list = fightteam_service.list_teams()
-        return FightTeamController.success(data=team_list)
+        try:
+            team_list = fightteam_service.list_teams()
+            return FightTeamController.success(data=team_list)
+        except Exception as e:
+            return FightTeamController.error(str(e.args))
 
     @staticmethod
     @fight_team_bp.post('/fight_team/create/<team_name>')

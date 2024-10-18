@@ -104,7 +104,10 @@ class FightTeamService:
 
     def list_teams(self):
         default_team = self.get_default()
-        files = os.listdir(self.get_team_folder())
+        team_folder = self.get_team_folder()
+        if not os.path.exists(team_folder):
+            files = []
+        else: files = os.listdir(self.get_team_folder())
         return {'default': default_team, 'files': files}
 
     def run_teams_from_saved_file(self, filename):
@@ -169,6 +172,8 @@ if __name__ == '__main__':
     ft = FightTeamService()
     # ft.run_teams_from_saved_file("莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt")
     # ft.run_teams_from_memory_text("1_2_3_散兵(xx).txt", "散兵 e, charge, charge, charge, charge, charge")
-    ft.run_teams_from_memory_text("1_2_3_散兵(xx).txt", "散兵 charge")
-    time.sleep(1)
-    ft.stop_fighting()
+    # ft.run_teams_from_memory_text("1_2_3_散兵(xx).txt", "散兵 charge")
+    # time.sleep(1)
+    # ft.stop_fighting()
+    lt = ft.list_teams()
+    print(lt)
