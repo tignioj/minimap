@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 # 创建 YAML 对象，保留注释
@@ -47,6 +48,16 @@ class AccountConfig:
         return p
 
     @classmethod
+    def get_current_instance(cls):
+        obj = cls.get_account_obj()
+        current_instance_name = obj['current_instance']
+        instances = obj.get("instances", [])
+        for instance in instances:
+            if current_instance_name == instance['name']:
+                return instance
+        return None
+
+    @classmethod
     def reload_account_obj(cls):
         account_yaml_path = cls.get_account_yaml_path()
         account = YAML()
@@ -88,6 +99,7 @@ class AccountConfig:
             yaml.dump(data, file)
 
         cls.reload_account_obj()
+        BaseConfig.reload_config()
 
     @classmethod
     def get_current_instance_name(cls):
@@ -133,6 +145,34 @@ class AccountConfig:
         with open(cls.get_account_yaml_path(), 'w', encoding='utf8') as f:
             yaml.dump(obj, f)
 
+    @classmethod
+    def save_instances(cls, data):
+        if data is None: raise Exception("空数据无法保存！")
+        obj = cls.get_account_obj()
+        obj['instances'] = data
+        with open(cls.get_account_yaml_path(), 'w', encoding='utf8') as f:
+            yaml.dump(obj, f)
+
+    @classmethod
+    def get_current_one_dragon(cls):
+        one_dragon_json_path = os.path.join(cls.get_user_folder(),'one_dragon.json')
+        with open(one_dragon_json_path, 'r', encoding='utf8') as f:
+            one_dragon = json.load(f)
+            return one_dragon
+
+    @classmethod
+    def get_user_folder(cls):
+        """
+        获取当前实例用户目录
+        :return:
+        """
+        user_folder = os.path.join(resource_path, f'user-{cls.get_current_instance_name()}')
+        if not os.path.exists(user_folder):
+            user_template = os.path.join(resource_path, 'user-template')
+            import shutil
+            shutil.copytree(user_template, user_folder)
+        return user_folder
+
 class BaseConfig:
     _yaml_obj = None
     _yaml_file = f'config-{AccountConfig.get_current_instance_name()}.yaml'  # 默认
@@ -150,12 +190,7 @@ class BaseConfig:
         获取当前实例用户目录
         :return:
         """
-        user_folder = os.path.join(resource_path, f'user-{AccountConfig.get_current_instance_name()}')
-        if not os.path.exists(user_folder):
-            user_template = os.path.join(resource_path, 'user-template')
-            import shutil
-            shutil.copytree(user_template, user_folder)
-        return user_folder
+        return AccountConfig.get_user_folder()
 
 
     @classmethod
@@ -228,6 +263,7 @@ class DebugConfig(BaseConfig):
     KEY_DEBUG_ENABLE = 'debug_enable'
 
 class WindowsConfig(BaseConfig):
+    KEY_GAME_PATH = 'game_path'
     KEY_WINDOW_NAME = 'window_name'
 
 class PathExecutorConfig(BaseConfig):
@@ -298,4 +334,8 @@ if __name__ == '__main__':
     # BaseConfig.set_instance('instance2')
     # print(LeyLineConfig.get(LeyLineConfig.KEY_LEYLINE_TYPE))
     # AccountConfig.set_instance('instance1')
-    AccountConfig.create_instance()
+    # AccountConfig.create_instance()
+    # ins =AccountConfig.get_current_instance()
+    # print(ins)
+    one = AccountConfig.get_current_one_dragon()
+    print(one)

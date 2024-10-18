@@ -4,6 +4,8 @@ from flask import Blueprint, jsonify, request
 from server.controller.ServerBaseController import ServerBaseController
 config_bp = Blueprint('config_bp', __name__)
 from myutils.configutils import AccountConfig, BaseConfig, application_path, reload_config
+from server.service.OneDragonService import OneDragonService
+
 
 class ConfigController(ServerBaseController):
     @staticmethod
@@ -33,8 +35,8 @@ class ConfigController(ServerBaseController):
     @config_bp.route('/config/instances', methods=['GET'])
     def get_instances():
         instances = AccountConfig.get_account_obj()
-        for instance in instances['instances']:
-            instance['password'] = ''
+        # for instance in instances['instances']:
+        #     instance['password'] = ''
         return ConfigController.success(data=instances)
 
     @staticmethod
@@ -48,6 +50,16 @@ class ConfigController(ServerBaseController):
             return ConfigController.error(f"创建实例失败：{e.args}")
 
     @staticmethod
+    @config_bp.route('/config/save_instances', methods=['POST'])
+    def save_instances():
+        data = request.get_json()
+        try:
+            AccountConfig.save_instances(data)
+            return ConfigController.success("成功保存实例列表")
+        except Exception as e:
+            return ConfigController.error(f"保存失败：{e.args}")
+
+    @staticmethod
     @config_bp.route('/config/delete/<instance_name>', methods=['GET'])
     def delete_config(instance_name):
         try:
@@ -55,3 +67,18 @@ class ConfigController(ServerBaseController):
             return ConfigController.success(f'成功删除"{instance_name}"')
         except Exception as e:
             return ConfigController.error(e.args)
+
+    @staticmethod
+    @config_bp.route('/config/login', methods=['POST'])
+    def login():
+        data = request.get_json()
+        account = data.get("account")
+        password = data.get("password")
+        server = data.get("server")
+        if account is None or password is None or server is None: return ConfigController.error("缺少登录信息")
+        try:
+            OneDragonService.login(account=account,password=password,server=server)
+            return ConfigController.success(f"登录成功")
+        except Exception as e:
+            return ConfigController.error(f"登录失败：{e.args}")
+
