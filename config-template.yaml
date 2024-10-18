@@ -84,7 +84,8 @@ daily_task_destroy_timeout: 20
 daily_task_fight_team: ''
 
 # 领取奖励-凯瑟琳路线: 建议不要修改，其它地区的城里转向识别不是很好
-daily_task_kaiselin: '奖励_凯瑟琳_枫丹_1个_20241002_000026.json'
+#daily_task_kaiselin: '奖励_凯瑟琳_枫丹_1个_20241002_000026.json'
+daily_task_kaiselin: '奖励_凯瑟琳_蒙德_1个_20241016_234117.json'
 
 
 ############################ 地脉配置 ##############################
