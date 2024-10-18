@@ -1,6 +1,8 @@
 import win32api
 import win32security
 import win32con
+import win32gui
+import win32process
 
 
 # 启用 SeShutdownPrivilege 权限
@@ -39,6 +41,29 @@ def shutdown_sys():
 
     # 调用系统关机
     win32api.ExitWindowsEx(win32con.EWX_SHUTDOWN | win32con.EWX_FORCE, 0)
+
+def find_window_by_name(window_name):
+    # 查找窗口句柄
+    hwnd = win32gui.FindWindow(None, window_name)
+    if hwnd == 0:
+        print(f"Window with name '{window_name}' not found.")
+        return None
+    return hwnd
+
+def kill_process_by_hwnd(hwnd):
+    try:
+        # 获取窗口所属的进程ID
+        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        # 打开进程
+        handle = win32api.OpenProcess(win32con.PROCESS_TERMINATE, 0, pid)
+        # 终止进程
+        win32api.TerminateProcess(handle, 0)
+        # 关闭进程句柄
+        win32api.CloseHandle(handle)
+        print(f"Process with window handle {hwnd} has been terminated.")
+    except Exception as e:
+        print(f"Failed to terminate process with window handle {hwnd}: {e}")
+
 
 
 if __name__ == '__main__':

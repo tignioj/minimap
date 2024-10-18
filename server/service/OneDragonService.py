@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 from mylogger.MyLogger3 import MyLogger
 # todoList = [
@@ -10,8 +11,7 @@ from mylogger.MyLogger3 import MyLogger
 # ]
 from server.dto.DataClass import OneDragon
 import threading
-from myutils.os_utils import sleep_sys, shutdown_sys
-
+from myutils.os_utils import sleep_sys, shutdown_sys, find_window_by_name, kill_process_by_hwnd
 
 class OneDragonException(Exception): pass
 
@@ -28,6 +28,7 @@ class OneDragonService:
     @staticmethod
     def run(one_dragon_list, socketio_instance):
         from controller.BaseController import BaseController
+        from server.service.DailyMissionService import DailyMissionService
         try:
             for task in one_dragon_list:
                 if BaseController.stop_listen:
@@ -44,7 +45,6 @@ class OneDragonService:
                     TodoService.todo_run(todo_json=None, socketio_instance=socketio_instance)
                     TodoService.todo_runner_thread.join()
                 elif one_dragon.value == 'dailyMission':
-                    from server.service.DailyMissionService import DailyMissionService
                     DailyMissionService.start_daily_mission(socketio_instance=socketio_instance)
                     DailyMissionService.daily_mission_thread.join()
 
@@ -53,18 +53,28 @@ class OneDragonService:
                     LeyLineOutcropService.start_leyline(leyline_type=None, socketio_instance=socketio_instance)
                     LeyLineOutcropService.leyline_outcrop_thread.join()
                 elif one_dragon.value == 'claimReward':
-                    from server.service.DailyMissionService import DailyMissionService
                     DailyMissionService.start_claim_reward(socketio_instance=socketio_instance)
                     DailyMissionService.daily_mission_thread.join()
+                elif one_dragon.value == 'login':
+                    from myutils.configutils import AccountConfig
+                    instance = AccountConfig.get_current_instance()
+                    account = instance.get("account")
+                    password = instance.get("password")
+                    server = instance.get("server")
+                    OneDragonService.login(account=account,password=password,server=server)
 
                 # 系统命令相关
-                # sleep: 休眠
-                # shutdown: 关机
-                elif one_dragon.value == 'sleep':
+                # close_game: 关闭游戏
+                # sleep_sys: 休眠
+                # shutdown_sys: 关机
+                elif one_dragon.value == 'closeGame':
+                    OneDragonService.close_game()
+
+                elif one_dragon.value == 'sleepSys':
                     sleep_sys()
                     # 下面的操作能执行到吗？
                     raise OneDragonException('休眠，执行结束')
-                elif one_dragon.value == 'shutdown':
+                elif one_dragon.value == 'shutdownSys':
                     shutdown_sys()
                     # 下面的操作能执行到吗？
                     raise OneDragonException('关机，执行结束')
@@ -111,3 +121,55 @@ class OneDragonService:
         with open(one_dragon_path,'r', encoding='utf8') as f:
             return json.load(f)
 
+    @staticmethod
+    def close_game():
+        from myutils.configutils import WindowsConfig
+        window_name = WindowsConfig.get(WindowsConfig.KEY_WINDOW_NAME, '原神')
+        hwnd = find_window_by_name(window_name=window_name)
+        if hwnd is None: logger.error(f'未找到游戏窗口:{window_name}, 无法关闭游戏')
+        kill_process_by_hwnd(hwnd)
+
+    @staticmethod
+    def login(account, password, server):
+        if account is None or password is None or server is None: raise Exception("账户或者密码或者服务器为空")
+
+        account = str(account).strip()
+        password = str(password).strip()
+        server = str(server).strip()
+        if len(account.strip()) == 0 or len(password.strip()) == 0 or len(server.strip()) == 0:
+            raise Exception("账户或者密码或者服务器为空")
+
+        from controller.LoginController import open_game, user_pwd_input
+        if server == "official":
+            # 先关掉游戏
+            OneDragonService.close_game()
+            time.sleep(1)
+            open_game()
+            user_pwd_input(account, password)
+
+        elif server == "bilibili":
+            raise Exception(f"暂时不支持服务器:{server}")
+        else:
+            raise Exception(f"未知服务器:{server}")
+
+    @staticmethod
+    def run_all_instance(socketio_instance=None):
+        from myutils.configutils import AccountConfig
+        obj = AccountConfig.get_account_obj()
+        instances = obj.get("instances", [])
+        for instance in instances:
+            if instance.get("enable") is True:
+                # 切换当前实例
+                name = instance.get("name")
+                logger.debug(f'切换实例:{name}')
+                AccountConfig.set_instance(name)
+                one_dragon_list = AccountConfig.get_current_one_dragon()
+                OneDragonService.start_one_dragon(one_dragon_list=one_dragon_list, socketio_instance=socketio_instance)
+                OneDragonService.one_dragon_thread.join()
+
+
+if __name__ == '__main__':
+    class DemoSocket: # 虚假的socket
+        def emit(self, *args, **kwargs):
+            print(args, kwargs)
+    OneDragonService.run_all_instance(socketio_instance=DemoSocket())

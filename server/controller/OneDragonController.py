@@ -29,7 +29,16 @@ class OneDragonController(ServerBaseController):
         except OneDragonException as e:
             return OneDragonController.error(e.args)
         return OneDragonController.success('开始运行一条龙')
-
+    @staticmethod
+    @one_dragon_bp.route('/one_dragon/run_all_instance', methods=['GET'])
+    def run_all_instance():
+        from server.service.OneDragonService import OneDragonService
+        socketio_instance = current_app.extensions['socketio']
+        try:
+            OneDragonService.run_all_instance(socketio_instance=socketio_instance)
+        except OneDragonException as e:
+            return OneDragonController.error(e.args)
+        return OneDragonController.success('开始执行所有清单')
     @staticmethod
     @one_dragon_bp.route('/one_dragon/stop', methods=['GET'])
     def one_dragon_stop():
@@ -58,4 +67,3 @@ class OneDragonController(ServerBaseController):
             return OneDragonController.success(data=data)
         except Exception as e:
             return OneDragonController.error(f'获取失败{e.args}')
-
