@@ -19,8 +19,9 @@
 ## 直接运行
 - 游戏调整为1920*1080窗口分辨率(如果屏幕大小只有1080p则用1080p**无边框模式**，不要用独占全屏)
 - 帧率设置为60帧
+- 计算机名称不能是中文否则[报编码错误](https://github.com/tignioj/minimap/issues/4)：设置->系统->系统信息->重命名此电脑：修改为中文
 - 不要把游戏窗口移动到屏幕外面, 不要最小化游戏
-- 下载[release](https://github.com/tignioj/minimap/releases/latest), 解压后移动到英文路径下，双击start.bat即可(需要管理员权限操作键盘鼠标)
+- 下载[release](https://github.com/tignioj/minimap/releases/latest), 解压后移动到英文路径下，双击start.bat即可(会自动弹窗申请管理员权限以用于操作键盘鼠标)
 
 ## 从源码安装
 ### conda
