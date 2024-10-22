@@ -64,6 +64,13 @@ def kill_process_by_hwnd(hwnd):
     except Exception as e:
         print(f"Failed to terminate process with window handle {hwnd}: {e}")
 
+def kill_game():
+    from myutils.configutils import WindowsConfig
+    window_name = WindowsConfig.get(WindowsConfig.KEY_WINDOW_NAME, '原神')
+    hwnd = find_window_by_name(window_name=window_name)
+    if hwnd is None:
+        raise Exception(f'未找到窗口:{window_name}, 无法关闭游戏')
+    kill_process_by_hwnd(hwnd)
 
 
 if __name__ == '__main__':

@@ -11,7 +11,7 @@ from mylogger.MyLogger3 import MyLogger
 # ]
 from server.dto.DataClass import OneDragon
 import threading
-from myutils.os_utils import sleep_sys, shutdown_sys, find_window_by_name, kill_process_by_hwnd
+from myutils.os_utils import sleep_sys, shutdown_sys, kill_game
 
 class OneDragonException(Exception): pass
 
@@ -123,11 +123,7 @@ class OneDragonService:
 
     @staticmethod
     def close_game():
-        from myutils.configutils import WindowsConfig
-        window_name = WindowsConfig.get(WindowsConfig.KEY_WINDOW_NAME, '原神')
-        hwnd = find_window_by_name(window_name=window_name)
-        if hwnd is None: logger.error(f'未找到游戏窗口:{window_name}, 无法关闭游戏')
-        kill_process_by_hwnd(hwnd)
+        kill_game()
 
     @staticmethod
     def login(account, password, server):
@@ -143,13 +139,21 @@ class OneDragonService:
         login = LoginController()
         if server == "official":
             # 先关掉游戏
-            OneDragonService.close_game()
+            try: OneDragonService.close_game()
+            except Exception as e: logger.debug("无需关闭游戏")
+            time.sleep(1)
+            login.open_game()
+            login.user_pwd_input(account, password)
+        elif server == "bilibili":
+            try: OneDragonService.close_game()
+            except Exception as e: logger.debug("无需关闭游戏")
+            from controller.LoginControllerBilibili import LoginControllerBilibili
+
+            login = LoginControllerBilibili()
             time.sleep(1)
             login.open_game()
             login.user_pwd_input(account, password)
 
-        elif server == "bilibili":
-            raise Exception(f"暂时不支持服务器:{server}")
         else:
             raise Exception(f"未知服务器:{server}")
 
