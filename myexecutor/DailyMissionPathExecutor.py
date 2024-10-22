@@ -363,7 +363,11 @@ class DailyMissionPathExecutor(BasePathExecutor):
 
 
     def on_move_after(self, point: DailyMissionPoint):
-        super().on_move_after(point)
+        # super().on_move_after(point)
+        # 禁用f避免进入对话
+        if point.action == point.ACTION_SHIELD:
+            self.shield()
+
         if point.type == DailyMissionPoint.TYPE_TARGET:
             event_type = self.next_point.event.get('type')
             if event_type == DailyMissionPoint.EVENT_FIGHT:
