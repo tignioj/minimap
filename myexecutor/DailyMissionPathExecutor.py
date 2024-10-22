@@ -39,6 +39,7 @@ class ExecuteTimeOutException(Exception): pass
 # [冒险家]的能力极限 帮助赫尔曼先生
 # 鸽子习惯一去不回 帮助杜拉夫先生 0/1
 # 语言交流
+# 诗歌交流
 
 
 # 目前仅能完部分的战斗委托, 并且比较依赖那维莱特、水神
@@ -148,7 +149,7 @@ class DailyMissionPathExecutor(BasePathExecutor):
                 if min_distance > d:
                     min_distance = d
                     closet_mission_json = os.path.join(mission_path, mission_file_name)
-        if min_distance > 100: return None  # 丢弃距离过远的委托
+        if min_distance > 70: return None  # 丢弃距离过远的委托
         return closet_mission_json
 
 
