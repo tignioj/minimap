@@ -128,7 +128,6 @@ class OneDragonService:
     @staticmethod
     def login(account, password, server):
         if account is None or password is None or server is None: raise Exception("账户或者密码或者服务器为空")
-
         account = str(account).strip()
         password = str(password).strip()
         server = str(server).strip()
@@ -136,6 +135,8 @@ class OneDragonService:
             raise Exception("账户或者密码或者服务器为空")
 
         from controller.LoginController import LoginController
+        from controller.BaseController import BaseController
+        BaseController.stop_listen = False
         login = LoginController()
         if server == "official":
             # 先关掉游戏
