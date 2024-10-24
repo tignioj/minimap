@@ -128,13 +128,18 @@ class LoginControllerBilibili:
         time.sleep(0.1)
         logger.debug('点击登录')
         ocr_results = self.ocr.find_match_text('登录', match_all=True,mss_mode=True)
-        if len(ocr_results) < 1: logger.debug('未找到登录按钮')
+        if len(ocr_results) < 1:
+            logger.error('未找到登录按钮, 登录失败')
+            return
         res = ocr_results[0]
         self.click_screen(res.center)
         time.sleep(5)
         start_wait = time.time()
         while not capture.has_paimon() and time.time()-start_wait < 90:
             logger.debug(f'等待进入游戏界面中, 剩余{90-(time.time()-start_wait)}秒')
+            if not self.wc.is_active():
+                logger.debug('不是原神登录窗口，暂停点击')
+                continue
             self.click_screen((10,10))
             time.sleep(2)
         logger.debug('成功进入游戏')
