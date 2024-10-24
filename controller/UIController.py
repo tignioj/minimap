@@ -25,7 +25,7 @@ class UIController(BaseController):
         """
         start_wait = time.time()
         while not self.gc.has_paimon(delay=False) and time.time() - start_wait < timeout:
-            self.ui_close_button()
+            self.click_ui_close_button()
             time.sleep(1)
 
         if self.gc.has_paimon(delay=False):
