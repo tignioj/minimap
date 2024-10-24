@@ -134,7 +134,7 @@ class MapController(BaseController):
 
     def close_middle_map(self):
         self.log("正在关闭大地图")
-        self.ui_close_button()
+        self.click_ui_close_button()
 
 
     # 2. 切换到固定的缩放大小

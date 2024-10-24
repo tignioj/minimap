@@ -108,7 +108,7 @@ class CollectPathExecutor(BasePathExecutor):
     def up_down_grab_leaf(self):
         time.sleep(0.5)
         self.log("开始上下晃动视角抓四叶印")
-        x, y = 0, -1000  # y代表垂直方向上的视角移动, x为水平方向
+        x, y = 0, -1500  # y代表垂直方向上的视角移动, x为水平方向
         i = 40
         # self.kb_press('w')  # 飞行
         while i > 0 and not self.stop_listen:
@@ -165,6 +165,15 @@ class CollectPathExecutor(BasePathExecutor):
                     self.logger.debug(f'挖矿角色已阵亡，前往七天神像中, 跳过当前路线:{self.base_path.name}')
                     self.map_controller.go_to_seven_anemo_for_revive()
                     raise ExecuteTerminateException()
+    def on_path_end(self):
+        """
+        终点处停留1秒
+        :return:
+        """
+        start_wait = time.time()
+        while time.time() - start_wait < 1:
+            self.crazy_f()
+
 
 
 if __name__ == '__main__':

@@ -141,7 +141,13 @@ class BaseController:
     def ms_middle_release(self):
         self.__ms.release(Button.middle)
 
-    def ui_close_button(self):
+    # def type_string(self, text):
+    #     for char in text:
+    #         win32api.SendMessage(capture.hwnd, win32con.WM_CHAR, ord(char), 0)
+    #         time.sleep(0.05)
+
+
+    def click_ui_close_button(self):
         """
         尝试点击关闭按钮, 用于关闭地图、关闭烹饪界面
         :return:
@@ -227,6 +233,26 @@ class BaseController:
 
     def kb_release(self, key):
         self.__keyboard.release(key)
+
+    def kb_copy_string(self, string):
+        """
+        模拟粘贴
+        :return:
+        """
+        self.kb_press(self.Key.ctrl)
+        self.kb_press("v")
+        self.kb_release("v")
+        self.kb_press(self.Key.ctrl)
+
+    def kb_paste(self):
+        """
+        模拟粘贴
+        :return:
+        """
+        self.kb_press(self.Key.ctrl)
+        self.kb_press("v")
+        self.kb_release("v")
+        self.kb_release(self.Key.ctrl)
 
     # def _on_press(self, key):
     #     try:
@@ -343,7 +369,7 @@ class BaseController:
     def crazy_f(self):
         # 若是不小心点到烹饪界面，先关闭, 然后滚轮向下
         if self.gc.has_tob_bar_close_button():
-            self.ui_close_button()
+            self.click_ui_close_button()
             return
         elif self.gc.has_cook_hat():  # 避免点击到烹饪图标
             self.logger.debug('滚轮向上')

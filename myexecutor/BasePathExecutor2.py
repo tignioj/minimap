@@ -129,6 +129,9 @@ class BasePathExecutor(BaseController):
         if fight_duration is None: fight_duration = FightConfig.get(FightConfig.KEY_FIGHT_TIMEOUT, 12, min_val=1, max_val=1000)
         self.fight_duration = fight_duration
 
+        from controller.DialogController import DialogController
+        self.dialog_controller = DialogController()
+
         self.debug_enable = debug_enable
 
         ################## 参数 #########################
@@ -278,10 +281,20 @@ class BasePathExecutor(BaseController):
     def crazy_f(self):
         # 若是不小心点到烹饪界面，先关闭, 然后滚轮向下
         if self.gc.has_tob_bar_close_button():
-            self.map_controller.ui_close_button()
+            logger.debug("有关闭图标，点击关闭，跳过f")
+            self.map_controller.click_ui_close_button()
             return
         elif self.gc.has_cook_hat():  # 避免点击到烹饪图标
+            logger.debug("有帽子图标，滚轮向上后f")
             self.ms_scroll(0, -1000)
+        elif len(self.gc.get_icon_position(self.gc.icon_dialog_message)) > 0:
+            self.logger.debug("有对话图标，跳过f")
+            # 避免f进入对话
+            return
+        elif not self.gc.has_paimon(False):
+            self.logger.debug("左上角小地图消失了，检测是否进入了对话")
+            self.dialog_controller.skip_dialog()
+            return
         self.kb_press_and_release('f')
 
     def on_nearby(self, coordinates):
@@ -300,6 +313,13 @@ class BasePathExecutor(BaseController):
         非常耗性能的ocr判断异常方式
         :return:
         """
+        # 判断是否进入了对话
+        if self.dialog_controller.is_dialog_mode():
+            try:
+                self.dialog_controller.skip_dialog()
+            except TimeoutError as e:
+                logger.error(e.args)
+
         ocr_result = self.ocr.get_ocr_result()
         self.logger.debug(f'屏幕中有文字{ocr_result}')
         for result in ocr_result:
@@ -622,6 +642,12 @@ class BasePathExecutor(BaseController):
         :return: 
         """
         pass
+    def on_path_end(self):
+        """
+        所有点位执行结束
+        :return:
+        """
+        pass
     
     def execute(self, from_index=None):
         """
@@ -645,7 +671,7 @@ class BasePathExecutor(BaseController):
             # 异常线程
             thread_exception.start()
 
-            moving_position_mutation_counter = 0
+            moving_position_mutation_counter = 0  # 位置突变次数
 
             i = 1  # 跳过传送点
             if from_index and (1 < from_index < len(self.base_path.positions)):
@@ -662,6 +688,7 @@ class BasePathExecutor(BaseController):
                     continue  # 上面的while循环未能成功加载位置，跳到下一个点位
 
                 if not point1_near_by_point2(self.current_coordinate, (point.x, point.y), 200):
+                    # TODO: 连续跳过三个点表明彻底卡住，跳过此路线
                     self.logger.error(f'距离下一个点位太远,跳过{point}')
                     i += 1
                     continue
@@ -704,6 +731,7 @@ class BasePathExecutor(BaseController):
         #     self.logger.error(e)
         #     return False
         finally:
+            self.on_path_end()
             self.log(f"文件{self.base_path.name}执行完毕")
             self.is_path_end = True
             # 等待线程结束

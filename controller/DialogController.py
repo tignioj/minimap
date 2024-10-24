@@ -20,15 +20,26 @@ class DialogController(BaseController):
             return True
         return False
 
-    def skip_dialog(self):
+    def is_dialog_mode(self):
+        return len(self.gc.get_icon_position(self.gc.icon_dialog_eyes)) > 0
+
+    def skip_dialog(self, timeout=15):
         # 出现了对话眼睛
-        if len(self.gc.get_icon_position(self.gc.icon_dialog_eyes))>0:
-            # 点击最后一个图标
-            if self.click_if_appear(self.gc.icon_dialog_message, index=-1):
-                self.logger.debug('点击最后一个选项')
-            else: self.kb_press_and_release(self.Key.space)
-        elif self.ocr.find_text_and_click('点击后继续'):
-            time.sleep(0.5)
+        start_time = time.time()
+        while not self.gc.has_paimon(delay=False):
+            if time.time() - start_time > timeout:
+                raise TimeoutError("Skip Dialog Timeout!")
+
+            if self.is_dialog_mode():
+                # 点击最后一个图标
+                if self.click_if_appear(self.gc.icon_dialog_message, index=-1):
+                    self.logger.debug('点击最后一个选项')
+                    time.sleep(0.2)
+                else: self.kb_press_and_release(self.Key.space)
+            elif self.ocr.find_text_and_click('点击后继续'):
+                time.sleep(0.5)
+            else:
+                self.click_ui_close_button()
 
     def daily_reward_dialog(self):
         """
@@ -87,7 +98,14 @@ class DialogController(BaseController):
 
 if __name__ == '__main__':
     dialog = DialogController()
-    dialog.daily_reward_dialog()
+    dialog.skip_dialog()
+    # dialog.daily_reward_dialog()
+    from capture.capture_factory import capture
+        # t = time.time()
+        # capture.has_cook_hat()
+        # capture.has_tob_bar_close_button()
+        # print(len(capture.get_icon_position(capture.icon_dialog_message)) > 0)
+        # print(time.time() - t)
     # while True:
     #     time.sleep(1)
         # dialog.skip_dialog()
