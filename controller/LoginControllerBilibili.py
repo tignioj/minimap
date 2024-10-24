@@ -137,11 +137,11 @@ class LoginControllerBilibili:
         start_wait = time.time()
         while not capture.has_paimon() and time.time()-start_wait < 90:
             logger.debug(f'等待进入游戏界面中, 剩余{90-(time.time()-start_wait)}秒')
-            if not self.wc.is_active():
-                logger.debug('不是原神登录窗口，暂停点击')
-                continue
-            self.click_screen((10,10))
             time.sleep(2)
+            if self.wc.is_active() or capture.is_active():
+                self.click_screen((10,10))
+            else:
+                logger.debug('不是原神登录窗口，暂停点击')
         logger.debug('成功进入游戏')
 
     def click_login_button(self):
