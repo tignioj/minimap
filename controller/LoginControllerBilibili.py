@@ -33,9 +33,9 @@ class LoginControllerBilibili:
         game_path = WindowsConfig.get(WindowsConfig.KEY_GAME_PATH)
         gp = Path(game_path)
         game_folder = gp.parent
-        os.chdir(game_folder)
+        game_executable = gp.name
         # 启动应用程序
-        process = subprocess.Popen("YuanShen.exe", shell=True)
+        subprocess.Popen([game_executable], cwd=game_folder, shell=True)
         start_wait = time.time()
         while not self.wc.is_active() and time.time() - start_wait < 120:
             try:
@@ -154,4 +154,8 @@ if __name__ == '__main__':
     except Exception as e:
         logger.debug(e.args)
     login.open_game()
-    # login.user_pwd_input(user_name, password)
+    from myutils.configutils import AccountConfig
+    ci = AccountConfig.get_current_instance()
+    account = ci.get("account")
+    password = ci.get("password")
+    login.user_pwd_input(account, password)
