@@ -1,9 +1,10 @@
 # 打开游戏
+import sys
+
 import cv2
 import time, os
 from capture.capture_factory import capture
 from controller.BaseController import BaseController
-from myutils.clipboard_utils import copy_string, paste_text
 from myutils.configutils import resource_path
 template_path = os.path.join(resource_path, 'template')
 icon_button_logout = cv2.imread(os.path.join(template_path, 'login','icon_button_logout.png'), cv2.IMREAD_GRAYSCALE)
@@ -42,54 +43,48 @@ class LoginController(BaseController):
             return False
 
         self.logger.debug('点击切换账号')
-        self.ocr.click_if_appear(icon_button_logout,timeout=0.5)
+        self.ocr.click_if_appear(icon_button_logout,timeout=2)
         time.sleep(1)
         self.ocr.find_text_and_click('确定', match_all=True)
 
     def user_input_focus(self):
-        capture.activate_window()
-        time.sleep(0.5)
         self.ocr.find_text_and_click('输入手机号')
         
     def password_input_focus(self):
-        capture.activate_window()
-        time.sleep(0.5)
         self.ocr.find_text_and_click('输入密码')
+
+    def type_string(self, text):
+        for c in text:
+            self.kb_press_and_release(c)
+            time.sleep(0.02)
+            # 每输入一个字符按下shift避免中文输入法干扰
+            self.kb_press_and_release(self.Key.shift)
+            time.sleep(0.02)
 
     def user_pwd_input(self,user_name, password):
         # 输入框获取焦点
-        from controller.BaseController import BaseController
+        self.logger.debug('强制置游戏窗口于前台')
+        self.gc.activate_window()
+        time.sleep(0.5)
         self.logger.debug('输入框获取焦点')
         self.user_input_focus()
-        self.logger.debug('删除旧数据')
-        self.kb_press_and_release(self.Key.end)
-        for _ in range(30):
-            time.sleep(0.02)
-            self.kb_press_and_release(self.Key.backspace)
-
         self.logger.debug('输入账号')
-        self.kb_press_and_release(self.Key.backspace)
-        copy_string(user_name)
-        paste_text()
+        time.sleep(0.5)
+        self.type_string(user_name)
         self.logger.debug('输入账号完毕')
         time.sleep(0.5)
-
         self.logger.debug('密码框获取焦点')
         self.password_input_focus()
-        self.logger.debug('删除旧数据')
-        self.kb_press_and_release(self.Key.end)
-        for _ in range(30):
-            time.sleep(0.02)
-            self.kb_press_and_release(self.Key.backspace)
-
         self.logger.debug('输入密码')
-        copy_string(password)
-        paste_text()
+        time.sleep(0.5)
+        self.type_string(password)
         self.logger.debug('输入密码完毕')
         time.sleep(0.5)
         self.logger.debug('点击进入游戏')
 
+
         # 点击同意协议
+        self.logger.debug('点击同意协议')
         ocr_results = self.ocr.find_match_text('立即注册')
         if len(ocr_results) < 1: self.logger.debug('未找到立即注册按钮')
         time.sleep(0.5)
@@ -123,7 +118,7 @@ class LoginController(BaseController):
 
 if __name__ == '__main__':
     login = LoginController()
-    login.open_game()
+    # login.open_game()
     from myutils.configutils import AccountConfig
     ci = AccountConfig.get_current_instance()
     account = ci.get("account")
