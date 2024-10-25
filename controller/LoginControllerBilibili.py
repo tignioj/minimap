@@ -91,6 +91,11 @@ class LoginControllerBilibili:
         self.kb.press(key)
         self.kb.release(key)
 
+    def is_activate(self):
+        import win32gui
+        current_win_name = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+        return current_win_name in ['bilibili游戏 登录', 'bilibili游戏 防沉迷提示', '原神']
+
     def user_pwd_input(self,user_name, password):
         # 输入框获取焦点
         logger.debug('输入框获取焦点')
@@ -132,17 +137,18 @@ class LoginControllerBilibili:
             logger.error('未找到登录按钮, 登录失败')
             return
         res = ocr_results[0]
-        self.click_screen(res.center)
+        self.click_screen(res.center)  # 此时'聚焦于bilibili 游戏 防沉迷提示'窗口
         time.sleep(5)
         start_wait = time.time()
         while not capture.has_paimon() and time.time()-start_wait < 90:
             logger.debug(f'等待进入游戏界面中, 剩余{90-(time.time()-start_wait)}秒')
             time.sleep(2)
-            if self.wc.is_active() or capture.is_active():
+            if self.is_activate():
                 self.click_screen((10,10))
             else:
                 logger.debug('不是原神登录窗口，暂停点击')
         logger.debug('成功进入游戏')
+        capture.activate_window()  # 将游戏窗口置于前台
 
     def click_login_button(self):
         login_count = 5
