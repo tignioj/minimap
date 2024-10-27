@@ -23,7 +23,7 @@ class CharacterNotFoundException(Exception): pass
 
 class FightController(BaseController):
 
-    def __init__(self, filename, memory_mode=False):
+    def __init__(self, filename=None, memory_mode=False):
         super().__init__()
         self.memory_mode = memory_mode
         self.fighting_thread = None
@@ -31,7 +31,7 @@ class FightController(BaseController):
         self.current_character = None
         self.stop_fight = False
         self.lastmod: float = None
-        if not filename:
+        if filename is None:
             from myutils.configutils import FightConfig
             filename = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
 
@@ -218,6 +218,10 @@ class FightController(BaseController):
                 self.execute(stop_on_no_enemy)
         except CharacterDieException as e:
             self.logger.debug(e.args)
+            # 战斗时死亡，如何处理？
+            self.logger.debug("战斗时，切换角色检测到角色阵亡，前往七天神像复活")
+            from controller.MapController2 import MapController
+            MapController().go_to_seven_anemo_for_revive()
         except StopFightException as e:
             self.logger.debug(e.args)
             # 打断所有动作， 恢复状态
@@ -383,13 +387,14 @@ if __name__ == '__main__':
     # file_name = '那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt'
     # file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
     # file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
-    fc = FightController(None)
+    fc = FightController()
     # fc.execute_infinity()
     # fc.has_enemy()
-    while True:
-        time.sleep(0.1)
+    fc.start_fighting()
+    # while True:
+    #     time.sleep(0.1)
         # has = fc.has_enemy()
-        fc.mining()
+        # fc.mining()
         # print(has)
     # fc.switch_character('纳西妲')
     # def _on_press(key):
