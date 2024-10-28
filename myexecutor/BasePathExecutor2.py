@@ -123,7 +123,7 @@ class BasePathExecutor(BaseController):
         self.map_controller = MapController(debug_enable=debug_enable)  # 传送
 
         from myutils.configutils import FightConfig
-        if fight_team is None: fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
+        if fight_team is None or len(fight_team) == 0: fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
         if fight_team is None: raise Exception("请先配置队伍!")
         self.fight_controller = FightController(fight_team)
         if fight_duration is None: fight_duration = FightConfig.get(FightConfig.KEY_FIGHT_TIMEOUT, 12, min_val=1, max_val=1000)
