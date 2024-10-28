@@ -48,8 +48,8 @@ class MinimapNative(MiniMapInter):
     def choose_map(self, map_name):
         return MinimapService.choose_map(map_name)
 
-    def get_rotation(self, use_alpha=False):
-        return MinimapService.get_rotation()
+    def get_rotation(self, use_alpha=False, inverse_alpha=True):
+        return MinimapService.get_rotation(inverse_alpha=inverse_alpha)
 
     def get_user_map_position(self): return MinimapService.get_user_map_position()
     def get_user_map_scale(self): return MinimapService.get_user_map_scale()
