@@ -5,7 +5,7 @@ import cv2
 import sys
 from controller.BaseController import BaseController
 from collections import deque
-
+import win32api, win32con
 from controller.FightController import FightController, CharacterDieException
 from controller.MapController2 import MapController
 from controller.OCRController import OCRController
@@ -16,7 +16,6 @@ from myutils.configutils import PROJECT_PATH, DebugConfig, PathExecutorConfig
 from myutils.timerutils import RateLimiter, RateLimiterAsync
 from mylogger.MyLogger3 import MyLogger
 import logging
-
 logger = MyLogger('path_executor', level=logging.DEBUG, save_log=True)
 
 
@@ -54,6 +53,7 @@ class Point:
     MOVE_MODE_JUMP = 'jump'  # 疯狂按空格
     # swim模式，可能会导致冲过头,尤其是浅水区人不在游泳而点位设置成了游泳的时候
     MOVE_MODE_SWIM = 'swim'  # swim 模式下，会禁止小碎步，因为小碎步的实现是疯狂按下w和停止w，这会加速消耗体力
+    MOVE_MODE_UP_DOWN_GRAB_LEAF = 'up_down_grab_leaf'  # 视角上下晃动抓四叶印
 
     ACTION_STOP_FLYING_ON_MOVE_DONE = 'stop_flying'  # 到达某个点的时候是否下落攻击以停止飞行
     ACTION_SHIELD = 'shield'  # 开盾
@@ -637,11 +637,15 @@ class BasePathExecutor(BaseController):
     def on_move_before(self, point: Point):
         """
         在下一个点位开始行动之前
-        生命周期方法，子类实现
+        生命周期方法
         :param point: 
         :return: 
         """
-        pass
+        if point.move_mode == Point.MOVE_MODE_UP_DOWN_GRAB_LEAF:
+            self.logger.debug("上下晃动视角抓四叶印！")
+            self.up_down_grab_leaf()
+
+
     def on_path_end(self):
         """
         所有点位执行结束
@@ -748,6 +752,23 @@ class BasePathExecutor(BaseController):
     def on_execute_finally(self):
         pass
 
+
+    def up_down_grab_leaf(self):
+        time.sleep(0.5)
+        self.log("开始上下晃动视角抓四叶印")
+        x, y = 0, 1500  # y代表垂直方向上的视角移动, x为水平方向
+        i = 40
+        # self.kb_press('w')  # 飞行
+        while i > 0 and not self.stop_listen:
+            self.kb_press_and_release('t')
+            if i % 10 == 0:
+                y = -y
+            i -= 1
+            self.logger.debug("上下晃动视角中")
+            win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, y, 0, 0)
+            time.sleep(0.04)
+
+        self.view_reset()
 
 def execute_one(jsonfile):
     logger.info(f"开始执行{jsonfile}")

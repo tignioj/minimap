@@ -319,6 +319,22 @@ class BaseController:
         wait_for_window()
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, int(dx), int(dy), int(scroll), 0)
 
+    def view_reset(self):
+        """
+        恢复视角:游戏特性，按下鼠标中间视角会恢复到正中间
+        :return:
+        """
+        self.ms_middle_press()
+        self.ms_middle_release()
+
+    def view_down(self):
+        """
+        视角拉到最下
+        :return:
+        """
+        win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, 20000, 0, 0)
+        time.sleep(0.02)
+        win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, 20000, 0, 0)
     def to_degree(self, degree, threshold=10, detected_paimon=True, inverse_alpha=True):
         """
         将当前视角朝向转至多少度

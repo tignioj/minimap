@@ -3,17 +3,10 @@ import random
 import sys
 import threading
 import time
-import json
-
-import cv2
-import win32api, win32con
-import numpy as np
-
 from controller.FightController import CharacterDieException
 from myexecutor.BasePathExecutor2 import BasePathExecutor, Point, BasePath, ExecuteTerminateException
 from myutils.fileutils import getjson_path_byname
-from typing import List
-
+import win32api, win32con
 # TODO
 # 结尾经常容易漏捡
 # 情况1：树王菇蘑菇平台移动速度过快，到达的时候已经break，可能无法继续执行生命周期的on_nearby方法拾取植物
@@ -21,7 +14,6 @@ from typing import List
 
 class CollectPoint(Point):
 
-    MOVE_MODE_UP_DOWN_GRAB_LEAF = 'up_down_grab_leaf'  # 视角上下晃动抓四叶印
     ACTION_NAHIDA_COLLECT = 'nahida_collect'
     ACTION_MINING = 'mining'  # 挖矿, 也就是开技能
 
@@ -43,11 +35,6 @@ class CollectPathExecutor(BasePathExecutor):
     #     self.next_point: CollectPoint = None
     #     self.prev_point: CollectPoint = None
 
-
-    def view_down(self):
-        win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, 20000, 0, 0)
-        time.sleep(0.02)
-        win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, 20000, 0, 0)
 
     def nahida_collect(self):
         from controller.FightController import SwitchCharacterTimeOutException, CharacterNotFoundException
@@ -88,52 +75,12 @@ class CollectPathExecutor(BasePathExecutor):
         # 尝试恢复视角
         self.view_reset()
 
-    def view_reset(self):
-        """
-        恢复视角:游戏特性，按下鼠标中间视角会恢复到正中间
-        :return:
-        """
-        self.ms_middle_press()
-        self.ms_middle_release()
-
-    def grab_leaf(self):
-        """
-        抓四叶印
-        :return:
-        """
-        self.log("按下t抓四叶印")
-        self.kb_press_and_release('t')
-
-
-    def up_down_grab_leaf(self):
-        time.sleep(0.5)
-        self.log("开始上下晃动视角抓四叶印")
-        x, y = 0, -1500  # y代表垂直方向上的视角移动, x为水平方向
-        i = 40
-        # self.kb_press('w')  # 飞行
-        while i > 0 and not self.stop_listen:
-            self.grab_leaf()
-            if i % 10 == 0:
-                y = -y
-            i -= 1
-            self.logger.debug("上下晃动视角中")
-            win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, y, 0, 0)
-            time.sleep(0.04)
-
-        self.view_reset()
-
-
     def on_nearby(self, coordinate):
         # super().on_nearby(coordinate)
         self.logger.debug(f'接近点位{self.next_point}了')
         if self.enable_crazy_f:
             self.logger.debug(f'疯狂按下f')
             self.crazy_f()
-
-    def on_move_before(self, point: CollectPoint):
-        if point.move_mode == CollectPoint.MOVE_MODE_UP_DOWN_GRAB_LEAF:
-            self.logger.debug("上下晃动视角抓四叶印！")
-            self.up_down_grab_leaf()
 
     def shield(self):
         try:
@@ -147,14 +94,12 @@ class CollectPathExecutor(BasePathExecutor):
             else:
                 self.logger.debug("虽然盾辅角色死亡了，但是不需要战斗，不影响采集, 继续行动（挖矿除外）")
 
-
-
     def on_move_after(self, point: CollectPoint):
         super().on_move_after(point)
         if point.action == CollectPoint.ACTION_NAHIDA_COLLECT:
             self.logger.info('草神转圈')
             self.nahida_collect()
-        if self.next_point.move_mode == CollectPoint.MOVE_MODE_UP_DOWN_GRAB_LEAF and self.next_point.type == CollectPoint.TYPE_TARGET:
+        if self.next_point.move_mode == Point.MOVE_MODE_UP_DOWN_GRAB_LEAF and self.next_point.type == Point.TYPE_TARGET:
             time.sleep(0.3)  # 通过四叶印到达目的地会有一小段时间悬空，等待降下，否则无法拾取
         if point.action == CollectPoint.ACTION_MINING:
             self.logger.debug('长e挖矿')
