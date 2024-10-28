@@ -319,17 +319,22 @@ class BaseController:
         wait_for_window()
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, int(dx), int(dy), int(scroll), 0)
 
-    def to_degree(self, degree):
+    def to_degree(self, degree, threshold=10, detected_paimon=True, inverse_alpha=True):
         """
         将当前视角朝向转至多少度
         :param degree:
+        :param threshold:
+        :param inverse_alpha:  秘境中要关掉alpha反色否则无法获取角度
         :return:
         """
         if degree is None: return
+        if threshold is None or threshold < 2: threshold=2
         start = time.time()
-        while capture.has_paimon():
+        while True:
+            if detected_paimon and not self.gc.has_paimon(): break
+
             if time.time() - start > 5: break  # 避免超过5秒
-            current_rotation = self.tracker.get_rotation()
+            current_rotation = self.tracker.get_rotation(inverse_alpha=inverse_alpha)
             # 假设要求转向到45，获取的是60，则 degree - current_rotation = -15
             # 假设要求转向到45，获取的是10则 degree - current_rotation = 30
             if current_rotation is None:
@@ -339,7 +344,7 @@ class BaseController:
             diff = current_rotation - degree
             # 求方向
             s = abs(diff)
-            if s < 10: return
+            if s < threshold: return
 
             direction = diff / abs(diff)
 
@@ -357,7 +362,7 @@ class BaseController:
                     direction = -direction
 
             # print(f"current: {current_rotation}, target{degree},diff{diff}, 转向:{direction}, 转动距离:{s}")
-            if s < 10: return
+            if s < threshold: return
 
             max_rate = PathExecutorConfig.get(PathExecutorConfig.KEY_CHANGE_ROTATION_MAX_SPEED, 500)
             s = s * 2
@@ -378,6 +383,9 @@ class BaseController:
 
 if __name__ == '__main__':
     bc = BaseController()
+    while True:
+        rot = bc.tracker.get_rotation(inverse_alpha=False)
+        print(rot)
     # bc.crazy_f()
 
         # win32api.mouse_event(win32con.MOUSEEVENTF_WHEEL, 0, 0, 120, 0)

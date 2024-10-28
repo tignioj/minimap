@@ -46,7 +46,7 @@ class OCRController(BaseController):
         self.ocr_result:List[OCRResult] = []
         from myutils.timerutils import RateLimiter
         self.ocr_update_limiter = RateLimiter(0.2)
-        self.ocr_update_limiter.execute(lambda :None)
+        # self.ocr_update_limiter.execute(lambda :None)
 
     def get_ocr_result(self,mss_mode=False)->List[OCRResult]:
         if mss_mode: self.update_ocr_result(mss_mode=mss_mode)
@@ -163,11 +163,12 @@ class OCRController(BaseController):
             for arg in args:
                 if match_all:
                     if arg == item.text:
+                        self.logger.debug(f"屏幕上出现文本{arg},原文是{item.text}")
                         return True
                 else:
                     if arg in item.text:
                         self.logger.debug(f"屏幕上出现文本{arg},原文是{item.text}")
-                    return True
+                        return True
 
         # if result is None: return False
         # for idx in range(len(result)):
@@ -191,7 +192,10 @@ if __name__ == '__main__':
     # cv2.imshow('sc', gc.get_screenshot())
     # cv2.waitKey(0)
     ocr = OCRController(debug_enable=True)
-    ocr.find_text_and_click('渊下宫', match_all=True)
+    results = ocr.get_ocr_result()
+    for result in results:
+        print(result)
+    # ocr.find_text_and_click('渊下宫', match_all=True)
     # ocr.is_text_in_screen('探索度')
     # ocr.find_text_and_click("锚点")
     # ocr.find_text_and_click("七天神像")

@@ -1,3 +1,4 @@
+import time
 
 import cv2
 from capture.capture_factory import capture
@@ -72,10 +73,18 @@ class MinimapService:
         return data
 
     @classmethod
-    def get_rotation(cls):
+    def get_rotation(cls, inverse_alpha=True):
+        """
+        获取角度
+        :param inverse_alpha: 是否alpha反色，秘境中不需要反色，否则无法求角度
+        :return:
+        """
         img = capture.get_mini_map(use_alpha=True)
         b,g,r,a = cv2.split(img)
-        rot = rotate.predict_rotation(-a)
+        inv_a = cv2.bitwise_not(a)
+        if inverse_alpha: rot = rotate.predict_rotation(inv_a)
+        else: rot = rotate.predict_rotation(a)
+        # rot = rotate.predict_rotation(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
         if rot is None:
             rot = minimap.get_rotation()
             logger.debug(f'采取减背景法计算转向:结果为:{rot}')
@@ -109,3 +118,9 @@ class MinimapService:
         if tem_local_map is None:
             raise Exception('无法裁剪地图')
         return tem_local_map
+
+if __name__ == '__main__':
+    while True:
+        t = time.time()
+        rot = MinimapService.get_rotation()
+        print(rot, time.time() - t)
