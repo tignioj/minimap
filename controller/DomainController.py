@@ -44,13 +44,19 @@ class DomainController(BaseController):
         self.fight_team = fight_team
         self.fight_controller = FightController(fight_team)
         self.__last_direction = None
-        from myutils.configutils import resource_path
         from controller.MapController2 import MapController
         self.map_controller = MapController()
-        with open(os.path.join(resource_path, "domain.json"), "r", encoding="utf8") as f:
-            self.domain_list = json.load(f)
         self.domain_timeout = domain_timeout  # 设置秘境最长执行时间为30分钟
         self.is_character_dead = False
+
+    __domain_list = None
+    @staticmethod
+    def get_domain_list():
+        if DomainController.__domain_list is None:
+            with open(os.path.join(resource_path, "domain.json"), "r", encoding="utf8") as f:
+                DomainController.__domain_list = json.load(f)
+            return DomainController.__domain_list
+
 
     def __process_results(self, img, results):
         # Process results list
@@ -380,9 +386,11 @@ class DomainController(BaseController):
             self.logger.debug("秘境结束")
 
     def teleport_to_domain(self, domain_name):
-        if self.domain_list is None:
+        domain_list = DomainController.get_domain_list()
+        if domain_list is None:
             self.logger.error("秘境列表为空！")
-        for domain in self.domain_list:
+            raise Exception("秘境列表为空！")
+        for domain in domain_list:
             if domain_name == domain.get("name"):
                 country = domain.get("country")
                 pos = domain.get("position")
@@ -408,18 +416,19 @@ class DomainController(BaseController):
         tuic.navigation_to_world_page()
 
     @staticmethod
-    def one_key_run_domain(domain_name=None,fight_team=None,time_out=1200):
+    def one_key_run_domain(domain_name=None,fight_team=None,time_out=None):
         """
         一键运行秘境
         :param domain_name: 秘境名称
         :param time_out: 最长执行时间（秒）
         :return:
         """
+        if time_out is None: time_out = 60*30  # 30分钟
         dm = DomainController(domain_name=domain_name,fight_team=fight_team, domain_timeout=time_out)
-        # 切换队伍
-        dm.change_fight_team()
         # 传送到秘境附近
         try:
+            # 切换队伍
+            dm.change_fight_team()
             # 进入秘境
             dm.teleport_to_domain(domain_name)
             # 执行秘境直到体力耗尽
