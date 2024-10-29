@@ -17,12 +17,17 @@ yolo_path = os.path.join(resource_path, "model", "bgi_tree.onnx")
 model = YOLO(yolo_path)
 
 
+# 抛出领取奖励异常，则重试，直到树脂为空
 class ClaimTimeoutException(Exception): pass
+
+# 抛出这个异常表面则表示超过预期运行时间，不再进行循环
+class TotalExecuteTimeoutException(Exception): pass
 
 
 class NotInDomainException(Exception): pass
 
 
+# 抛出这个异常表面则表示没有树脂了，不再进行循环
 class NoResinException(Exception): pass
 
 
@@ -45,7 +50,6 @@ class DomainController(BaseController):
         with open(os.path.join(resource_path, "domain.json"), "r", encoding="utf8") as f:
             self.domain_list = json.load(f)
         self.domain_timeout = domain_timeout  # 设置秘境最长执行时间为30分钟
-        self.is_domain_end = False
         self.is_character_dead = False
 
     def __process_results(self, img, results):
@@ -123,8 +127,12 @@ class DomainController(BaseController):
         # 2. 点击单人挑战
         # self.ocr.find_text_and_click('单人挑战')
         self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10)
-
-        time.sleep(1)
+        time.sleep(2)
+        if self.ocr.is_text_in_screen("仍要挑战"):
+            self.ocr.find_text_and_click("取消")
+            time.sleep(1)
+            self.click_ui_close_button()
+            raise NoResinException("你已经没有树脂了，无需进入秘境")
         # 3. 确认队伍界面点击开始挑战
         # self.ocr.find_text_and_click('开始挑战')
         self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10)
@@ -174,7 +182,7 @@ class DomainController(BaseController):
                                              character_dead_callback=callback)
         # 7. 检测战斗结束
         start = time.time()
-        while time.time() - start < 300 and not self.is_domain_end:
+        while time.time() - start < 300:
             self.logger.debug(f'等待战斗结束{300 - int(time.time() - start)}')
             if self.is_character_dead:
                 raise CharacterDeadException("死亡后被传送到了七天神像, 结束秘境")
@@ -182,8 +190,8 @@ class DomainController(BaseController):
                 self.logger.debug("检测到左上角的派蒙，表示不在秘境中，结束秘境")
                 self.fight_controller.stop_fighting()
                 raise NotInDomainException("检测到左上角的派蒙，表示不在秘境中，结束秘境")
-            if self.ocr.is_text_in_screen("挑战达成", "自动退出"): break
-            time.sleep(1)
+            if self.ocr.is_text_in_screen("挑战达成", "退出"): break
+            time.sleep(5)
         # 8. 秘境结束
         self.logger.debug('结束战斗')
         self.fight_controller.stop_fighting()
@@ -331,38 +339,45 @@ class DomainController(BaseController):
         claim_ok = self.ocr_and_click_reward()
         return claim_ok
 
+    def re_enter_domain(self):
+        self.logger.debug("正在尝试重新进入秘境, 先取七天神像")
+        # 重试机制：先出秘境再回来
+        self.map_controller.go_to_seven_anemo_for_revive()
+        self.logger.debug("正在返回秘境")
+        self.teleport_to_domain(self.domain_name)
+        self.logger.debug("正在进入秘境")
+        self.enter_domain()  # 可能会抛出超时异常
+
     def loop_domain(self):
+        """
+        循环执行秘境直到超时或者树脂耗尽
+        :return:
+        """
         start_domain_time = time.time()
-        try:
-            while not self.is_domain_end:
-                if time.time() - start_domain_time > self.domain_timeout:
-                    self.logger.error("超时结束秘境")
+        while True:
+            try:
+                if time.time() - start_domain_time > self.domain_timeout: raise TotalExecuteTimeoutException("秘境执行总时间超时")
                 # 开启挑战
-                if self.gc.has_paimon(delay=False):
-                    self.logger.debug("不是秘境，结束")
-                    break
+                if self.gc.has_paimon(delay=False): raise NotInDomainException("不在秘境，结束")
                 # 前往钥匙处开启挑战
                 self.go_to_key_f()
                 time.sleep(3)
                 # 领取奖励
-                if not self.go_to_claim_reward():
-                    self.logger.error("未能成功点击领取奖励，秘境结束")
-                    break
-                time.sleep(3)
-        except (ClaimTimeoutException, TimeoutError) as e:
-            self.logger.error(f"超时异常:{e.args}")
-            raise e
-        except NotInDomainException as e:
-            self.logger.error(f"不在秘境异常:{e.args}")
-            raise e
-        except NoResinException as e:
-            self.logger.error(f"树脂耗尽异常:{e.args}")
-            raise e
-        except CharacterDeadException as e:
-            self.logger.error(f"角色死亡异常:{e.args}")
-            self.map_controller.go_to_seven_anemo_for_revive()
-            raise e
-        self.logger.debug("秘境结束")
+                if not self.go_to_claim_reward(): raise ClaimTimeoutException("未能成功点击领取奖励，重试")
+            except (ClaimTimeoutException, TimeoutError) as e:
+                self.logger.error(f"领取奖励超时异常:{e.args}")
+                self.re_enter_domain()
+            except NotInDomainException as e:
+                self.logger.error(f"不在秘境异常:{e.args}")
+                raise e
+            except NoResinException as e:
+                self.logger.error(f"树脂耗尽异常:{e.args}")
+                raise e
+            except CharacterDeadException as e:
+                self.logger.error(f"角色死亡异常:{e.args}")
+                self.re_enter_domain()
+                raise e
+            self.logger.debug("秘境结束")
 
     def teleport_to_domain(self, domain_name):
         if self.domain_list is None:
@@ -402,13 +417,13 @@ class DomainController(BaseController):
         """
         dm = DomainController(domain_name=domain_name,fight_team=fight_team, domain_timeout=time_out)
         # 切换队伍
-        # dm.change_fight_team()
+        dm.change_fight_team()
         # 传送到秘境附近
-        # dm.teleport_to_domain(domain_name)
-        # 进入秘境
-        dm.enter_domain()
-        # 执行秘境直到体力耗尽
         try:
+            # 进入秘境
+            dm.teleport_to_domain(domain_name)
+            # 执行秘境直到体力耗尽
+            dm.enter_domain()
             dm.loop_domain()
         except Exception as e:
             dm.logger.error(f"因异常结束秘境:{e.args}")
@@ -442,7 +457,8 @@ def test_claim_reward():
 if __name__ == '__main__':
     # name = '罪祸的终末'
     name = '虹灵的净土'
-    fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
+    # fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
+    fight_team = '那维莱特_莱依拉_迪希雅_行秋_(龙莱迪行).txt'
     # print(dm.ocr.is_text_in_screen("自动退出"))
     # test_claim_reward()
     DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)

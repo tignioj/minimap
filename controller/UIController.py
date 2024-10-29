@@ -57,13 +57,17 @@ class TeamUIController(UIController):
     def __init__(self):
         super().__init__(True)
 
-    def open_team_config_page(self):
+    def open_team_config_page(self, timeout=10):
         """
         打开队伍配置界面
         :return:
         """
         result = self.ocr.find_text_and_click('队伍配置')
+        start_time = time.time()
         while not result:
+            if time.time() - start_time > timeout:
+                self.logger.error("打开队伍配置页面超时")
+                return False
             self.kb_press_and_release(self.Key.esc)
             time.sleep(1.5)
             result = self.ocr.find_text_and_click('队伍配置')
@@ -153,9 +157,15 @@ class TeamUIController(UIController):
 
         # 如果发现仍然在战斗状态，则回七天神像后再切换队伍
         from controller.MapController2 import MapController
-        if FightController(None).has_enemy(): MapController().go_to_seven_anemo_for_revive()
+        mpc = MapController()
+        if FightController(None).has_enemy(): mpc.go_to_seven_anemo_for_revive()
 
-        self.open_team_selector()
+        # 如果发现无法打开页面，则去七天神像后再尝试
+        if not self.open_team_selector():
+            self.logger.error("无法打开配置页面，尝试前往七天神像后再尝试")
+            mpc.go_to_seven_anemo_for_revive()
+            if not self.open_team_selector():
+                raise TimeoutError("仍然无法打开队伍配置页面, 抛出超时异常")
         self.team_selector_scroll_to_top()
         time.sleep(0.5)
         success = self.click_target_team(target_team)
