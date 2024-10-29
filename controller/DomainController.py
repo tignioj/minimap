@@ -63,7 +63,7 @@ class DomainController(BaseController):
                 ret_img = cv2.rectangle(img.copy(), (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 5)
                 cv2.namedWindow('show', cv2.WINDOW_NORMAL)
                 cv2.moveWindow('show', 0, 0)
-                ret_img = cv2.resize(ret_img, None, fx=0.5, fy=0.5)
+                ret_img = cv2.resize(ret_img, None, fx=0.3, fy=0.3)
                 cv2.imshow('show', ret_img)
                 cv2.waitKey(2)
                 left_width = x1
@@ -73,14 +73,14 @@ class DomainController(BaseController):
                 if abs(current_diff) < 15:
                     self.logger.debug("GOOD")
                     cv2.imwrite('before.jpg', self.gc.get_screenshot())
-                    time.sleep(0.5)
-                    self.to_degree(-90, threshold=2, inverse_alpha=False)
-                    time.sleep(0.5)
-                    cv2.imwrite('after.jpg', self.gc.get_screenshot())
                     time.sleep(0.3)
+                    self.to_degree(-90, threshold=2, inverse_alpha=False)
+                    time.sleep(0.3)
+                    cv2.imwrite('after.jpg', self.gc.get_screenshot())
+                    time.sleep(0.1)
                     self.kb_release('a')
                     self.kb_release('d')
-                    time.sleep(0.5)
+                    time.sleep(0.1)
                     cv2.imwrite('ok.jpg', self.gc.get_screenshot())
                     cv2.imwrite('ret.jpg', ret_img)
                     return True
@@ -127,6 +127,7 @@ class DomainController(BaseController):
         self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10)
         time.sleep(1)
         # 4. 等到直到出现秘境介绍
+        time.sleep(4)
 
     def go_to_key_f(self):
         """
@@ -138,36 +139,39 @@ class DomainController(BaseController):
             return
         start_wait = time.time()
         while True:
-            if time.time() - start_wait > 5: break
+            if time.time() - start_wait > 20:
+                self.logger.error("超时未检测到地脉异常文字，无法开启战斗")
+                raise TimeoutError("超时未检测到地脉异常, 无法开启战斗")
             if self.ocr.is_text_in_screen("地脉异常"):
                 time.sleep(1)
                 self.logger.debug("点击任意位置关闭")
                 self.kb_press_and_release(self.Key.esc)
                 time.sleep(0.5)
                 break
-        # 补充一次检测
-        if self.ocr.is_text_in_screen("地脉异常"):
-            self.kb_press_and_release(self.Key.esc)
-            time.sleep(0.1)
-
         # 6. 疯狂f往前走直到出现齿轮
         self.kb_press('w')
+        start_wait = time.time()
         while True:
             # 模板检测倒计时图标
+            if time.time() - start_wait > 12:
+                msg = "超时未检测到齿轮，无法开启战斗"
+                self.logger.error(msg)
+                raise TimeoutError(msg)
             if self.gc.has_gear():
+                self.logger.debug("检测到之轮，开始战斗")
                 self.kb_release("w")
                 self.kb_press_and_release('f')
                 break
+            time.sleep(0.02)
         self.logger.debug('开始战斗')
-
         def callback():
-            self.character_die = True
+            self.is_character_dead = True
 
         self.fight_controller.start_fighting(stop_on_no_enemy=False,
                                              character_dead_callback=callback)
         # 7. 检测战斗结束
         start = time.time()
-        while time.time() - start < 300:
+        while time.time() - start < 300 and not self.is_domain_end:
             self.logger.debug(f'等待战斗结束{300 - int(time.time() - start)}')
             if self.is_character_dead:
                 self.logger.error("秘境中角色死亡，结束秘境")
@@ -228,6 +232,59 @@ class DomainController(BaseController):
             # win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
             self.camera_chage(-direction * s, 0, 0)
 
+    def exit_domain(self):
+        self.logger.debug("退出秘境")
+        start_exit_time = time.time()
+        while not self.ocr.is_text_in_screen("退出秘境"):
+            if self.gc.has_paimon(delay=False):
+                self.logger.debug("已经在大世界，无需退出秘境")
+                break
+            if time.time() - start_exit_time > 20: raise Exception("超时未能退出秘境")
+            self.kb_press_and_release(self.Key.esc)
+            time.sleep(3)
+        self.ocr.find_text_and_click("确认")
+
+    def ocr_and_click_reward(self):
+        ocr_result = self.ocr.get_ocr_result()
+        self.logger.debug("ocr检测中")
+        claim_ok = False
+        for result in ocr_result:
+            self.logger.debug(f'ocr:{result.text}')
+            if "数量不足" in result.text:
+                raise NoResinException("没有树脂了，结束秘境")
+            elif "仍要挑战" in result.text:
+                self.ocr.find_text_and_click("取消")
+                raise NoResinException("没有树脂了，结束秘境")
+            elif result.text in "继续挑战":
+                self.logger.debug("点击继续挑战")
+                self.ocr.click_ocr_result(result)
+                time.sleep(3)
+                if self.ocr.is_text_in_screen("仍要挑战"):
+                    self.ocr.find_text_and_click("取消")
+                    raise NoResinException("没有树脂了，结束秘境")
+                claim_ok = True
+
+            elif result.text in "使用浓缩树脂":
+                self.logger.debug("点击使用浓缩树脂")
+                self.ocr.click_ocr_result(result)
+                time.sleep(3)
+                # 点击确认
+                # 可能会抛出超时异常
+                self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10)
+                claim_ok = True
+                break
+            elif result.text in "使用原粹树脂":
+                self.logger.debug("点击使用原粹树脂")
+                self.ocr.click_ocr_result(result)
+                time.sleep(3)
+                # 点击确认
+                # 可能会抛出超时异常
+                self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10)
+                claim_ok = True
+        return claim_ok
+
+
+
     def go_to_claim_reward(self):
         """
         :return:
@@ -247,52 +304,35 @@ class DomainController(BaseController):
             results = model(sc, verbose=False)  # verbose=False 关闭日志
             ok = self.__process_results(sc, results)
             if ok: break
+
         self.logger.debug("已经对准，冲向领奖台中")
         self.kb_press('w')
         self.kb_press(self.Key.shift)
+        # self.kb_release(self.Key.shift)
+
         start_reward = time.time()
-        while True:
-            if time.time() - start_reward > 60: break
+        # 检测到树脂图标就停下
+        has_resin = False
+        while time.time() - start_reward < 20:
             self.kb_press_and_release('f')
-            ocr_result = self.ocr.get_ocr_result()
-            self.logger.debug("ocr检测中")
-            for result in ocr_result:
-                # self.logger.debug(f'ocr:{result.text}')
-                if "仍要挑战" in result.text or "数量不足" in result.text:
-                    self.kb_release(self.Key.shift)
-                    self.ocr.find_text_and_click("取消")
-                    raise NoResinException("没有树脂了，结束秘境")
-                elif result.text in "继续挑战":
-                    self.logger.debug("点击继续挑战")
-                    self.ocr.click_ocr_result(result)
-                    time.sleep(3)
-                    if self.ocr.is_text_in_screen("仍要挑战"):
-                        self.ocr.find_text_and_click("取消")
-                        raise NoResinException("没有树脂了，结束秘境")
-                    return
-                elif result.text in "使用浓缩树脂":
-                    self.logger.debug("点击使用浓缩树脂")
-                    self.ocr.click_ocr_result(result)
-                    time.sleep(3)
-                    self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10)
-                    return
-                elif result.text in "使用原粹树脂":
-                    self.logger.debug("点击使用原粹树脂")
-                    self.ocr.click_ocr_result(result)
-                    time.sleep(3)
-                    self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10)
-                    return
+            if len(self.gc.get_icon_position(self.gc.icon_origin_resin)) > 0:
+                has_resin = True
+                self.kb_release(self.Key.shift)
+                break
             time.sleep(0.05)
+        self.logger.debug(f"是否检测到树脂图标：{has_resin}")
+
+        self.logger.debug("开始处理点击领取奖励逻辑")
+        time.sleep(1)
+        claim_ok = self.ocr_and_click_reward()
+        return claim_ok
 
     def loop_domain(self):
-        # 检测当前处于什么阶段
-        # 如果没有派蒙，说明在秘境内
         start_domain_time = time.time()
         try:
             while not self.is_domain_end:
                 if time.time() - start_domain_time > self.domain_timeout:
                     self.logger.error("超时结束秘境")
-                    break
                 # 开启挑战
                 if self.gc.has_paimon(delay=False):
                     self.logger.debug("不是秘境，结束")
@@ -301,10 +341,12 @@ class DomainController(BaseController):
                 self.go_to_key_f()
                 time.sleep(3)
                 # 领取奖励
-                self.go_to_claim_reward()
+                if not self.go_to_claim_reward():
+                    self.logger.error("未能成功点击领取奖励，秘境结束")
+                    break
                 time.sleep(3)
-        except ClaimTimeoutException as e:
-            self.logger.error(f"领取奖励超时异常:{e.args}")
+        except (ClaimTimeoutException, TimeoutError) as e:
+            self.logger.error(f"超时异常:{e.args}")
             raise e
         except NotInDomainException as e:
             self.logger.error(f"不在秘境异常:{e.args}")
@@ -340,6 +382,7 @@ class DomainController(BaseController):
     def change_fight_team(self):
         tuic = TeamUIController()
         tuic.switch_team(self.fight_team)
+        tuic.navigation_to_world_page()
 
     @staticmethod
     def one_key_run_domain(domain_name=None,fight_team=None,time_out=1200):
@@ -361,6 +404,11 @@ class DomainController(BaseController):
             dm.loop_domain()
         except Exception as e:
             dm.logger.error(f"因异常结束秘境:{e.args}")
+        finally:
+            try:
+                dm.exit_domain()
+            except Exception as e:
+                dm.logger.error(f"超时未能退出秘境{e.args}")
 
 def test_claim_reward():
     name = '罪祸的终末'
@@ -390,3 +438,4 @@ if __name__ == '__main__':
     # print(dm.ocr.is_text_in_screen("自动退出"))
     # test()
     DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
+    # DomainController().exit_domain()
