@@ -311,15 +311,23 @@ class MapController(BaseController):
         self.log('移动鼠标到最终位置{}'.format(waypoint_pos))
         self.set_ms_position(waypoint_pos)
 
-    def teleport(self, position, country, waypoint_name=None, create_local_map_cache=True, start_teleport_time=None):
+    def teleport(self, position, country, waypoint_name=None, create_local_map_cache=True, start_teleport_time=None, validate_position=True):
         """
         传送到指定锚点
-        :param point:
+        :param point: 必填，目标地址
+        :param country: 必填，所在地图
+        :param waypoint_name: 为了避免一些标记遮挡，如果是副本请填写副本名称。默认为传送锚点
+        :param create_local_map_cache: 创建目标地点的定位缓存
+        :param start_teleport_time: 外界调用时候，传入 time.time()作为起始传送时间，避免无限递归, 超时默认时间为60秒
+        :param validate_position: 传送后是否校验落地位置，当前版本水下位置无法校验，此时需要关掉校验，例如枫丹的副本'苍白的遗容'，需要设置为False
         :return:
         """
+        if waypoint_name == '苍白的遗荣':
+            self.logger.warn(f'水下副本由于无法定位，强制关闭落地校验: {waypoint_name}')
+            validate_position = False
         if start_teleport_time is not None:
-            if time.time() - start_teleport_time > 120:
-                raise TeleportTimeoutException("超过2分钟传送失败, 停止传送")
+            if time.time() - start_teleport_time > 60:
+                raise TeleportTimeoutException("超过1分钟传送失败, 停止传送")
 
         if self.stop_listen: return
         self.log(f"开始传送到{country}{position}, is_stop_listen = {self.stop_listen}")
@@ -351,6 +359,9 @@ class MapController(BaseController):
 
         # 判断是否成功传送
         time.sleep(3)  # 等待传送完成
+        if not validate_position:
+            self.logger.debug("你取消了传送落地校验")
+            return
 
         pos = self.tracker.get_position()  # 获取用户落地位置
         wait_time = 10

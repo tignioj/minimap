@@ -1,4 +1,5 @@
 # 秘境
+import json
 import os.path
 import threading
 import time
@@ -9,20 +10,42 @@ from controller.OCRController import OCRController
 import cv2
 from controller.FightController import FightController
 import random
-from myutils.configutils import resource_path
+from myutils.configutils import resource_path, FightConfig
+from controller.UIController import TeamUIController
+
 yolo_path = os.path.join(resource_path, "model", "bgi_tree.onnx")
 model = YOLO(yolo_path)
 
 
-class DomainController(BaseController):
-    def __init__(self, domain_name=None):
-        super(DomainController, self).__init__()
-        # self.domain_name = domain_name
-        self.ocr = OCRController()
-        self.fight_controller = FightController("纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt")
-        self.__last_direction = None
+class ClaimTimeoutException(Exception): pass
 
-    def __process_results(self,img, results):
+
+class NotInDomainException(Exception): pass
+
+
+class NoResinException(Exception): pass
+
+
+class DomainController(BaseController):
+    def __init__(self, domain_name=None, fight_team=None, domain_timeout=60*30):
+        super(DomainController, self).__init__()
+        self.domain_name = domain_name
+        self.ocr = OCRController()
+        if fight_team is None or len(fight_team)==0:
+            fight_team = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
+        self.fight_team = fight_team
+        self.fight_controller = FightController(fight_team)
+        self.__last_direction = None
+        from myutils.configutils import resource_path
+        from controller.MapController2 import MapController
+        self.map_controller = MapController()
+        with open(os.path.join(resource_path, "domain.json"), "r", encoding="utf8") as f:
+            self.domain_list = json.load(f)
+        self.domain_timeout = domain_timeout  # 设置秘境最长执行时间为30分钟
+        self.is_domain_end = False
+        self.is_character_dead = False
+
+    def __process_results(self, img, results):
         # Process results list
         self.kb_release('a')
         self.kb_release('d')
@@ -49,18 +72,17 @@ class DomainController(BaseController):
                 current_diff = left_width - right_width
                 if abs(current_diff) < 15:
                     self.logger.debug("GOOD")
-                    # self.unlock_view()
-                    cv2.imwrite('before.jpg',self.gc.get_screenshot())
+                    cv2.imwrite('before.jpg', self.gc.get_screenshot())
                     time.sleep(0.5)
                     self.to_degree(-90, threshold=2, inverse_alpha=False)
                     time.sleep(0.5)
-                    cv2.imwrite('after.jpg',self.gc.get_screenshot())
+                    cv2.imwrite('after.jpg', self.gc.get_screenshot())
                     time.sleep(0.3)
                     self.kb_release('a')
                     self.kb_release('d')
                     time.sleep(0.5)
-                    cv2.imwrite('ok.jpg',self.gc.get_screenshot())
-                    cv2.imwrite('ret.jpg',ret_img)
+                    cv2.imwrite('ok.jpg', self.gc.get_screenshot())
+                    cv2.imwrite('ret.jpg', ret_img)
                     return True
                 else:
                     if current_diff < 0:
@@ -97,17 +119,20 @@ class DomainController(BaseController):
         self.kb_press_and_release('f')
         # 2. 点击单人挑战
         # self.ocr.find_text_and_click('单人挑战')
-        self.click_if_appear(self.gc.icon_message_box_button_confirm,timeout=10)
+        self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10)
 
-        time.sleep(2)
+        time.sleep(1)
         # 3. 确认队伍界面点击开始挑战
         # self.ocr.find_text_and_click('开始挑战')
-        self.click_if_appear(self.gc.icon_message_box_button_confirm,timeout=10)
-        time.sleep(2)
-
+        self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10)
+        time.sleep(1)
         # 4. 等到直到出现秘境介绍
 
     def go_to_key_f(self):
+        """
+        前往钥匙处开启挑战
+        :return:
+        """
         if self.ocr.is_text_in_screen("自动退出"):
             self.logger.debug("战斗已经结束,无需开启战斗")
             return
@@ -118,35 +143,49 @@ class DomainController(BaseController):
                 time.sleep(1)
                 self.logger.debug("点击任意位置关闭")
                 self.kb_press_and_release(self.Key.esc)
+                time.sleep(0.5)
                 break
+        # 补充一次检测
+        if self.ocr.is_text_in_screen("地脉异常"):
+            self.kb_press_and_release(self.Key.esc)
+            time.sleep(0.1)
+
         # 6. 疯狂f往前走直到出现齿轮
         self.kb_press('w')
         while True:
-            if self.ocr.is_text_in_screen("击败"): break
-            self.kb_press_and_release('f')
-        self.kb_release('w')
+            # 模板检测倒计时图标
+            if self.gc.has_gear():
+                self.kb_release("w")
+                self.kb_press_and_release('f')
+                break
         self.logger.debug('开始战斗')
-        self.fight_controller.start_fighting()
+
+        def callback():
+            self.character_die = True
+
+        self.fight_controller.start_fighting(stop_on_no_enemy=False,
+                                             character_dead_callback=callback)
         # 7. 检测战斗结束
         start = time.time()
         while time.time() - start < 300:
             self.logger.debug(f'等待战斗结束{300 - int(time.time() - start)}')
+            if self.is_character_dead:
+                self.logger.error("秘境中角色死亡，结束秘境")
+                self.map_controller.go_to_seven_anemo_for_revive()
+                raise NotInDomainException("死亡后被传送到了七天神像, 结束秘境")
             if self.gc.has_paimon(delay=False):
-                self.logger.debug("您已退出秘境，肯能是死亡后被传送到了七天神像")
-                raise Exception("结束秘境")
-                break
+                self.logger.debug("检测到左上角的派蒙，表示不在秘境中，结束秘境")
+                self.fight_controller.stop_fighting()
+                raise NotInDomainException("检测到左上角的派蒙，表示不在秘境中，结束秘境")
             if self.ocr.is_text_in_screen("挑战达成", "自动退出"): break
             time.sleep(1)
         # 8. 秘境结束
         self.logger.debug('结束战斗')
         self.fight_controller.stop_fighting()
 
-    locking_view = False
-    def unlock_view(self):
-        self.logger.debug("解锁视角")
-        BaseController.locking_view = False
     def to_degree(self, degree, threshold=10, detected_paimon=True, inverse_alpha=True):
         """
+        这里重写了BaseController的转视角方法，此方法转向速度更柔和
         将当前视角朝向转至多少度
         :param degree:
         :param threshold:
@@ -154,7 +193,7 @@ class DomainController(BaseController):
         :return:
         """
         if degree is None: return
-        if threshold is None or threshold < 2: threshold=2
+        if threshold is None or threshold < 2: threshold = 2
         start = time.time()
         while True:
             if time.time() - start > 10: break  # 避免超过10秒
@@ -182,35 +221,18 @@ class DomainController(BaseController):
                 else:
                     s = abs(diff)
                     direction = -direction
-            # self.logger.debug(f"current: {current_rotation}, target{degree},diff{diff}, 转向:{direction}, 转动距离:{s}")
             if s < threshold: return
             max_rate = 200
             # s = s * 2
             if s > max_rate: s = max_rate
             # win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, -int(direction * s), 0, 0, 0)
-            self.camera_chage(-direction*s, 0,0)
-    def lock_view(self):
-        if DomainController.locking_view:
-            self.logger.error("不要重复锁定视角")
-            return
-        DomainController.locking_view = True
-        def lock_thread_method():
-            self.ms_click(self.Button.middle)
-            self.ms_release(self.Button.middle)
-            start_lock_time = time.time()
-            while DomainController.locking_view and time.time() - start_lock_time < 120:
-                if BaseController.stop_listen: return
-                self.to_degree(-90, 2, detected_paimon=False, inverse_alpha=False)
-        t = threading.Thread(target=lock_thread_method)
-        t.setDaemon(True)
-        t.start()
+            self.camera_chage(-direction * s, 0, 0)
 
     def go_to_claim_reward(self):
         """
         :return:
         """
         # model = YOLO('weights/best.pt')
-        # self.lock_view()
         start_process = time.time()
         time.sleep(0.5)
         self.ms_press(self.Button.middle)
@@ -219,10 +241,11 @@ class DomainController(BaseController):
         while True:
             if time.time() - start_process > 60:
                 self.logger.error("对准树超时！")
-            self.to_degree(-90,threshold=2, inverse_alpha=False)
+                raise ClaimTimeoutException("对准树超时!")
+            self.to_degree(-90, threshold=2, inverse_alpha=False)
             sc = self.gc.get_screenshot(use_alpha=False)
-            results = model(sc,verbose=False)  # verbose=False 关闭日志
-            ok = self.__process_results(sc,results)
+            results = model(sc, verbose=False)  # verbose=False 关闭日志
+            ok = self.__process_results(sc, results)
             if ok: break
         self.logger.debug("已经对准，冲向领奖台中")
         self.kb_press('w')
@@ -238,14 +261,14 @@ class DomainController(BaseController):
                 if "仍要挑战" in result.text or "数量不足" in result.text:
                     self.kb_release(self.Key.shift)
                     self.ocr.find_text_and_click("取消")
-                    raise Exception("没有树脂了，结束秘境")
+                    raise NoResinException("没有树脂了，结束秘境")
                 elif result.text in "继续挑战":
                     self.logger.debug("点击继续挑战")
                     self.ocr.click_ocr_result(result)
                     time.sleep(3)
                     if self.ocr.is_text_in_screen("仍要挑战"):
                         self.ocr.find_text_and_click("取消")
-                        raise Exception("没有树脂了，结束秘境")
+                        raise NoResinException("没有树脂了，结束秘境")
                     return
                 elif result.text in "使用浓缩树脂":
                     self.logger.debug("点击使用浓缩树脂")
@@ -261,41 +284,99 @@ class DomainController(BaseController):
                     return
             time.sleep(0.05)
 
-    def back(self):
-        self.kb_release('w')
-        self.kb_press('s')
-        self.kb_release(self.Key.shift)
-
     def loop_domain(self):
         # 检测当前处于什么阶段
         # 如果没有派蒙，说明在秘境内
-        if self.gc.has_paimon(delay=False):
-            dm.enter_domain()
-        while True:
-            try:
+        start_domain_time = time.time()
+        try:
+            while not self.is_domain_end:
+                if time.time() - start_domain_time > self.domain_timeout:
+                    self.logger.error("超时结束秘境")
+                    break
                 # 开启挑战
                 if self.gc.has_paimon(delay=False):
                     self.logger.debug("不是秘境，结束")
                     break
-                dm.go_to_key_f()
+                # 前往钥匙处开启挑战
+                self.go_to_key_f()
                 time.sleep(3)
-                dm.go_to_claim_reward()
+                # 领取奖励
+                self.go_to_claim_reward()
                 time.sleep(3)
-            except Exception as e:
-                self.logger.error(f"检测到异常:{e.args}")
-                break
+        except ClaimTimeoutException as e:
+            self.logger.error(f"领取奖励超时异常:{e.args}")
+            raise e
+        except NotInDomainException as e:
+            self.logger.error(f"不在秘境异常:{e.args}")
+            raise e
+        except NoResinException as e:
+            self.logger.error(f"树脂耗尽异常:{e.args}")
+            raise e
         self.logger.debug("秘境结束")
 
-def test():
+    def teleport_to_domain(self, domain_name):
+        if self.domain_list is None:
+            self.logger.error("秘境列表为空！")
+        for domain in self.domain_list:
+            if domain_name == domain.get("name"):
+                country = domain.get("country")
+                pos = domain.get("position")
+                self.logger.debug(f"正在传送:{domain}")
+                self.map_controller.teleport(pos, country, waypoint_name=domain_name, start_teleport_time=time.time())
+        # 等待派蒙出现
+        start_wait = time.time()
+        while not self.gc.has_paimon(delay=False) and time.time() - start_wait < 15:
+            self.logger.debug("等待派蒙中")
+            time.sleep(1)
+
+        # 边前进边按f直到派蒙消失，表示打开秘境入口
+        start_wait = time.time()
+        while self.gc.has_paimon(delay=False) and time.time() - start_wait < 10:
+            self.kb_press('w')
+            time.sleep(0.02)
+            self.kb_press_and_release('f')
+            time.sleep(0.02)
+        self.kb_release('w')
+    def change_fight_team(self):
+        tuic = TeamUIController()
+        tuic.switch_team(self.fight_team)
+
+    @staticmethod
+    def one_key_run_domain(domain_name=None,fight_team=None,time_out=1200):
+        """
+        一键运行秘境
+        :param domain_name: 秘境名称
+        :param time_out: 最长执行时间（秒）
+        :return:
+        """
+        dm = DomainController(domain_name=domain_name,fight_team=fight_team, domain_timeout=time_out)
+        # 切换队伍
+        dm.change_fight_team()
+        # 传送到秘境附近
+        dm.teleport_to_domain(domain_name)
+        # 进入秘境
+        dm.enter_domain()
+        # 执行秘境直到体力耗尽
+        try:
+            dm.loop_domain()
+        except Exception as e:
+            dm.logger.error(f"因异常结束秘境:{e.args}")
+
+def test_claim_reward():
+    name = '罪祸的终末'
+    fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
+    dm = DomainController(domain_name=name, fight_team=fight_team)
     while True:
         dm.go_to_claim_reward()
         time.sleep(4)
-        dm.back()
+        dm.kb_release('w')
+        dm.kb_press('s')
+        dm.kb_release(dm.Key.shift)
         time.sleep(4)
         dm.kb_release("s")
         dm.kb_release(dm.Key.shift)
         d = random.choice("wsad")
-        deg = random.randint(-160,160)
+        deg = random.randint(-160, 160)
         dm.to_degree(deg, inverse_alpha=False)
         dm.kb_press(d)
         time.sleep(1)
@@ -304,9 +385,8 @@ def test():
 
 if __name__ == '__main__':
     # name = '罪祸的终末'
-    dm = DomainController()
-    dm.loop_domain()
+    name = '虹灵的净土'
+    fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
     # print(dm.ocr.is_text_in_screen("自动退出"))
     # test()
-
-
+    DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
