@@ -31,7 +31,7 @@ class FightController(BaseController):
         self.current_character = None
         self.stop_fight = False
         self.lastmod: float = None
-        if filename is None:
+        if filename is None or len(filename) == 0:
             from myutils.configutils import FightConfig
             filename = FightConfig.get(FightConfig.KEY_DEFAULT_FIGHT_TEAM)
 
@@ -212,16 +212,21 @@ class FightController(BaseController):
             if self.stop_fight: raise StopFightException()
             self.character_fight(character_with_skill, start_fight_time=start_time, stop_on_no_enemy=stop_on_no_enemy)
 
-    def execute_infinity(self, stop_on_no_enemy=False):
+    def execute_infinity(self, stop_on_no_enemy=False, character_dead_callback=None):
         try:
             while not self.stop_fight:
                 self.execute(stop_on_no_enemy)
         except CharacterDieException as e:
             self.logger.debug(e.args)
             # 战斗时死亡，如何处理？
-            self.logger.debug("战斗时，切换角色检测到角色阵亡，前往七天神像复活")
-            from controller.MapController2 import MapController
-            MapController().go_to_seven_anemo_for_revive()
+            if character_dead_callback is not None:
+                self.logger.debug("战斗中角色死亡，调用callback")
+                character_dead_callback()
+            else:
+                from controller.MapController2 import MapController
+                self.logger.debug("战斗中角色死亡，前往七天神像复活中")
+                MapController().go_to_seven_anemo_for_revive()
+
         except StopFightException as e:
             self.logger.debug(e.args)
             # 打断所有动作， 恢复状态
@@ -242,7 +247,7 @@ class FightController(BaseController):
 
         self.stop_fight = True
 
-    def start_fighting(self, stop_on_no_enemy=False):
+    def start_fighting(self, stop_on_no_enemy=False, character_dead_callback=None):
         self.stop_fight = False
         if self.fighting_thread:
             raise StopFightException("已经有线程正在执行，请先停止！")
@@ -257,7 +262,8 @@ class FightController(BaseController):
         else:
             self.load_characters_with_skills_from_file()
 
-        self.fighting_thread = threading.Thread(target=self.execute_infinity, args=(stop_on_no_enemy,))
+        self.fighting_thread = threading.Thread(target=self.execute_infinity,
+                                                args=(stop_on_no_enemy,character_dead_callback,))
         self.fighting_thread.start()
 
     def stop_fighting(self):
@@ -387,7 +393,7 @@ if __name__ == '__main__':
     # file_name = '那维莱特_莱伊拉_行秋_枫原万叶(龙莱行万).txt'
     # file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
     # file_name = '莱依拉_芙宁娜_枫原万叶_流浪者_(莱芙万流).txt'
-    fc = FightController()
+    fc = FightController("纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt")
     # fc.execute_infinity()
     # fc.has_enemy()
     fc.start_fighting()

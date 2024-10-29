@@ -228,9 +228,12 @@ class BasePathExecutor(BaseController):
     def _thread_object_detection(self):
         pass
 
-    def start_fight(self, stop_on_no_enemy=False):
+    def start_fight(self, stop_on_no_enemy=False, character_dead_callback=None):
+        if character_dead_callback is None:
+            character_dead_callback = self.map_controller.go_to_seven_anemo_for_revive
         self.log(f'开始自动战斗{self.fight_controller.team_name}')
-        self.fight_controller.start_fighting(stop_on_no_enemy=stop_on_no_enemy)
+        self.fight_controller.start_fighting(stop_on_no_enemy=stop_on_no_enemy,
+                                             character_dead_callback=character_dead_callback)
 
     def stop_fight(self):
         self.log('停止自动战斗')
