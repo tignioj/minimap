@@ -26,6 +26,9 @@ class NotInDomainException(Exception): pass
 class NoResinException(Exception): pass
 
 
+class CharacterDeadException(Exception): pass
+
+
 class DomainController(BaseController):
     def __init__(self, domain_name=None, fight_team=None, domain_timeout=60*30):
         super(DomainController, self).__init__()
@@ -174,9 +177,7 @@ class DomainController(BaseController):
         while time.time() - start < 300 and not self.is_domain_end:
             self.logger.debug(f'等待战斗结束{300 - int(time.time() - start)}')
             if self.is_character_dead:
-                self.logger.error("秘境中角色死亡，结束秘境")
-                self.map_controller.go_to_seven_anemo_for_revive()
-                raise NotInDomainException("死亡后被传送到了七天神像, 结束秘境")
+                raise CharacterDeadException("死亡后被传送到了七天神像, 结束秘境")
             if self.gc.has_paimon(delay=False):
                 self.logger.debug("检测到左上角的派蒙，表示不在秘境中，结束秘境")
                 self.fight_controller.stop_fighting()
@@ -237,11 +238,11 @@ class DomainController(BaseController):
         start_exit_time = time.time()
         while not self.gc.has_paimon(delay=False):
             if time.time() - start_exit_time > 20: raise Exception("超时未能退出秘境")
+            self.kb_press_and_release(self.Key.esc)
+            time.sleep(1)
             self.ocr.find_text_and_click("确认")
             time.sleep(1)
             self.ocr.find_text_and_click("退出秘境")
-            time.sleep(1)
-            self.kb_press_and_release(self.Key.esc)
             time.sleep(1)
         self.logger.debug("成功退出秘境")
 
@@ -324,6 +325,8 @@ class DomainController(BaseController):
         self.logger.debug(f"是否检测到树脂图标：{has_resin}")
 
         self.logger.debug("开始处理点击领取奖励逻辑")
+        self.kb_release('w')
+        self.kb_release(self.Key.shift)
         time.sleep(1)
         claim_ok = self.ocr_and_click_reward()
         return claim_ok
@@ -354,6 +357,10 @@ class DomainController(BaseController):
             raise e
         except NoResinException as e:
             self.logger.error(f"树脂耗尽异常:{e.args}")
+            raise e
+        except CharacterDeadException as e:
+            self.logger.error(f"角色死亡异常:{e.args}")
+            self.map_controller.go_to_seven_anemo_for_revive()
             raise e
         self.logger.debug("秘境结束")
 
@@ -395,9 +402,9 @@ class DomainController(BaseController):
         """
         dm = DomainController(domain_name=domain_name,fight_team=fight_team, domain_timeout=time_out)
         # 切换队伍
-        dm.change_fight_team()
+        # dm.change_fight_team()
         # 传送到秘境附近
-        dm.teleport_to_domain(domain_name)
+        # dm.teleport_to_domain(domain_name)
         # 进入秘境
         dm.enter_domain()
         # 执行秘境直到体力耗尽
@@ -438,5 +445,5 @@ if __name__ == '__main__':
     fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
     # print(dm.ocr.is_text_in_screen("自动退出"))
     # test_claim_reward()
-    # DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
-    DomainController().exit_domain()
+    DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
+    # DomainController().exit_domain()

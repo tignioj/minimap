@@ -23,18 +23,29 @@ class FightMapperImpl(BaseFightMapper):
         super().__init__()
         self.character_name = character_name
 
-
-    def __circle_loop(self, duration, updown=False):
+    def __nahida_e_hold(self):
         # 转圈
-        t = time.time()
-        if updown: y = 1500
-        else: y = 0
+        self.kb_press('e')
+        start_time = time.time()
         i = 0
-        while time.time() - t < float(duration):
+        while time.time() - start_time < float(1):
+            i += 1
+            self.camera_chage(dx=-800, dy=0)
+            time.sleep(0.02)
+        self.kb_release('e')
+
+    def __naweilaite_charge(self, duration):
+        # 转圈
+        self.ms_press(self.Button.left)
+        start_time = time.time()
+        y = 500
+        i = 1000
+        while time.time() - start_time < float(duration):
             i += 1
             if i % 5 == 0: y = -y
             self.camera_chage(dx=-500, dy=y)
             time.sleep(0.02)
+        self.ms_release(self.Button.left)
 
     def charge(self, duration=None):
         """
@@ -42,12 +53,9 @@ class FightMapperImpl(BaseFightMapper):
         :param duration: 持续时间
         :return:
         """
-        t = None
         if self.character_name == '那维莱特':
-            t = threading.Thread(target=self.__circle_loop, args=(duration,True,))
-            t.start()
-        super().charge(duration=duration)
-        if t: t.join()
+            self.__naweilaite_charge(duration)
+        else: super().charge(duration=duration)
 
     def skill(self, hold=None):
         """
@@ -55,12 +63,9 @@ class FightMapperImpl(BaseFightMapper):
         :param hold: 是否长按元素战技
         :return:
         """
-        t = None
         if self.character_name == '纳西妲' and hold:
-            t = threading.Thread(target=self.__circle_loop, args=(1,False))
-            t.start()
-        super().skill(hold)
-        if t: t.join()
+            self.__nahida_e_hold()
+        else:super().skill(hold)
 
 
 
@@ -68,11 +73,10 @@ if __name__ == '__main__':
     fm = FightMapperImpl(character_name='那维莱特')
     # fm = FightMapperImpl(character_name='钟离')
     # fm = FightMapperImpl(character_name='纳西妲')
-    fm.e(hold=True)
-    fm.charge(3)
+    fm.charge(8)
+    # fm.e(hold=True)
+    # fm.charge(3)
     # fm.e()
-    fm.charge(3)
+    # fm.charge(3)
     # fm.e()
-    fm.charge(3)
-    # fm.e()
-    fm.charge(3)
+    # fm.charge(3)
