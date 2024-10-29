@@ -109,7 +109,7 @@ class RotationGIA:
                 my[i, j] = d / 2 + i / 2 * np.sin(2 * np.pi * j / d)
         return mx, my
 
-    def predict_rotation(self, image):
+    def predict_rotation(self, image, confidence=0.6):
         # image = get_diff(image, matched_image)
         # image = self.get_minimap_subtract(image, matched_map)
         d = self.gc.mini_map_width
@@ -170,8 +170,8 @@ class RotationGIA:
 
         # Calculate confidence
         self.rotation_confidence = round(peak_confidence(result), 3)
-        if self.rotation_confidence < 0.6:
-            print('不可靠', self.rotation)
+        if self.rotation_confidence < confidence:
+            print(f'置信度{self.rotation_confidence}<{confidence}, 不可靠视角', self.rotation)
             return None
         return degree
 
@@ -199,9 +199,11 @@ if __name__ == '__main__':
         #     break
         query_image = gc.get_mini_map(use_alpha=True)
         # 根据alpha获取实际的角度
-        deg3_gray = yc.predict_rotation(cv2.cvtColor(query_image, cv2.COLOR_BGR2GRAY))
-        # b,g,r,a = cv2.split(query_image)
+        # deg3_gray = yc.predict_rotation(cv2.cvtColor(query_image, cv2.COLOR_BGR2GRAY))
+        b,g,r,a = cv2.split(query_image)
         # a = -a
-        # deg3_gray = yc.predict_rotation(a)
+        cv2.imshow('alpha', a)
+        cv2.waitKey(2)
+        deg3_gray = yc.predict_rotation(a)
         print(time.time() - t, deg3_gray)
 

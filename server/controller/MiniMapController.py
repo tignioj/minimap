@@ -77,7 +77,7 @@ class MiniMapController(ServerBaseController):
     @staticmethod
     @minimap_bp.route('/minimap/get_rotation', methods=['GET'])
     def get_rotation():
-        rot = MinimapService.get_rotation()
+        rot = MinimapService.get_rotation(use_alpha=False)
         if rot is not None:
             return ServerBaseController.success(data=rot)
         else: return ServerBaseController.error()

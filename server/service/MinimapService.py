@@ -73,22 +73,25 @@ class MinimapService:
         return data
 
     @classmethod
-    def get_rotation(cls, inverse_alpha=True):
+    def get_rotation(cls, use_alpha=True, confidence=0.6):
         """
         获取角度
-        :param inverse_alpha: 是否alpha反色，秘境中不需要反色，否则无法求角度
+        :param use_alpha: 是否只使用alpha计算角度（不要在秘境开启alpha，不同电脑不一样）
+        :param confidence: GIA计算角度结果的置信度
         :return:
         """
         img = capture.get_mini_map(use_alpha=True)
-        b,g,r,a = cv2.split(img)
-        inv_a = cv2.bitwise_not(a)
-        if inverse_alpha: rot = rotate.predict_rotation(inv_a)
-        else: rot = rotate.predict_rotation(a)
-        # rot = rotate.predict_rotation(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
-        if rot is None:
-            rot = minimap.get_rotation()
-            logger.debug(f'采取减背景法计算转向:结果为:{rot}')
-        return rot
+
+        if use_alpha:
+            b,g,r,a = cv2.split(img)
+            result = rotate.predict_rotation(a, confidence)
+        else:
+            result = rotate.predict_rotation(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), confidence)
+        if result is None:
+            result = minimap.get_rotation()
+            logger.debug(f'采取减背景法计算转向:结果为:{result}')
+
+        return result
 
     @classmethod
     def choose_map(cls, map_name):

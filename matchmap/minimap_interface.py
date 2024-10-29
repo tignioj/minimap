@@ -17,7 +17,7 @@ class MiniMapInter:
 
     def get_local_map(self): pass
     def get_region_map(self,x, y, width): pass
-    def get_rotation(self,use_alpha=False): pass
+    def get_rotation(self,use_alpha=False, confidence=0.6): pass
     def get_user_map_position(self): pass
     def create_cached_local_map(self,xy=None,use_middle_map=False): pass
 
@@ -48,8 +48,8 @@ class MinimapNative(MiniMapInter):
     def choose_map(self, map_name):
         return MinimapService.choose_map(map_name)
 
-    def get_rotation(self, use_alpha=False, inverse_alpha=True):
-        return MinimapService.get_rotation(inverse_alpha=inverse_alpha)
+    def get_rotation(self, use_alpha=True, confidence=0.6):
+        return MinimapService.get_rotation(use_alpha=use_alpha, confidence=confidence)
 
     def get_user_map_position(self): return MinimapService.get_user_map_position()
     def get_user_map_scale(self): return MinimapService.get_user_map_scale()

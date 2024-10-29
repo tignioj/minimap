@@ -335,12 +335,11 @@ class BaseController:
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, 20000, 0, 0)
         time.sleep(0.02)
         win32api.mouse_event(win32con.MOUSEEVENTF_MOVE, 0, 20000, 0, 0)
-    def to_degree(self, degree, threshold=10, detected_paimon=True, inverse_alpha=True):
+    def to_degree(self, degree, threshold=10, detected_paimon=True):
         """
         将当前视角朝向转至多少度
         :param degree:
         :param threshold:
-        :param inverse_alpha:  秘境中要关掉alpha反色否则无法获取角度
         :return:
         """
         if degree is None: return
@@ -350,7 +349,7 @@ class BaseController:
             if detected_paimon and not self.gc.has_paimon(): break
 
             if time.time() - start > 5: break  # 避免超过5秒
-            current_rotation = self.tracker.get_rotation(inverse_alpha=inverse_alpha)
+            current_rotation = self.tracker.get_rotation()
             # 假设要求转向到45，获取的是60，则 degree - current_rotation = -15
             # 假设要求转向到45，获取的是10则 degree - current_rotation = 30
             if current_rotation is None:
@@ -400,7 +399,7 @@ class BaseController:
 if __name__ == '__main__':
     bc = BaseController()
     while True:
-        rot = bc.tracker.get_rotation(inverse_alpha=False)
+        rot = bc.tracker.get_rotation(use_alpha=False)
         print(rot)
     # bc.crazy_f()
 

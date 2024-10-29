@@ -74,7 +74,7 @@ class DomainController(BaseController):
                     self.logger.debug("GOOD")
                     cv2.imwrite('before.jpg', self.gc.get_screenshot())
                     time.sleep(0.3)
-                    self.to_degree(-90, threshold=2, inverse_alpha=False)
+                    self.to_deg(-90, threshold=2)
                     time.sleep(0.3)
                     cv2.imwrite('after.jpg', self.gc.get_screenshot())
                     time.sleep(0.1)
@@ -96,7 +96,7 @@ class DomainController(BaseController):
                         self.kb_press("d")
                         self.__last_direction = 'd'
             else:
-                self.to_degree(-90, threshold=2, inverse_alpha=False)
+                self.to_deg(-90, threshold=2)
                 self.kb_release("w")
                 self.kb_release("s")
                 self.kb_release("a")
@@ -187,13 +187,12 @@ class DomainController(BaseController):
         self.logger.debug('结束战斗')
         self.fight_controller.stop_fighting()
 
-    def to_degree(self, degree, threshold=10, detected_paimon=True, inverse_alpha=True):
+    def to_deg(self, degree, threshold=10):
         """
         这里重写了BaseController的转视角方法，此方法转向速度更柔和
         将当前视角朝向转至多少度
         :param degree:
         :param threshold:
-        :param inverse_alpha:  秘境中要关掉alpha反色否则无法获取角度
         :return:
         """
         if degree is None: return
@@ -201,7 +200,8 @@ class DomainController(BaseController):
         start = time.time()
         while True:
             if time.time() - start > 10: break  # 避免超过10秒
-            current_rotation = self.tracker.get_rotation(inverse_alpha=inverse_alpha)
+            # 设置confidence=0时，保证返回的一定是GIA值，因为秘境里面减背景法完全不可用
+            current_rotation = self.tracker.get_rotation(use_alpha=False, confidence=0)
             # 假设要求转向到45，获取的是60，则 degree - current_rotation = -15
             # 假设要求转向到45，获取的是10则 degree - current_rotation = 30
             if current_rotation is None:
@@ -235,14 +235,15 @@ class DomainController(BaseController):
     def exit_domain(self):
         self.logger.debug("退出秘境")
         start_exit_time = time.time()
-        while not self.ocr.is_text_in_screen("退出秘境"):
-            if self.gc.has_paimon(delay=False):
-                self.logger.debug("已经在大世界，无需退出秘境")
-                break
+        while not self.gc.has_paimon(delay=False):
             if time.time() - start_exit_time > 20: raise Exception("超时未能退出秘境")
+            self.ocr.find_text_and_click("确认")
+            time.sleep(1)
+            self.ocr.find_text_and_click("退出秘境")
+            time.sleep(1)
             self.kb_press_and_release(self.Key.esc)
-            time.sleep(3)
-        self.ocr.find_text_and_click("确认")
+            time.sleep(1)
+        self.logger.debug("成功退出秘境")
 
     def ocr_and_click_reward(self):
         ocr_result = self.ocr.get_ocr_result()
@@ -299,7 +300,7 @@ class DomainController(BaseController):
             if time.time() - start_process > 60:
                 self.logger.error("对准树超时！")
                 raise ClaimTimeoutException("对准树超时!")
-            self.to_degree(-90, threshold=2, inverse_alpha=False)
+            self.to_deg(-90, threshold=2)
             sc = self.gc.get_screenshot(use_alpha=False)
             results = model(sc, verbose=False)  # verbose=False 关闭日志
             ok = self.__process_results(sc, results)
@@ -425,7 +426,7 @@ def test_claim_reward():
         dm.kb_release(dm.Key.shift)
         d = random.choice("wsad")
         deg = random.randint(-160, 160)
-        dm.to_degree(deg, inverse_alpha=False)
+        dm.to_deg(deg)
         dm.kb_press(d)
         time.sleep(1)
         dm.kb_press(d)
@@ -436,6 +437,6 @@ if __name__ == '__main__':
     name = '虹灵的净土'
     fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
     # print(dm.ocr.is_text_in_screen("自动退出"))
-    # test()
-    DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
-    # DomainController().exit_domain()
+    # test_claim_reward()
+    # DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
+    DomainController().exit_domain()
