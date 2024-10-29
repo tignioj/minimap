@@ -84,7 +84,8 @@ class MinimapService:
 
         if use_alpha:
             b,g,r,a = cv2.split(img)
-            result = rotate.predict_rotation(a, confidence)
+            inv_a = cv2.bitwise_not(a)
+            result = rotate.predict_rotation(inv_a, confidence)
         else:
             result = rotate.predict_rotation(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), confidence)
         if result is None:
