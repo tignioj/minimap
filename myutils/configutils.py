@@ -141,7 +141,17 @@ class AccountConfig:
     @classmethod
     def create_instance(cls,data):
         obj = cls.get_account_obj()
-        obj["instances"].append(data)
+        name = data.get('name')
+        if name is None: raise Exception("实例名称不可为空")
+        name = str(name).strip()
+        if len(name) == 0: raise Exception("实例名称不可为空")
+
+        instances = obj["instances"]
+        for instance in instances:
+            if instance.get('name') == name:
+                raise Exception(f"已经存在名称为{name}的实例，禁止重复创建")
+
+        obj['instances'].append(data)
         with open(cls.get_account_yaml_path(), 'w', encoding='utf8') as f:
             yaml.dump(obj, f)
 
