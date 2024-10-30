@@ -55,7 +55,7 @@ class DomainController(BaseController):
         if DomainController.__domain_list is None:
             with open(os.path.join(resource_path, "domain.json"), "r", encoding="utf8") as f:
                 DomainController.__domain_list = json.load(f)
-            return DomainController.__domain_list
+        return DomainController.__domain_list
 
 
     def __process_results(self, img, results):
@@ -468,7 +468,13 @@ if __name__ == '__main__':
     name = '虹灵的净土'
     # fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
     fight_team = '那维莱特_莱依拉_迪希雅_行秋_(龙莱迪行).txt'
+    l = DomainController.get_domain_list()
+    def pri():
+        print(DomainController.get_domain_list())
+    threading.Thread(target=pri).start()
+    time.sleep(2)
+    threading.Thread(target=pri).start()
     # print(dm.ocr.is_text_in_screen("自动退出"))
     # test_claim_reward()
-    DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
+    # DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
     # DomainController().exit_domain()
