@@ -417,7 +417,6 @@ class DomainController(BaseController):
             except CharacterDeadException as e:
                 self.logger.error(f"角色死亡异常:{e.args}")
                 self.re_enter_domain()
-                raise e
             self.logger.debug("秘境结束")
 
     def teleport_to_domain(self, domain_name):
