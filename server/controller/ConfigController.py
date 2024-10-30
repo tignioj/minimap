@@ -44,6 +44,8 @@ class ConfigController(ServerBaseController):
     def create_instance():
         data = request.get_json()
         try:
+            # TODO: 数据校验
+            if data is None: raise Exception("数据不能为空")
             AccountConfig.create_instance(data)
             return ConfigController.success("成功创建实例")
         except Exception as e:
