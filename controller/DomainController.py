@@ -57,74 +57,72 @@ class DomainController(BaseController):
                 DomainController.__domain_list = json.load(f)
         return DomainController.__domain_list
 
-
-    def __process_results(self, img, results):
-        # Process results list
-        self.kb_release('a')
-        self.kb_release('d')
+    @staticmethod
+    def detect_tree(img):
+        results = model(img, verbose=False)  # verbose=False 关闭日志
         time.sleep(0.1)
         for result in results:
             boxes = result.boxes  # Boxes object for bounding box outputs
-            masks = result.masks  # Masks object for segmentation masks outputs
-            keypoints = result.keypoints  # Keypoints object for pose outputs
-            probs = result.probs  # Probs object for classification outputs
-            obb = result.obb  # Oriented boxes object for OBB outputs
-            # result.show()  # display to screen
-            # self.logger.debug(boxes)
             if len(boxes) > 0:
                 x1, y1, x2, y2 = boxes.xyxy.numpy()[0]
-                ret_img = cv2.rectangle(img.copy(), (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 5)
-                cv2.namedWindow('show', cv2.WINDOW_NORMAL)
-                cv2.moveWindow('show', 0, 0)
-                ret_img = cv2.resize(ret_img, None, fx=0.3, fy=0.3)
-                cv2.imshow('show', ret_img)
-                cv2.waitKey(2)
-                left_width = x1
-                right_width = self.gc.w - x2
-                self.logger.debug(f"{left_width},{right_width}")
-                current_diff = left_width - right_width
-                if abs(current_diff) < 15:
-                    self.logger.debug("GOOD")
-                    cv2.imwrite('before.jpg', self.gc.get_screenshot())
-                    time.sleep(0.3)
-                    self.to_deg(-90, threshold=2)
-                    time.sleep(0.3)
-                    cv2.imwrite('after.jpg', self.gc.get_screenshot())
-                    time.sleep(0.1)
-                    self.kb_release('a')
-                    self.kb_release('d')
-                    time.sleep(0.1)
-                    cv2.imwrite('ok.jpg', self.gc.get_screenshot())
-                    cv2.imwrite('ret.jpg', ret_img)
-                    return True
-                else:
-                    if current_diff < 0:
-                        self.logger.debug("向左边走")
-                        self.kb_release("d")
-                        self.kb_press("a")
-                        self.__last_direction = 'a'
-                    else:
-                        self.logger.debug("向右边走")
-                        self.kb_release("a")
-                        self.kb_press("d")
-                        self.__last_direction = 'd'
-            else:
+                return (x1,y1,x2,y2)
+                # ret_img = cv2.rectangle(img.copy(), (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 5)
+        return None
+
+    def go_left_or_right_by_tree_xyxy(self, img, xyxy):
+        if xyxy is not None:
+            x1, y1, x2, y2 = xyxy
+            ret_img = cv2.rectangle(img.copy(), (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 5)
+            ret_img = cv2.resize(ret_img, None, fx=0.4, fy=0.4)
+            cv2.namedWindow('show', cv2.WINDOW_NORMAL)
+            cv2.moveWindow('show', 0, 0)
+            cv2.imshow('show', ret_img)
+            cv2.waitKey(2)
+
+            left_width = x1
+            right_width = self.gc.w - x2
+            self.logger.debug(f"{left_width},{right_width}")
+            current_diff = left_width - right_width
+            if abs(current_diff) < 15:
+                self.logger.debug("GOOD")
+                cv2.imwrite('before.jpg', self.gc.get_screenshot())
+                time.sleep(0.1)
+                # 最后一次计算视角并调整
+                xyxy_final = self.detect_tree(img)
+                if xyxy_final is not None:
+                    x1, y1, x2, y2 = xyxy_final
+                    left_width = x1
+                    right_width = self.gc.w - x2
+                    self.logger.debug(f"final left width: {left_width}, right width:{right_width}")
+
                 self.to_deg(-90, threshold=2)
-                self.kb_release("w")
-                self.kb_release("s")
-                self.kb_release("a")
-                self.kb_release("d")
-                if self.__last_direction is None:
-                    random_direction = random.choice("wsad")
-                    self.logger.debug(f"未找到树，随机方向{random_direction}调整中...")
-                    self.kb_press(random_direction)
-                    time.sleep(0.2)
-                    self.kb_release(random_direction)
+                time.sleep(0.3)
+                cv2.imwrite('after.jpg', self.gc.get_screenshot())
+                time.sleep(0.1)
+                self.kb_release('a')
+                self.kb_release('d')
+                time.sleep(0.1)
+                cv2.imwrite('ok.jpg', self.gc.get_screenshot())
+                cv2.imwrite('ret.jpg', ret_img)
+                return True
+            else:
+                if current_diff < 0:
+                    self.logger.debug("向左边走")
+                    self.kb_release("d")
+                    self.kb_press("a")
+                    if abs(current_diff) > 100: time.sleep(0.2)
+                    else: time.sleep(0.04)
+                    self.kb_release("a")
+                    self.__last_direction = 'a'
                 else:
-                    self.logger.debug(f"未找到树，按照上次的方向{self.__last_direction}调整中...")
-                    self.kb_press(self.__last_direction)
-                    time.sleep(0.2)
-                    self.kb_release(self.__last_direction)
+                    self.logger.debug("向右边走")
+                    self.kb_release("a")
+                    self.kb_press("d")
+                    if abs(current_diff) > 100: time.sleep(0.2)
+                    else: time.sleep(0.04)
+                    self.kb_release('d')
+                    self.__last_direction = 'd'
+
 
     def enter_domain(self):
         # 1. 点击秘境名称
@@ -156,8 +154,11 @@ class DomainController(BaseController):
             return
         start_wait = time.time()
         while True:
+            if self.gc.has_gear():
+                self.logger.debug("检测到齿轮，开始挑战")
+                break
             if time.time() - start_wait > 20:
-                self.logger.error("超时未检测到地脉异常文字，无法开启战斗")
+                self.logger.error("超时未检测到地脉异常文, 无法开启战斗")
                 raise TimeoutError("超时未检测到地脉异常, 无法开启战斗")
             if self.ocr.is_text_in_screen("地脉异常"):
                 time.sleep(1)
@@ -311,21 +312,54 @@ class DomainController(BaseController):
         self.ms_press(self.Button.middle)
         self.ms_release(self.Button.middle)
         time.sleep(0.1)
+
+        tree_found_last_time = None
         while True:
             if time.time() - start_process > 60:
                 self.logger.error("对准树超时！")
                 raise ClaimTimeoutException("对准树超时!")
             self.to_deg(-90, threshold=2)
+            # time.sleep(0.1)  # 等待视角稳定
             sc = self.gc.get_screenshot(use_alpha=False)
-            results = model(sc, verbose=False)  # verbose=False 关闭日志
-            ok = self.__process_results(sc, results)
+            # results = model(sc, verbose=False)  # verbose=False 关闭日志
+            xyxy = self.detect_tree(sc)
+            if xyxy is None:
+                ok = False
+                self.to_deg(-90, threshold=2)
+                self.kb_release("w")
+                self.kb_release("s")
+                self.kb_release("a")
+                self.kb_release("d")
+                if self.__last_direction is None:
+                    random_direction = random.choice("wsad")
+                    self.logger.debug(f"未找到树，随机方向{random_direction}调整中...")
+                    self.kb_press(random_direction)
+                    time.sleep(0.2)
+                    self.kb_release(random_direction)
+                else:
+                    if tree_found_last_time is not None and time.time() - tree_found_last_time > 8:
+                        self.logger.debug(f"按照上次的方向{self.__last_direction}调整了8秒后仍旧没有找到树，重新进入随机模式")
+                        self.__last_direction = None  # 超过5秒仍然没找到树，清空上次发现的方向
+                        continue
+                    self.logger.debug(f"未找到树，按照上次的方向{self.__last_direction}调整中...")
+                    self.kb_press(self.__last_direction)
+                    time.sleep(0.1)
+                    self.kb_release(self.__last_direction)
+            else:
+                tree_found_last_time = time.time()
+                ok = self.go_left_or_right_by_tree_xyxy(sc, xyxy)
+                self.kb_release('a')
+                self.kb_release('d')
+            # time.sleep(0.04)
+            # self.kb_release('a')
+            # self.kb_release('d')
             if ok: break
 
         self.logger.debug("已经对准，冲向领奖台中")
+
         self.kb_press('w')
         self.kb_press(self.Key.shift)
         # self.kb_release(self.Key.shift)
-
         start_reward = time.time()
         # 检测到树脂图标就停下
         has_resin = False
@@ -344,6 +378,7 @@ class DomainController(BaseController):
         time.sleep(1)
         claim_ok = self.ocr_and_click_reward()
         return claim_ok
+
 
     def re_enter_domain(self):
         self.logger.debug("正在尝试重新进入秘境, 先取七天神像")
@@ -448,33 +483,35 @@ def test_claim_reward():
     dm = DomainController(domain_name=name, fight_team=fight_team)
     while True:
         dm.go_to_claim_reward()
-        time.sleep(4)
+        time.sleep(3)
         dm.kb_release('w')
         dm.kb_press('s')
         dm.kb_release(dm.Key.shift)
-        time.sleep(4)
+        time.sleep(3)
         dm.kb_release("s")
         dm.kb_release(dm.Key.shift)
         d = random.choice("wsad")
         deg = random.randint(-160, 160)
         dm.to_deg(deg)
         dm.kb_press(d)
-        time.sleep(1)
+        time.sleep(0.3)
         dm.kb_press(d)
+        dm.kb_release('w')
+        dm.kb_release('s')
+        dm.kb_release('a')
+        dm.kb_release('d')
 
 
 if __name__ == '__main__':
     # name = '罪祸的终末'
     name = '虹灵的净土'
-    # fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
-    fight_team = '那维莱特_莱依拉_迪希雅_行秋_(龙莱迪行).txt'
-    l = DomainController.get_domain_list()
-    def pri():
-        print(DomainController.get_domain_list())
-    threading.Thread(target=pri).start()
-    time.sleep(2)
-    threading.Thread(target=pri).start()
+    fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
+    # fight_team = '那维莱特_莱依拉_迪希雅_行秋_(龙莱迪行).txt'
+    # fight_team = '芙宁娜_行秋_莱依拉_流浪者_(芙行莱流).txt'
+    # l = DomainController.get_domain_list()
+    # test_claim_reward()
     # print(dm.ocr.is_text_in_screen("自动退出"))
     # test_claim_reward()
-    # DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
+    DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
+    # DomainController().loop_domain()
     # DomainController().exit_domain()

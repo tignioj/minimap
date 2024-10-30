@@ -136,9 +136,9 @@ class FightController(BaseController):
                     self.click_screen(close_button_pos[0])
                     raise CharacterDieException(msg)
             # 稍微动一下屏幕让模板匹配更容易成功
-            x = randint(-100, 100)
-            # y = randint(-100, 100)
-            self.camera_chage(x, 0)
+            # x = randint(-100, 100)
+            y = randint(-100, 100)
+            self.camera_chage(0, y)
 
             # 如果处于攀爬状态则按x
             if self.gc.is_climbing():
