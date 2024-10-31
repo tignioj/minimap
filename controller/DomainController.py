@@ -12,6 +12,8 @@ from controller.FightController import FightController
 import random
 from myutils.configutils import resource_path, FightConfig
 from controller.UIController import TeamUIController
+from mylogger.MyLogger3 import MyLogger
+logger = MyLogger("domain_controller")
 
 yolo_path = os.path.join(resource_path, "model", "bgi_tree.onnx")
 model = YOLO(yolo_path)
@@ -458,9 +460,10 @@ class DomainController(BaseController):
         :return:
         """
         if time_out is None: time_out = 60*30  # 30分钟
-        dm = DomainController(domain_name=domain_name,fight_team=fight_team, domain_timeout=time_out)
         # 传送到秘境附近
+        dm = None
         try:
+            dm = DomainController(domain_name=domain_name, fight_team=fight_team, domain_timeout=time_out)
             # 切换队伍
             dm.change_fight_team()
             # 进入秘境
@@ -469,12 +472,13 @@ class DomainController(BaseController):
             dm.enter_domain()
             dm.loop_domain()
         except Exception as e:
-            dm.logger.error(f"因异常结束秘境:{e.args}")
+            logger.error(f"因异常结束秘境:{e.args}")
+            raise e
         finally:
             try:
-                dm.exit_domain()
+                if dm is not None: dm.exit_domain()
             except Exception as e:
-                dm.logger.error(f"超时未能退出秘境{e.args}")
+                logger.error(f"超时未能退出秘境{e.args}")
 
 def test_claim_reward():
     name = '罪祸的终末'

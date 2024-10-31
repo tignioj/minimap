@@ -19,7 +19,7 @@ class ServerDomainController(ServerBaseController):
     def run_domain():
         domain_name = request.args.get('domain_name')
         fight_team = request.args.get('fight_team')
-        timeout = request.args.get('timeout')
+        timeout = request.args.get('domain_loop_timeout')
         socketio_instance = current_app.extensions['socketio']
         try:
             if domain_name is None: return ServerBaseController.error("必须指定秘境名称")
@@ -34,7 +34,7 @@ class ServerDomainController(ServerBaseController):
     def stop_domain():
         try:
             socketio_instance = current_app.extensions['socketio']
-            DomainService.stop_domain()
+            DomainService.stop_domain(emit=socketio_instance.emit)
             return ServerBaseController.success("成功停止秘境")
         except Exception as e:
             return ServerBaseController.error(f"无法停止秘境{e.args}")

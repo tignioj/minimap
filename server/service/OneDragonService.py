@@ -29,6 +29,7 @@ class OneDragonService:
     def run(one_dragon_list, socketio_instance):
         from controller.BaseController import BaseController
         from server.service.DailyMissionService import DailyMissionService
+        from server.service.DomainService import DomainService
         try:
             for task in one_dragon_list:
                 if BaseController.stop_listen:
@@ -47,6 +48,10 @@ class OneDragonService:
                 elif one_dragon.value == 'dailyMission':
                     DailyMissionService.start_daily_mission(socketio_instance=socketio_instance)
                     DailyMissionService.daily_mission_thread.join()
+
+                elif one_dragon.value == 'domain':
+                    DomainService.run_domain_week_plan(emit=socketio_instance.emit)
+                    DomainService.domain_runner_thread.join()
 
                 elif one_dragon.value == 'leyLine':
                     from server.service.LeyLineOutcropService import LeyLineOutcropService

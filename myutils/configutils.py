@@ -270,7 +270,7 @@ class MapConfig(BaseConfig):
 
 
 class DomainConfig(BaseConfig):
-    KEY_DOMAIN_WEEK_PLAIN = 'domain_week_plain'  # 周一至周日的秘境计划
+    KEY_DOMAIN_WEEK_PLAN = 'domain_week_plain'  # 周一至周日的秘境计划
     KEY_DOMAIN_LOOP_TIMEOUT = 'domain_loop_timeout'  # 秘境循环超时时间, 单位分钟，允许范围1~600
     KEY_DOMAIN_TEAM_MAPPER = 'domain_team_mapper'  # 秘境单独设置队伍
 

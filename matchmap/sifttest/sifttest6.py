@@ -416,8 +416,9 @@ class MiniMap:
             # else: scale = 0.3
             # print(scale)
 
-            match_result = crop_img(self.map_2048.img, pix_pos[0], pix_pos[1], crop_size=int(capture.mini_map_width*(1/scale))).copy()
-            if match_result is None: raise MatchException("裁剪图片出错")
+            crop = crop_img(self.map_2048.img, pix_pos[0], pix_pos[1], crop_size=int(capture.mini_map_width * (1 / scale)))
+            if crop is None: raise MatchException("裁剪图片出错")
+            match_result = crop.copy()
             background = cv2.resize(match_result, None, fx=scale, fy=scale)
             self.__cvshow('background', background)
             # 计算旋转
