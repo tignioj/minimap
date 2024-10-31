@@ -6,6 +6,7 @@ from flask_socketio import SocketIO
 from pynput.keyboard import Listener
 from mylogger.MyLogger3 import MyLogger
 
+from server.controller.ServerDomainController import domain_bp
 from server.controller.TodoController import todo_bp
 from server.controller.PlayBackController import playback_bp
 from server.controller.FileManagerController import filemanager_bp
@@ -82,6 +83,7 @@ def create_app():
     app.register_blueprint(daily_mission_bp)
     app.register_blueprint(leyline_outcrop_bp)
     app.register_blueprint(one_dragon_bp)
+    app.register_blueprint(domain_bp)
 
 
     return app

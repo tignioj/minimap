@@ -269,6 +269,11 @@ class MapConfig(BaseConfig):
         return MapConfig.get_yaml_object()
 
 
+class DomainConfig(BaseConfig):
+    KEY_DOMAIN_WEEK_PLAIN = 'domain_week_plain'  # 周一至周日的秘境计划
+    KEY_DOMAIN_LOOP_TIMEOUT = 'domain_loop_timeout'  # 秘境循环超时时间, 单位分钟，允许范围1~600
+    KEY_DOMAIN_TEAM_MAPPER = 'domain_team_mapper'  # 秘境单独设置队伍
+
 class DebugConfig(BaseConfig):
     KEY_DEBUG_ENABLE = 'debug_enable'
 

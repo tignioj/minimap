@@ -1,11 +1,8 @@
 import os
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, request, current_app
 from server.controller.ServerBaseController import ServerBaseController
-from myutils.configutils import resource_path
 from server.service.DomainService import DomainService
-
-domain_bp = Blueprint('config_bp', __name__)
-from controller.DomainController import DomainController
+domain_bp = Blueprint('domain_bp', __name__)
 
 class ServerDomainController(ServerBaseController):
     @staticmethod
@@ -43,4 +40,22 @@ class ServerDomainController(ServerBaseController):
             return ServerBaseController.error(f"无法停止秘境{e.args}")
 
 
+    @staticmethod
+    @domain_bp.route('/domain/config', methods=['GET'])
+    def get_domain_config():
+        try:
+            data = DomainService.get_domain_config()
+            return ServerBaseController.success(data=data)
+        except Exception as e:
+            return ServerBaseController.error(f"无法获取秘境配置：{e.args}")
 
+    @staticmethod
+    @domain_bp.route('/domain/config', methods=['PUT'])
+    def set_domain_config():
+        try:
+            data = request.get_json()
+            if data is None: return ServerBaseController.error("秘境设置不能为空")
+            DomainService.set_domain_config(data=data)
+            return ServerBaseController.success("成功保存秘境配置")
+        except Exception as e:
+            return ServerBaseController.error(f"无法保存秘境配置：{e.args}")
