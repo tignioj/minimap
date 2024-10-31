@@ -91,6 +91,8 @@ class FightController(BaseController):
         from myutils.configutils import BaseConfig
         team_folder = os.path.join(BaseConfig.get_user_folder(), 'team')
         fight_file = os.path.join(team_folder, filename)
+        if not os.path.exists(fight_file):
+            raise FileNotFoundError(f"你要找的队伍文件{filename}不存在")
         # 没改变不用重新读取
         if self.lastmod == os.path.getmtime(fight_file):
             return

@@ -50,7 +50,7 @@ class DomainController(BaseController):
         self.map_controller = MapController()
         try:
             domain_timeout = int(domain_timeout)
-        except ValueError:
+        except (ValueError, TypeError):
             domain_timeout = DomainConfig.get(DomainConfig.KEY_DOMAIN_LOOP_TIMEOUT, default=30, min_val=1, max_val=600)
         if domain_timeout < 1: domain_timeout = 1
         elif domain_timeout > 600: domain_timeout = 600
@@ -516,8 +516,8 @@ def test_claim_reward():
 if __name__ == '__main__':
     # name = '罪祸的终末'
     name = '虹灵的净土'
-    fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
-    # fight_team = '那维莱特_莱依拉_迪希雅_行秋_(龙莱迪行).txt'
+    # fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
+    fight_team = '那维莱特_莱依拉_迪希雅_行秋_(龙莱迪行).txt'
     # fight_team = '芙宁娜_行秋_莱依拉_流浪者_(芙行莱流).txt'
     # l = DomainController.get_domain_list()
     # test_claim_reward()

@@ -70,12 +70,15 @@ class DomainService:
             # 让控制器可以执行
             from controller.BaseController import BaseController
             BaseController.stop_listen = False
-
-            emit(SOCKET_EVENT_DOMAIN_START, f'开始执行{domain_name},队伍为{fight_team}, 时长:{timeout}')
+            if fight_team is None or len(fight_team) == 0:
+                emit(SOCKET_EVENT_DOMAIN_START, f'开始执行{domain_name},未指定队伍，使用默认队伍, 时长:{timeout}')
+            else: emit(SOCKET_EVENT_DOMAIN_START, f'开始执行{domain_name},队伍为{fight_team}, 时长:{timeout}')
 
             def hook_exception(domain_name, fight_team, timeout):
                 try: DomainController.one_key_run_domain(domain_name, fight_team, timeout)
-                except Exception as e: emit(SOCKET_EVENT_DOMAIN_EXCEPTION, str(e.args))
+                except Exception as e:
+                    logger.error(e, exc_info=True)
+                    emit(SOCKET_EVENT_DOMAIN_EXCEPTION, str(e.args))
 
             DomainService.domain_runner_thread = threading.Thread(
                 target=hook_exception, args=(domain_name, fight_team, timeout,))
