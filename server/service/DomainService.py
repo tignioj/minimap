@@ -35,6 +35,7 @@ class DomainService:
         emit(SOCKET_EVENT_DOMAIN_UPDATE, f'今天是星期{weekday_text[weekday_index]}')
         today_domain = plan[weekday_index]
         if today_domain is None or len(today_domain) == 0:
+            logger.debug("今天没有秘境计划")
             emit(SOCKET_EVENT_DOMAIN_UPDATE, f'今天没有秘境计划')
             return
         emit(SOCKET_EVENT_DOMAIN_UPDATE, f'今天的计划是{today_domain}')

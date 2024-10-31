@@ -10,7 +10,7 @@ from controller.OCRController import OCRController
 import cv2
 from controller.FightController import FightController
 import random
-from myutils.configutils import resource_path, FightConfig
+from myutils.configutils import resource_path, FightConfig, DomainConfig
 from controller.UIController import TeamUIController
 from mylogger.MyLogger3 import MyLogger
 logger = MyLogger("domain_controller")
@@ -48,7 +48,10 @@ class DomainController(BaseController):
         self.__last_direction = None
         from controller.MapController2 import MapController
         self.map_controller = MapController()
-        self.domain_timeout = domain_timeout  # 设置秘境最长执行时间为30分钟
+        try: domain_timeout = int(domain_timeout)
+        except ValueError:
+            domain_timeout = DomainConfig.get(DomainConfig.KEY_DOMAIN_LOOP_TIMEOUT, default=30, min_val=1, max_val=600)
+        self.domain_timeout = domain_timeout  # 设置秘境最长执行时间(分钟)
         self.is_character_dead = False
 
     __domain_list = None
@@ -397,9 +400,10 @@ class DomainController(BaseController):
         :return:
         """
         start_domain_time = time.time()
+        timeout_second = self.domain_timeout * 60  # 分钟转换成秒
         while True:
             try:
-                if time.time() - start_domain_time > self.domain_timeout: raise TotalExecuteTimeoutException("秘境执行总时间超时")
+                if time.time() - start_domain_time > timeout_second: raise TotalExecuteTimeoutException("秘境执行总时间超时")
                 # 开启挑战
                 if self.gc.has_paimon(delay=False): raise NotInDomainException("不在秘境，结束")
                 # 前往钥匙处开启挑战

@@ -44,23 +44,38 @@ class OneDragonService:
                     from server.service.TodoService import TodoService
                     # 传入空代表从已经保存的文件中执行
                     TodoService.todo_run(todo_json=None, socketio_instance=socketio_instance)
-                    TodoService.todo_runner_thread.join()
+                    try:
+                        if TodoService.todo_runner_thread is not None:
+                            TodoService.todo_runner_thread.join()
+                    except Exception as e: logger.error(f"无需等待清单线程:{e.args}")
                 elif one_dragon.value == 'dailyMission':
                     DailyMissionService.start_daily_mission(socketio_instance=socketio_instance)
-                    DailyMissionService.daily_mission_thread.join()
+                    try:
+                        if DailyMissionService.daily_mission_thread is not None:
+                            DailyMissionService.daily_mission_thread.join()
+                    except Exception as e: logger.error(f"无需等待每日委托线程:{e.args}")
 
                 elif one_dragon.value == 'domain':
                     DomainService.run_domain_week_plan(emit=socketio_instance.emit)
-                    DomainService.domain_runner_thread.join()
+                    try:
+                        if DomainService.domain_runner_thread is not None: DomainService.domain_runner_thread.join()
+                    except Exception as e: logger.error(f"无需等待线程秘境线程:{e.args}")
 
                 elif one_dragon.value == 'leyLine':
                     from server.service.LeyLineOutcropService import LeyLineOutcropService
                     LeyLineOutcropService.start_leyline(leyline_type=None, socketio_instance=socketio_instance)
-                    LeyLineOutcropService.leyline_outcrop_thread.join()
+                    try:
+                        if LeyLineOutcropService.leyline_outcrop_thread is not None:
+                            LeyLineOutcropService.leyline_outcrop_thread.join()
+                    except Exception as e: logger.error(f"无需等待地脉线程:{e.args}")
                 elif one_dragon.value == 'claimReward':
                     DailyMissionService.start_claim_reward(socketio_instance=socketio_instance)
-                    DailyMissionService.daily_mission_thread.join()
+                    try:
+                        if DailyMissionService is not None: DailyMissionService.daily_mission_thread.join()
+                    except Exception as e: logger.error(f"无需等待领取线程:{e.args}")
+
                 elif one_dragon.value == 'login':
+                    # 同部方法登录
                     from myutils.configutils import AccountConfig
                     instance = AccountConfig.get_current_instance()
                     account = instance.get("account")
