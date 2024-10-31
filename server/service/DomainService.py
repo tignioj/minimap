@@ -96,7 +96,7 @@ class DomainService:
     @staticmethod
     def get_domain_config():
         domain_week_plain = DomainConfig.get(DomainConfig.KEY_DOMAIN_WEEK_PLAN, default=['', '', '', '', '', '', ''])
-        domain_loop_timeout = DomainConfig.get(DomainConfig.KEY_DOMAIN_LOOP_TIMEOUT, default=20)
+        domain_loop_timeout = DomainConfig.get(DomainConfig.KEY_DOMAIN_LOOP_TIMEOUT, default=20, min_val=1, max_val=600)
         domain_team_mapper = DomainConfig.get(DomainConfig.KEY_DOMAIN_TEAM_MAPPER, default=dict())
         data = {
             'domain_week_plain': domain_week_plain,

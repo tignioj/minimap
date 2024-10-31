@@ -20,6 +20,13 @@ class ServerDomainController(ServerBaseController):
         domain_name = request.args.get('domain_name')
         fight_team = request.args.get('fight_team')
         timeout = request.args.get('domain_loop_timeout')
+        try:
+            timeout = int(timeout)
+            if not 1 <= timeout <= 600:
+                return ServerBaseController.error(f"超时时间范围必须是1到600之间, 你设置的值是{timeout},不符合范围")
+        except Exception as e:
+            return ServerBaseController.error(f"超时时间设置格式有误:{e.args}")
+
         socketio_instance = current_app.extensions['socketio']
         try:
             if domain_name is None: return ServerBaseController.error("必须指定秘境名称")

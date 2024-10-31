@@ -48,13 +48,18 @@ class DomainController(BaseController):
         self.__last_direction = None
         from controller.MapController2 import MapController
         self.map_controller = MapController()
-        try: domain_timeout = int(domain_timeout)
+        try:
+            domain_timeout = int(domain_timeout)
         except ValueError:
             domain_timeout = DomainConfig.get(DomainConfig.KEY_DOMAIN_LOOP_TIMEOUT, default=30, min_val=1, max_val=600)
+        if domain_timeout < 1: domain_timeout = 1
+        elif domain_timeout > 600: domain_timeout = 600
+
         self.domain_timeout = domain_timeout  # 设置秘境最长执行时间(分钟)
         self.is_character_dead = False
 
     __domain_list = None
+
     @staticmethod
     def get_domain_list():
         if DomainController.__domain_list is None:
@@ -257,7 +262,7 @@ class DomainController(BaseController):
         self.logger.debug("退出秘境")
         start_exit_time = time.time()
         while not self.gc.has_paimon(delay=False):
-            if time.time() - start_exit_time > 20: raise Exception("超时未能退出秘境")
+            if time.time() - start_exit_time > 30: raise Exception("超时未能退出秘境")
             self.kb_press_and_release(self.Key.esc)
             time.sleep(1)
             self.ocr.find_text_and_click("确认")
@@ -463,7 +468,6 @@ class DomainController(BaseController):
         :param time_out: 最长执行时间（秒）
         :return:
         """
-        if time_out is None: time_out = 60*30  # 30分钟
         # 传送到秘境附近
         dm = None
         try:
