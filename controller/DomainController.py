@@ -418,6 +418,7 @@ class DomainController(BaseController):
         self.map_controller.go_to_seven_anemo_for_revive()
         self.logger.debug("正在返回秘境")
         self.teleport_to_domain(self.domain_name)
+        self.is_character_dead = False
         self.logger.debug("正在进入秘境")
         self.enter_domain()  # 可能会抛出超时异常
 
