@@ -3,21 +3,20 @@ import json
 import os.path
 import threading
 import time
+import importlib
 
-from ultralytics import YOLO
+from myutils.yolo_utils import predict
 from controller.BaseController import BaseController
 from controller.OCRController import OCRController
-import cv2
 from controller.FightController import FightController
 import random
 from myutils.configutils import resource_path, FightConfig, DomainConfig
 from controller.UIController import TeamUIController
 from mylogger.MyLogger3 import MyLogger
 
-logger = MyLogger("domain_controller")
 
+logger = MyLogger("domain_controller")
 yolo_path = os.path.join(resource_path, "model", "bgi_tree.onnx")
-model = YOLO(yolo_path)
 
 
 # 抛出领取奖励异常，则重试，直到树脂为空
@@ -77,25 +76,28 @@ class DomainController(BaseController):
 
     @staticmethod
     def detect_tree(img):
-        results = model(img, verbose=False)  # verbose=False 关闭日志
+        # results = model(img, verbose=False)  # verbose=False 关闭日志
+        results = predict(yolo_path, img)
         time.sleep(0.1)
         for result in results:
-            boxes = result.boxes  # Boxes object for bounding box outputs
-            if len(boxes) > 0:
-                x1, y1, x2, y2 = boxes.xyxy.numpy()[0]
-                return (x1, y1, x2, y2)
-                # ret_img = cv2.rectangle(img.copy(), (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 5)
+            box = result.get("box")
+            scale = result.get("scale")
+            x1 = round(box[0] * scale)
+            y1 = round(box[1] * scale)
+            x2 = round((box[0] + box[2]) * scale)
+            y2 = round((box[1] + box[3]) * scale)
+            return (x1,y1,x2,y2)
         return None
 
     def go_left_or_right_by_tree_xyxy(self, img, xyxy):
         if xyxy is not None:
             x1, y1, x2, y2 = xyxy
-            ret_img = cv2.rectangle(img.copy(), (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 5)
-            ret_img = cv2.resize(ret_img, None, fx=0.4, fy=0.4)
-            cv2.namedWindow('show', cv2.WINDOW_NORMAL)
-            cv2.moveWindow('show', 0, 0)
-            cv2.imshow('show', ret_img)
-            cv2.waitKey(2)
+            # ret_img = cv2.rectangle(img.copy(), (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 5)
+            # ret_img = cv2.resize(ret_img, None, fx=0.4, fy=0.4)
+            # cv2.namedWindow('show', cv2.WINDOW_NORMAL)
+            # cv2.moveWindow('show', 0, 0)
+            # cv2.imshow('show', ret_img)
+            # cv2.waitKey(2)
 
             left_width = x1
             right_width = self.gc.w - x2
@@ -103,7 +105,7 @@ class DomainController(BaseController):
             current_diff = left_width - right_width
             if abs(current_diff) < 15:
                 self.logger.debug("GOOD")
-                cv2.imwrite('before.jpg', self.gc.get_screenshot())
+                # cv2.imwrite('before.jpg', self.gc.get_screenshot())
                 time.sleep(0.1)
                 # 最后一次计算视角并调整
                 xyxy_final = self.detect_tree(img)
@@ -115,13 +117,13 @@ class DomainController(BaseController):
 
                 self.to_deg(-90, threshold=2)
                 time.sleep(0.3)
-                cv2.imwrite('after.jpg', self.gc.get_screenshot())
+                # cv2.imwrite('after.jpg', self.gc.get_screenshot())
                 time.sleep(0.1)
                 self.kb_release('a')
                 self.kb_release('d')
                 time.sleep(0.1)
-                cv2.imwrite('ok.jpg', self.gc.get_screenshot())
-                cv2.imwrite('ret.jpg', ret_img)
+                # cv2.imwrite('ok.jpg', self.gc.get_screenshot())
+                # cv2.imwrite('ret.jpg', ret_img)
                 return True
             else:
                 if current_diff < 0:
@@ -217,6 +219,7 @@ class DomainController(BaseController):
         while time.time() - start < 300:
             self.logger.debug(f'等待战斗结束{300 - int(time.time() - start)}')
             if self.is_character_dead:
+                self.fight_controller.stop_fighting()
                 raise CharacterDeadException("死亡后被传送到了七天神像, 结束秘境")
             if self.gc.has_paimon(delay=False):
                 self.logger.debug("检测到左上角的派蒙，表示不在秘境中，结束秘境")
@@ -442,7 +445,8 @@ class DomainController(BaseController):
                 self.logger.error(f"领取奖励超时异常:{e.args}")
                 # 尝试检测是否有小齿轮，如果有，说明背包已满
                 time.sleep(5)  # 等待文字消失
-                if self.gc.has_key(): raise NotEnoughSpaceException("背包已经满")
+                if self.gc.has_key():
+                    raise NotEnoughSpaceException("背包已经满")
                 self.re_enter_domain()
             except NotInDomainException as e:
                 self.logger.error(f"不在秘境异常:{e.args}")
@@ -550,9 +554,9 @@ if __name__ == '__main__':
     # test_claim_reward()
     # print(dm.ocr.is_text_in_screen("自动退出"))
     # test_claim_reward()
-    DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
-    # dm = DomainController(domain_name=name,fight_team=fight_team)
+    # DomainController.one_key_run_domain(domain_name=name, fight_team=fight_team)
+    dm = DomainController(domain_name=name,fight_team=fight_team)
     # dm.enter_domain()
     # dm.loop_domain()
-    # dm.go_to_claim_reward()
+    dm.go_to_claim_reward()
     # DomainController().exit_domain()

@@ -1,3 +1,5 @@
+import logging
+logging.getLogger("matplotlib").setLevel(logging.INFO)
 from flask import Flask, request, jsonify, send_file, render_template
 from myutils.configutils import ServerConfig, DebugConfig
 import logging

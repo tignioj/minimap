@@ -125,6 +125,22 @@ pip install pywin32==301
 pip install pywin32==306
 ```
 
+
+## python3.10.12
+最近尝试更新python版本，安装依赖需要注意一下顺序
+首先整体安装依赖
+```text
+pip install -r ./requirements
+```
+由于paddleocr依赖albumentations，而 albumentations 又依赖于 opencv-python-headless,
+因此在安装albumentations的时候，会覆盖掉opencv-python。
+headless存在的问题是无法使用cv2.imshow方法，
+为了解决这个问题，需要先卸载 opencv-python-headless, 然后重新装 opencv-python和opencv-contrib-python
+```text
+pip uninstall opencv-headless
+pip install opencv-python opencv-contrib-python
+```
+
 # 免责声明
 - 本软件开源、免费，仅供学习交流使用。开发者团队拥有本项目的最终解释权。
 - 不得将本软件或其任何部分用于任何形式的商业活动、商业产品或商业服务中。
