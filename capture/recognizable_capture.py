@@ -147,6 +147,10 @@ class RecognizableCapture(GenShinCaptureObj):
         self.__icon_button_retry_org = cv2.imread(os.path.join(template_path, 'icon_button_retry.png'), cv2.IMREAD_GRAYSCALE)
         self.icon_button_retry = self.__icon_button_retry_org.copy()
 
+        # 左下角的好友消息图标
+        self.__icon_friends_message_org = cv2.imread(os.path.join(template_path, 'icon_friends_message.png'), cv2.IMREAD_GRAYSCALE)
+        self.icon_friends_message = self.__icon_friends_message_org.copy()
+
         self.sift = cv2.SIFT.create()
         # 匹配器
         self.bf_matcher = cv2.BFMatcher()
@@ -258,6 +262,8 @@ class RecognizableCapture(GenShinCaptureObj):
         self.img_advanture_handbook_left_top_corner = cv2.resize(self.__img_advanture_handbook_left_top_corner_org, None, fx=scale, fy=scale)
 
         self.icon_button_retry = cv2.resize(self.__icon_button_retry_org, None, fx=scale, fy=scale)
+
+        self.icon_friends_message = cv2.resize(self.__icon_friends_message_org, None, fx=scale, fy=scale)
 
     def has_mission_ok(self):
         """
@@ -444,6 +450,7 @@ if __name__ == '__main__':
     while True:
         # print(rc.has_revive_eggs())
         t = time.time()
+        print(rc.get_icon_position(rc.icon_friends_message))
         # rc.update_screenshot_if_none()
         # print(rc.has_origin_resin_in_top_bar(),time.time()-t)
         # pos = rc.get_icon_position(rc.icon_team_selector)

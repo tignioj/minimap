@@ -73,6 +73,17 @@ class BaseFightMapper(BaseController):
         :return:
         """
         self.kb_press_and_release('q')
+        time.sleep(0.1)
+        if len(self.gc.get_icon_position(self.gc.icon_friends_message)) > 0:
+            self.logger.debug("未检测到大招动画，表明大招未释放成功(仅能判断有动画的角色)")
+            return
+        # 保证跳过1秒的大招动画
+        time.sleep(1)
+        # 剩余要等待多长时间取决于左下角的好友对话框何时出现, 通常大招动画会遮挡该图标
+        start_wait_time = time.time()
+        while len(self.gc.get_icon_position(self.gc.icon_friends_message)) < 1 and time.time() - start_wait_time < 3:
+            self.logger.debug("等待大招动画结束(仅能判断有动画的角色)")
+            time.sleep(0.1)
 
     def walk(self, direction, duration):
         """
