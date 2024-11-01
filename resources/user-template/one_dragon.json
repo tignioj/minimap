@@ -1,8 +1,37 @@
 [
-  { "name": "登录", "value": "login" , "checked": false },
-  { "name": "清单", "value": "todo" , "checked": false },
-  { "name": "战斗委托", "value": "dailyMission" , "checked": true},
-  { "name": "地脉", "value": "leyLine" , "checked": true},
-  { "name": "领取奖励", "value": "claimReward" , "checked": true},
-  { "name": "系统命令", "value": "" , "checked": true}
+    {
+        "checked": true,
+        "name": "登录",
+        "value": "login"
+    },
+    {
+        "checked": true,
+        "name": "战斗委托",
+        "value": "dailyMission"
+    },
+    {
+        "checked": true,
+        "name": "秘境",
+        "value": "domain"
+    },
+    {
+        "checked": true,
+        "name": "地脉",
+        "value": "leyLine"
+    },
+    {
+        "checked": true,
+        "name": "领取奖励",
+        "value": "claimReward"
+    },
+    {
+        "checked": true,
+        "name": "清单",
+        "value": "todo"
+    },
+    {
+        "checked": true,
+        "name": "系统命令",
+        "value": ""
+    }
 ]

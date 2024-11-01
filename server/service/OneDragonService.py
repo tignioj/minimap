@@ -124,12 +124,12 @@ class OneDragonService:
         socketio_instance.emit(SOCKET_EVENT_ONE_DRAGON_END,'已停止一条龙')
 
     @staticmethod
-    def save_one_dragon(data:str):
+    def save_one_dragon(data):
         from myutils.configutils import BaseConfig
         user_folder = BaseConfig.get_user_folder()
         one_dragon_path = os.path.join(user_folder, 'one_dragon.json')
         with open(one_dragon_path,'w', encoding='utf8') as f:
-            f.write(data)
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
     @staticmethod
     def get_one_dragon_json():

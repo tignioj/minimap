@@ -54,7 +54,7 @@ class OneDragonController(ServerBaseController):
     def one_dragon_save():
         from server.service.OneDragonService import OneDragonService
         try:
-            data = request.get_data(as_text=True)
+            data = request.get_json()
             OneDragonService.save_one_dragon(data)
             return OneDragonController.success('保存成功')
         except Exception as e:
