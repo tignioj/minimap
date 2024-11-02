@@ -91,17 +91,21 @@ class LoginController(BaseController):
         self.click_if_appear(icon_button_agreement, timeout=0.5)
         time.sleep(0.5)
 
-        ocr_results = self.ocr.find_match_text('进入游戏', match_all=True)
-        if len(ocr_results) < 1: self.logger.debug('未找到进入游戏按钮')
-        res = ocr_results[0]
-        self.click_screen(res.center)
+        if self.ocr.find_text_and_click("进入游戏", match_all=True):
+            self.logger.debug("已经点击进入游戏")
+        else:self.logger.debug('未找到"进入游戏"的文本')
+        self.logger.debug("先等待5秒")
         time.sleep(5)
         start_wait = time.time()
-        while not capture.has_paimon() and time.time()-start_wait < 80 and not self.stop_listen:
+        while not self.gc.has_paimon(delay=True) and time.time()-start_wait < 80 and not BaseController.stop_listen:
             self.logger.debug(f'等待进入游戏界面中, 剩余{80-(time.time()-start_wait)}秒')
             self.click_screen((10,10))
             time.sleep(3)
-        self.logger.debug('成功进入游戏')
+
+        if self.gc.has_paimon(delay=True):
+            self.logger.debug('成功进入游戏')
+        else:
+            self.logger.error("无法进入游戏")
 
 
     def click_login_button(self):
