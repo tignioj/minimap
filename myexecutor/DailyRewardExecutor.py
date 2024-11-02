@@ -145,6 +145,10 @@ class DailyRewardExecutor(BasePathExecutor):
         if len(self.gc.get_icon_position(self.gc.icon_dialog_eyes))>0:
             raise ExecuteTerminateException("已经到达")
 
+    def on_move_after(self, point):
+        self.kb_press_and_release('f')
+        if len(self.gc.get_icon_position(self.gc.icon_dialog_eyes))>0:
+            raise ExecuteTerminateException("已经到达")
 
 if __name__ == '__main__':
     # DailyRewardExecutor.click_encounter_point_gift()
