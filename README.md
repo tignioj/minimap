@@ -5,7 +5,6 @@
 [![GitHub Star](https://img.shields.io/github/stars/tignioj/minimap?style=flat-square)](https://github.com/tignioj/minimap/stargazers)
 [![Release Download](https://img.shields.io/github/downloads/tignioj/minimap/total?style=flat-square)](https://github.com/tignioj/minimap/releases/latest)
 [![Release Version](https://img.shields.io/github/v/release/tignioj/minimap?style=flat-square)](https://github.com/tignioj/minimap/releases/latest)
-[![Python Version](https://img.shields.io/badge/python-v3.8.0-blue?style=flat-square)](https://www.python.org/downloads/release/python-380/)
 [![GitHub Repo Languages](https://img.shields.io/github/languages/top/tignioj/minimap?style=flat-square)](https://github.com/tignioj/minimap/search?l=Python)
 ![GitHub Repo size](https://img.shields.io/github/repo-size/tignioj/minimap?style=flat-square&color=3cb371)
 [![contributors](https://img.shields.io/github/contributors/tignioj/minimap?style=flat-square)](https://github.com/tignioj/minimap/graphs/contributors)
@@ -26,7 +25,7 @@
 ## 从源码安装
 ### conda
 ```shell
-conda create -n minimap python==3.8
+conda create -n minimap python==3.10.12
 ```
 
 ### 安装依赖
