@@ -13,6 +13,7 @@ import random
 #   未来会加入巨渊、渊下宫的支持，这些信息应当由记录的时候提供。
 # TODO 2. 如何解决移动地图时的漂移问题
 # TODO 3. 未开启的锚点会一直循环传送
+# TODO [紧急] 4. 传送过程鼠标点击到游戏外面导致游戏失去焦点！
 
 class LocationException(Exception):
     pass
@@ -285,7 +286,6 @@ class MapController(BaseController):
             else: drag_y = 0
             self.logger.debug(f'{drag_x}, {drag_y}')
             for _ in range(count):
-                # time.sleep(0.1)
                 self.drag(self.random_point(), drag_x, drag_y)
 
 
@@ -310,6 +310,12 @@ class MapController(BaseController):
         waypoint_pos = (waypoint_x, waypoint_y)
         self.log('移动鼠标到最终位置{}'.format(waypoint_pos))
         self.set_ms_position(waypoint_pos)
+
+        # 检查鼠标位置是否超过了屏幕窗口，超过则抛异常
+        in_game = abs(dx*self.pix2world_scale_x) * 2 < self.gc.w and abs(dy*self.pix2world_scale_y)*2 < self.gc.h
+        if not in_game:
+            self.logger.error("超出游戏窗口范围!")
+            raise LocationException("鼠标位置超出游戏窗口范围异常！")
 
     def teleport(self, position, country, waypoint_name=None, create_local_map_cache=True, start_teleport_time=None, validate_position=True):
         """
@@ -392,9 +398,11 @@ class MapController(BaseController):
         :return:
         """
         self.logger.debug("前往七天神像")
-        x,y, country = 287.70, -3805.00, "璃月"
+        # x,y, country = 287.70, -3805.00, "璃月"
+        x,y, country = 2840.7353515625, -3591.64, "蒙德"
         # x,y, country = 1944.8270,-4954.61, "蒙德"
         self.teleport((x, y), country, "七天神像", start_teleport_time=time.time())
+        time.sleep(2)  # 等待回血完成
 
 
     def turn_off_custom_tag(self):
@@ -416,7 +424,7 @@ class MapController(BaseController):
 
 
 if __name__ == '__main__':
-    x, y, country, waypoint_name = -7087.9789375, -6178.1590937, '枫丹', '临瀑之城'
+    # x, y, country, waypoint_name = -7087.9789375, -6178.1590937, '枫丹', '临瀑之城'
     # x, y, country, waypoint_name = -6333.766653971354, -7277.06206087, '枫丹', None
     # x, y, country, waypoint_name = 2552.0, -5804.0, '蒙德', '传送锚点'
     # x, y, country, waypoint_name = 1949.4441874999993, -4945.9832421875, '蒙德', '传送锚点'  # 蒙德清泉镇
@@ -427,7 +435,7 @@ if __name__ == '__main__':
     # x, y, country, waypoint_name = 1306.567, -6276.533, '蒙德', '塞西莉亚苗圃'  # 稻妻越石村
     # x, y, country, waypoint_name = 1219.2486572265625, 516.2448, '层岩巨渊', '传送锚点'
     # x, y, country, waypoint_name = 1807.72, 1708.72, '渊下宫', '传送锚点'
-    # x, y, country, waypoint_name = 2788,906, '渊下宫', '传送锚点'
+    x, y, country, waypoint_name = 686.87,2448.96, '渊下宫', '传送锚点'
     mpc = MapController(debug_enable=True)
     # mpc.turn_off_custom_tag()
     # mpc.go_to_seven_anemo_for_review()
@@ -463,5 +471,6 @@ if __name__ == '__main__':
 
     # 6. 筛选叠层锚点
     # 7. 选择筛选后的锚点并传送
-    mpc.teleport((x, y), country, waypoint_name, start_teleport_time=time.time())
-    # mpc.teleport((x,y),country)
+    # mpc.teleport((x, y), country, waypoint_name, start_teleport_time=time.time())
+    # mpc.go_to_seven_anemo_for_revive()
+    mpc.teleport((x,y),country)
