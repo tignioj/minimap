@@ -7,6 +7,8 @@ import time
 from controller.BaseController import BaseController
 import random
 
+from controller.DialogController import DialogController
+
 
 # TODO 1. 传送点自动选择最近的国家。
 #   <del>已知点击侧边栏的时候会自动跳转到城镇中心，把这些中心坐标存起来，在传送的时候距离哪个近就点击哪个国家。<del/>
@@ -33,7 +35,7 @@ class TeleportTimeoutException(Exception):pass
 
 class MapController(BaseController):
 
-    def __init__(self, ocr=None, debug_enable=False):
+    def __init__(self, ocr=None, debug_enable=None):
         super(MapController, self).__init__(debug_enable)
         if ocr is None:
             from controller.OCRController import OCRController
@@ -44,13 +46,15 @@ class MapController(BaseController):
         self.target_waypoint = None
 
         self.ui_map_scale = None # 注意这个scale是值地图的缩放，而不是像素和世界坐标比例
+        self.dialog_controller = DialogController(debug_enable=self.debug_enable)
 
-        pix2world_scale = self.tracker.get_user_map_scale()
-        if pix2world_scale is not None:
-            (self.pix2world_scale_x, self.pix2world_scale_y) = pix2world_scale
-            self.log('大地图移动比例', self.pix2world_scale_x, self.pix2world_scale_y)
-        else:
-            self.log('无法获取大地图比例')
+        # pix2world_scale = self.tracker.get_user_map_scale()
+        self.pix2world_scale_x, self.pix2world_scale_y = 0,0
+        # if pix2world_scale is not None:
+        #     (self.pix2world_scale_x, self.pix2world_scale_y) = pix2world_scale
+        #     self.log('大地图移动比例', self.pix2world_scale_x, self.pix2world_scale_y)
+        # else:
+        #     self.log('无法获取大地图比例')
 
     def click_waypoint(self, waypoint_name=None):
         if waypoint_name is None:
@@ -116,7 +120,7 @@ class MapController(BaseController):
     def open_middle_map(self):
         # time.sleep(1.5)
         open_ok = False
-        self.log("按下m打开地图")
+        self.logger.debug("按下m打开地图")
         start_time = time.time()
         while time.time() - start_time < 5:
             # 出现按钮，可能是死亡复苏弹窗
@@ -125,12 +129,18 @@ class MapController(BaseController):
                 if self.ocr.find_text_and_click('复苏'):
                     self.logger.error('角色死亡，点击复苏')
 
-            if self.gc.has_map_sidebar_toggle():
+
+            elif self.gc.has_map_sidebar_toggle():
                 open_ok = True
                 break
+
+            # 尝试修复卡七天神像问题
+            if self.dialog_controller.is_dialog_mode():
+                self.dialog_controller.skip_dialog()
+
             self.kb_press_and_release('m')
             time.sleep(1)
-        self.log(f"打开地图状态：{open_ok}")
+        self.logger.debug(f"打开地图状态：{open_ok}")
         return open_ok
 
     def close_middle_map(self):
@@ -140,6 +150,7 @@ class MapController(BaseController):
 
     # 2. 切换到固定的缩放大小
     def scales_adjust(self, percentage=None):
+        self.logger.debug("开始调整地图缩放比例")
         # 实测滚动从地图最小缩放到最大需要滚动61次, 而且每次滚轮缩放变化是线性的
         # 因此调整比例的时候，只需要先把它拉到最小，然后按照比例调整缩放次数即可
         max_scale = 61
@@ -161,14 +172,14 @@ class MapController(BaseController):
         scale = self.tracker.get_user_map_scale()
         start_time = time.time()
         while not scale:
-            self.log(f"正在请求地图比例中，剩余{10 - (time.time()-start_time)}秒")
+            self.logger.debug(f"正在请求地图比例中，剩余{10 - (time.time()-start_time)}秒")
             if time.time() - start_time > 10:
                 raise ScaleChangeException("无法请求缩放比例")
             scale = self.tracker.get_user_map_scale()
             time.sleep(1)
 
         self.pix2world_scale_x,self.pix2world_scale_y = scale[0], scale[1]
-        self.log(f"调整地图比例结束, 最终结果为{scale}")
+        self.logger.debug(f"调整地图比例结束, 最终结果为{scale}")
 
     # 3. 匹配地图，得到地图的中心点位置。
     def get_middle_map_position(self):
@@ -336,7 +347,7 @@ class MapController(BaseController):
                 raise TeleportTimeoutException("超过1分钟传送失败, 停止传送")
 
         if self.stop_listen: return
-        self.log(f"开始传送到{country}{position}, is_stop_listen = {self.stop_listen}")
+        self.logger.debug(f"开始传送到{country}{position}, is_stop_listen = {self.stop_listen}")
         self.open_middle_map()  # 打开地图
         self.choose_country(country)
         time.sleep(0.5)
@@ -435,7 +446,7 @@ if __name__ == '__main__':
     # x, y, country, waypoint_name = 1306.567, -6276.533, '蒙德', '塞西莉亚苗圃'  # 稻妻越石村
     # x, y, country, waypoint_name = 1219.2486572265625, 516.2448, '层岩巨渊', '传送锚点'
     # x, y, country, waypoint_name = 1807.72, 1708.72, '渊下宫', '传送锚点'
-    x, y, country, waypoint_name = 686.87,2448.96, '渊下宫', '传送锚点'
+    # x, y, country, waypoint_name = 686.87,2448.96, '渊下宫', '传送锚点'
     mpc = MapController(debug_enable=True)
     # mpc.turn_off_custom_tag()
     # mpc.go_to_seven_anemo_for_review()
@@ -473,4 +484,6 @@ if __name__ == '__main__':
     # 7. 选择筛选后的锚点并传送
     # mpc.teleport((x, y), country, waypoint_name, start_teleport_time=time.time())
     # mpc.go_to_seven_anemo_for_revive()
-    mpc.teleport((x,y),country)
+    # mpc.teleport((x,y),country)
+    while True:
+        mpc.go_to_seven_anemo_for_revive()
