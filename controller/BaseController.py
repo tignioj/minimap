@@ -272,8 +272,7 @@ class BaseController:
     def drag(self, position_from, dx, dy, duration_ms=200):
         """
         鼠标拖动
-        :param x: 起始位置
-        :param y: 终止位置
+        :param position_from: 起始位置
         :param dx: 水平距离
         :param dy: 垂直距离
         :param duration_ms:持续时间（毫秒）

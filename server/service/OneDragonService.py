@@ -26,7 +26,7 @@ class OneDragonService:
     one_dragon_thread = None
 
     @staticmethod
-    def run(one_dragon_list, socketio_instance):
+    def run_one_dragon(one_dragon_list, socketio_instance):
         from controller.BaseController import BaseController
         from server.service.DailyMissionService import DailyMissionService
         from server.service.DomainService import DomainService
@@ -35,12 +35,13 @@ class OneDragonService:
                 if BaseController.stop_listen:
                     logger.debug('停止监听')
                     return
-
                 one_dragon = OneDragon.from_dict(task)
                 logger.info(one_dragon)
                 if not one_dragon.checked:
+                    logger.info(f'一条龙:该实例{one_dragon.name}未启用')
                     continue
                 elif one_dragon.value == 'todo':
+                    logger.info('一条龙:清单')
                     from server.service.TodoService import TodoService
                     # 传入空代表从已经保存的文件中执行
                     TodoService.todo_run(todo_json=None, socketio_instance=socketio_instance)
@@ -50,18 +51,21 @@ class OneDragonService:
                     except Exception as e: logger.error(f"无需等待清单线程:{e.args}")
                 elif one_dragon.value == 'dailyMission':
                     DailyMissionService.start_daily_mission(socketio_instance=socketio_instance)
+                    logger.info('一条龙:每日委托')
                     try:
                         if DailyMissionService.daily_mission_thread is not None:
                             DailyMissionService.daily_mission_thread.join()
                     except Exception as e: logger.error(f"无需等待每日委托线程:{e.args}")
 
                 elif one_dragon.value == 'domain':
+                    logger.info('一条龙:秘境任务')
                     DomainService.run_domain_week_plan(emit=socketio_instance.emit)
                     try:
                         if DomainService.domain_runner_thread is not None: DomainService.domain_runner_thread.join()
                     except Exception as e: logger.error(f"无需等待线程秘境线程:{e.args}")
 
                 elif one_dragon.value == 'leyLine':
+                    logger.info('一条龙:地脉任务')
                     from server.service.LeyLineOutcropService import LeyLineOutcropService
                     LeyLineOutcropService.start_leyline(leyline_type=None, socketio_instance=socketio_instance)
                     try:
@@ -69,6 +73,7 @@ class OneDragonService:
                             LeyLineOutcropService.leyline_outcrop_thread.join()
                     except Exception as e: logger.error(f"无需等待地脉线程:{e.args}")
                 elif one_dragon.value == 'claimReward':
+                    logger.info('一条龙:领取奖励')
                     DailyMissionService.start_claim_reward(socketio_instance=socketio_instance)
                     try:
                         if DailyMissionService is not None: DailyMissionService.daily_mission_thread.join()
@@ -76,6 +81,7 @@ class OneDragonService:
 
                 elif one_dragon.value == 'login':
                     # 同部方法登录
+                    logger.info('一条龙:登录任务')
                     from myutils.configutils import AccountConfig
                     instance = AccountConfig.get_current_instance()
                     account = instance.get("account")
@@ -112,7 +118,7 @@ class OneDragonService:
         with one_dragon_lock:
             from controller.BaseController import BaseController
             BaseController.stop_listen = False
-            OneDragonService.one_dragon_thread = threading.Thread(target=OneDragonService.run,
+            OneDragonService.one_dragon_thread = threading.Thread(target=OneDragonService.run_one_dragon,
                                                                   args=(one_dragon_list, socketio_instance,))
             OneDragonService.one_dragon_thread.start()
 
@@ -201,7 +207,17 @@ class OneDragonService:
                     AccountConfig.set_instance(name)
                     one_dragon_list = AccountConfig.get_current_one_dragon()
                     OneDragonService.start_one_dragon(one_dragon_list=one_dragon_list, socketio_instance=socketio_instance)
-                    OneDragonService.one_dragon_thread.join()
+                    time.sleep(3)
+                    if OneDragonService.one_dragon_thread is not None:
+                        try:
+                            OneDragonService.one_dragon_thread.join()
+                        except Exception as e:
+                            logger.error(f"发生错误:{e.args}")
+                            socketio_instance.emit(SOCKET_EVENT_ONE_DRAGON_EXCEPTION, str(e.args))
+                    else:
+                        logger.error(f"一条龙线程为空")
+                        socketio_instance.emit(SOCKET_EVENT_ONE_DRAGON_EXCEPTION, "一条龙线程为空")
+                    logger.debug(f'结束实例:{name}')
         finally:
             OneDragonService.all_instance_running = False
 

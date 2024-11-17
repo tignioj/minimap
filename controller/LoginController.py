@@ -6,6 +6,7 @@ import time, os
 from capture.capture_factory import capture
 from controller.BaseController import BaseController
 from myutils.configutils import resource_path
+from myutils.os_utils import switch_input_language, LANG_ENGLISH
 template_path = os.path.join(resource_path, 'template')
 icon_button_logout = cv2.imread(os.path.join(template_path, 'login','icon_button_logout.png'), cv2.IMREAD_GRAYSCALE)
 icon_button_agreement = cv2.imread(os.path.join(template_path, 'login','icon_button_login_agreement.png'), cv2.IMREAD_GRAYSCALE)
@@ -57,11 +58,19 @@ class LoginController(BaseController):
         for c in text:
             self.kb_press_and_release(c)
             time.sleep(0.02)
+
             # 每输入一个字符按下shift避免中文输入法干扰
-            self.kb_press_and_release(self.Key.shift)
-            time.sleep(0.02)
+            # self.kb_press_and_release(self.Key.shift)
+            # time.sleep(0.02)
 
     def user_pwd_input(self,user_name, password):
+        self.logger.debug("强制切换英文输入法")
+        try:
+            switch_input_language(LANG_ENGLISH)
+        except RuntimeError as e:
+            self.logger.error("切换失败！")
+
+
         # 输入框获取焦点
         self.logger.debug('强制置游戏窗口于前台')
         self.gc.activate_window()
@@ -81,7 +90,6 @@ class LoginController(BaseController):
         self.logger.debug('输入密码完毕')
         time.sleep(0.5)
         self.logger.debug('点击进入游戏')
-
 
         # 点击同意协议
         self.logger.debug('点击同意协议')
@@ -122,9 +130,11 @@ class LoginController(BaseController):
 
 if __name__ == '__main__':
     login = LoginController()
-    # login.open_game()
+    login.open_game()
     from myutils.configutils import AccountConfig
     ci = AccountConfig.get_current_instance()
     account = ci.get("account")
     password = ci.get("password")
     login.user_pwd_input(user_name=account, password=password)
+    time.sleep(3)
+    login.kb_press_and_release("m")
