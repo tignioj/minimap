@@ -410,7 +410,7 @@ class MapController(BaseController):
         """
         self.logger.debug("前往七天神像")
         # x,y, country = 287.70, -3805.00, "璃月"
-        x,y, country = 2840.7353515625, -3591.64, "蒙德"
+        x,y, country = -3798.82,411.87, '须弥'
         # x,y, country = 1944.8270,-4954.61, "蒙德"
         self.teleport((x, y), country, "七天神像", start_teleport_time=time.time())
         time.sleep(2)  # 等待回血完成
@@ -485,5 +485,4 @@ if __name__ == '__main__':
     # mpc.teleport((x, y), country, waypoint_name, start_teleport_time=time.time())
     # mpc.go_to_seven_anemo_for_revive()
     # mpc.teleport((x,y),country)
-    while True:
-        mpc.go_to_seven_anemo_for_revive()
+    mpc.go_to_seven_anemo_for_revive()
