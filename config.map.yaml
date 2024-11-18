@@ -35,10 +35,10 @@
   height: 9386
 '纳塔':
   img_name: 'nata'
-  center: [17987, 68]  # 该图左上角坐标与璃月中心点坐标的偏差
+  center: [20884, 2323]  # 该图左上角坐标与璃月中心点坐标的偏差
   version: 0
-  width: 5827
-  height: 5752
+  width: 9034
+  height: 8117
 '层岩巨渊':
   img_name: 'juyuan'
   center: [0, 0]  # 独立地图
