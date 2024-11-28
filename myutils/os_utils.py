@@ -70,7 +70,7 @@ def shutdown_sys():
 
 def find_window_by_name(window_name):
     # 查找窗口句柄
-    hwnd = win32gui.FindWindow(None, window_name)
+    hwnd = win32gui.FindWindow("UnityWndClass", window_name)
     if hwnd == 0:
         print(f"Window with name '{window_name}' not found.")
         return None

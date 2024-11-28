@@ -7,6 +7,7 @@ from capture.capture_factory import capture
 from controller.BaseController import BaseController
 from myutils.configutils import resource_path
 from myutils.os_utils import switch_input_language, LANG_ENGLISH
+import subprocess
 template_path = os.path.join(resource_path, 'template')
 icon_button_logout = cv2.imread(os.path.join(template_path, 'login','icon_button_logout.png'), cv2.IMREAD_GRAYSCALE)
 icon_button_agreement = cv2.imread(os.path.join(template_path, 'login','icon_button_login_agreement.png'), cv2.IMREAD_GRAYSCALE)
@@ -21,7 +22,10 @@ class LoginController(BaseController):
     def open_game(self):
         from myutils.configutils import WindowsConfig
         game_path = WindowsConfig.get(WindowsConfig.KEY_GAME_PATH)
-        os.startfile(game_path)
+        subprocess.Popen([game_path], shell=True)
+        # os.startfile(game_path)
+        self.logger.debug("已经执行启动游戏命令，先等待10秒")
+        time.sleep(10)
         start_wait = time.time()
         while not capture.is_active() and time.time() - start_wait < 120 and not self.stop_listen:
             try:
@@ -73,7 +77,7 @@ class LoginController(BaseController):
 
         # 输入框获取焦点
         self.logger.debug('强制置游戏窗口于前台')
-        self.gc.activate_window()
+        capture.activate_window()
         time.sleep(0.5)
         self.logger.debug('输入框获取焦点')
         self.user_input_focus()
@@ -115,6 +119,11 @@ class LoginController(BaseController):
         else:
             self.logger.error("无法进入游戏")
 
+        # 无法解决卡住问题
+        # self.logger.debug("登陆后再激活一次窗口")
+        # capture.activate_window()
+        #
+
 
     def click_login_button(self):
         login_count = 5
@@ -129,12 +138,12 @@ class LoginController(BaseController):
     # cv2.imwrite('login2.jpg', capture.get_screenshot())
 
 if __name__ == '__main__':
+    from myutils.os_utils import kill_game
+    kill_game()
     login = LoginController()
     login.open_game()
-    from myutils.configutils import AccountConfig
-    ci = AccountConfig.get_current_instance()
-    account = ci.get("account")
-    password = ci.get("password")
-    login.user_pwd_input(user_name=account, password=password)
-    time.sleep(3)
-    login.kb_press_and_release("m")
+    # from myutils.configutils import AccountConfig
+    # ci = AccountConfig.get_current_instance()
+    # account = ci.get("account")
+    # password = ci.get("password")
+    # login.user_pwd_input(user_name=account, password=password)

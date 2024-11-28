@@ -73,7 +73,7 @@ class WindowCapture:
         将窗口置于前台
         :return:
         """
-        self.hwnd = win32gui.FindWindow(None, self.window_name)
+        self.hwnd = win32gui.FindWindow("UnityWndClass", self.window_name)
         if not self.hwnd:
             raise WindowsNotFoundException(self.window_name)
 
@@ -154,10 +154,13 @@ class WindowCapture:
                 wDC = win32gui.GetWindowDC(self.hwnd)
                 dcObj = win32ui.CreateDCFromHandle(wDC)
                 cDC = dcObj.CreateCompatibleDC()
+                assert self.w > 0 and self.h > 0, f"Invalid dimensions: width={self.w}, height={self.h}"
+
                 dataBitMap = win32ui.CreateBitmap()
                 dataBitMap.CreateCompatibleBitmap(dcObj, self.w, self.h)
                 cDC.SelectObject(dataBitMap)
-                cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (self.cropped_x, self.cropped_y), win32con.SRCCOPY)
+                result = cDC.BitBlt((0, 0), (self.w, self.h), dcObj, (self.cropped_x, self.cropped_y), win32con.SRCCOPY)
+                assert result != 0, "BitBlt failed, check dimensions and coordinates"
                 # convert the raw data into a format opencv can read
                 # dataBitMap.SaveBitmapFile(cDC, 'debug.bmp')
                 signedIntsArray = dataBitMap.GetBitmapBits(True)
@@ -246,10 +249,13 @@ if __name__ == '__main__':
     if not wc.is_active():
         wc.activate_window()
 
+    sc = wc.get_screenshot(mss_mode=False)
+    # cv2.imwrite('screenshot1.jpg', sc)
+    # sys.exit(0)
     loop_time = time.time()
     while True:
         t = time.time()
-        sc = wc.get_screenshot(mss_mode=False)
+        sc = wc.get_screenshot(mss_mode=True)
         # print(win32gui.GetWindowText(wc.hwnd))
         # print(wc.is_active(),time.time()-t)
         # cv.namedWindow('window capture', cv.WINDOW_GUI_EXPANDED)
