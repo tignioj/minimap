@@ -1,4 +1,5 @@
 import time
+from zoneinfo import ZoneInfo
 
 from myutils.configutils import DomainConfig
 from datetime import datetime
@@ -27,12 +28,13 @@ class DomainService:
         #  从配置中查找今日要运行的秘境
         plan = DomainConfig.get(DomainConfig.KEY_DOMAIN_WEEK_PLAN)
         # 计算几天是星期几
-        # 获取今天的日期
-        today = datetime.today()
+        # 获取今天的日期(服务器是凌晨4点刷新)
+        # 获取当前 UTC+4 时间
+        utc_plus_4 = datetime.now(ZoneInfo("Etc/GMT-4"))  # 注意: "Etc/GMT-4" 是负号表示东时区
         # 获取星期几，0表示星期一，6表示星期日
-        weekday_index = today.weekday()
+        weekday_index = utc_plus_4.weekday()
         weekday_text = ['一', '二', '三', '四', '五', '六', '日']
-        emit(SOCKET_EVENT_DOMAIN_UPDATE, f'今天是星期{weekday_text[weekday_index]}')
+        emit(SOCKET_EVENT_DOMAIN_UPDATE, f'今天是星期{weekday_text[weekday_index]}(服务器时间)')
         today_domain = plan[weekday_index]
         if today_domain is None or len(today_domain) == 0:
             logger.debug("今天没有秘境计划")
@@ -132,8 +134,8 @@ if __name__ == '__main__':
     # name = '虹灵的净土'
     name = '罪祸的终末'
     # fight_team = '纳西妲_芙宁娜_钟离_那维莱特_(草龙芙中).txt'
-    # fight_team = '那维莱特_莱依拉_迪希雅_行秋_(龙莱迪行).txt'
-    fight_team = '芙宁娜_行秋_莱依拉_流浪者_(芙行莱流).txt'
+    fight_team = '那维莱特_莱依拉_迪希雅_行秋_(龙莱迪行).txt'
+    # fight_team = '芙宁娜_行秋_莱依拉_流浪者_(芙行莱流).txt'
     # DomainService.run_domain(name, fight_team)
     # time.sleep(10)
     # DomainService.stop_domain()
