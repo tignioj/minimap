@@ -28,13 +28,12 @@ class DomainService:
         #  从配置中查找今日要运行的秘境
         plan = DomainConfig.get(DomainConfig.KEY_DOMAIN_WEEK_PLAN)
         # 计算几天是星期几
-        # 获取今天的日期(服务器是凌晨4点刷新)
-        # 获取当前 UTC+4 时间
-        utc_plus_4 = datetime.now(ZoneInfo("Etc/GMT-4"))  # 注意: "Etc/GMT-4" 是负号表示东时区
+        # 获取今天的日期
+        today = datetime.today()
         # 获取星期几，0表示星期一，6表示星期日
-        weekday_index = utc_plus_4.weekday()
+        weekday_index = today.weekday()
         weekday_text = ['一', '二', '三', '四', '五', '六', '日']
-        emit(SOCKET_EVENT_DOMAIN_UPDATE, f'今天是星期{weekday_text[weekday_index]}(服务器时间)')
+        emit(SOCKET_EVENT_DOMAIN_UPDATE, f'今天是星期{weekday_text[weekday_index]}')
         today_domain = plan[weekday_index]
         if today_domain is None or len(today_domain) == 0:
             logger.debug("今天没有秘境计划")
