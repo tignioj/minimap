@@ -163,6 +163,7 @@ class BaseFightMapper(BaseController):
         """
         key = str(key).lower()
         if hasattr(self.Key, key): self.kb_press(getattr(self.Key,key))
+        else: self.kb_press(key)
     def keyup(self, key):
         """
         抬起按键
@@ -171,6 +172,7 @@ class BaseFightMapper(BaseController):
         """
         key = str(key).lower()
         if hasattr(self.Key, key): self.kb_release(getattr(self.Key,key))
+        else: self.kb_release(key)
     def keypress(self, key):
         """
         按下后抬起
@@ -179,6 +181,7 @@ class BaseFightMapper(BaseController):
         """
         key = str(key).lower()
         if hasattr(self.Key, key): self.kb_press_and_release(getattr(self.Key,key))
+        else: self.kb_press_and_release(key)
 
     def mousedown(self, button=None):
         """
