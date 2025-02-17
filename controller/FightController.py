@@ -331,6 +331,13 @@ class FightController(BaseController):
                 elif character == '诺艾尔':
                     self.switch_character('诺艾尔')
                     self.fight_mapper.e()
+                elif character == '茜特菈莉':
+                    self.switch_character('茜特菈莉')
+                    self.fight_mapper.e()
+                elif character == '蓝砚':
+                    self.switch_character('蓝砚')
+                    self.fight_mapper.e()
+
         except (SwitchCharacterTimeOutException,CharacterNotFoundException) as e:
             self.logger.error(e.args)
 
