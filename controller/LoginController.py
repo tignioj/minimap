@@ -25,7 +25,7 @@ class LoginController(BaseController):
         subprocess.Popen([game_path], shell=True)
         # os.startfile(game_path)
         self.logger.debug("已经执行启动游戏命令，先等待10秒")
-        time.sleep(10)
+        # time.sleep(10)
         start_wait = time.time()
         while not capture.is_active() and time.time() - start_wait < 120 and not self.stop_listen:
             try:
@@ -33,7 +33,7 @@ class LoginController(BaseController):
             except Exception as e:
                 self.logger.debug(e.args)
                 self.logger.debug(f'正在打开游戏中, 剩余等待时间{120-(time.time() - start_wait)}')
-            time.sleep(2)
+            time.sleep(0.5)
 
         start_wait = time.time()
         while not self.ocr.is_text_in_screen("进入游戏", "点击进入", match_all=True) and time.time()-start_wait < 120:
@@ -49,8 +49,21 @@ class LoginController(BaseController):
 
         self.logger.debug('点击切换账号')
         self.ocr.click_if_appear(icon_button_logout,timeout=2)
+        time.sleep(2)
+
+        # 确保已经勾选"退出并清除登录记录"
+        ocr_results = self.ocr.find_match_text("退出并保留登录记录", match_all=False)
+        if len(ocr_results) > 0:
+            ocr_result = ocr_results[0]
+            left_top = ocr_result.corner[0]
+            self.click_screen((int(left_top[0]), int(left_top[1])+3))
+            time.sleep(1)
+            self.ocr.find_text_and_click('退出', match_all=True)
+            time.sleep(1)
+        else:
+            self.logger.error("未找到退出登录按钮")
         time.sleep(1)
-        self.ocr.find_text_and_click('确定', match_all=True)
+        self.ocr.find_text_and_click('登录其他账号', match_all=True)
 
     def user_input_focus(self):
         self.ocr.find_text_and_click('输入手机号')
@@ -109,6 +122,7 @@ class LoginController(BaseController):
         self.logger.debug("先等待5秒")
         time.sleep(5)
         start_wait = time.time()
+        time.sleep(0.1)
         while not self.gc.has_paimon(delay=True) and time.time()-start_wait < 80 and not BaseController.stop_listen:
             self.logger.debug(f'等待进入游戏界面中, 剩余{80-(time.time()-start_wait)}秒')
             self.click_screen((10,10))
@@ -119,10 +133,18 @@ class LoginController(BaseController):
         else:
             self.logger.error("无法进入游戏")
 
-        # 无法解决卡住问题
-        # self.logger.debug("登陆后再激活一次窗口")
-        # capture.activate_window()
-        #
+        # 解决登陆后键盘鼠标卡住问题, 需要重新激活一次窗口，很神奇吧？
+        self.logger.debug("登陆后重新激活一次窗口")
+        self.kb_press_and_release(self.Key.cmd)
+
+        time.sleep(1)
+        from pynput.keyboard import Controller
+        Controller().press(self.Key.cmd)
+        time.sleep(0.1)
+        Controller().release(self.Key.cmd)
+        time.sleep(0.1)
+
+        capture.activate_window()
 
 
     def click_login_button(self):
@@ -139,11 +161,14 @@ class LoginController(BaseController):
 
 if __name__ == '__main__':
     from myutils.os_utils import kill_game
-    kill_game()
+    try:
+        kill_game()
+    except Exception as e:
+        print(e)
     login = LoginController()
     login.open_game()
-    # from myutils.configutils import AccountConfig
-    # ci = AccountConfig.get_current_instance()
-    # account = ci.get("account")
-    # password = ci.get("password")
-    # login.user_pwd_input(user_name=account, password=password)
+    from myutils.configutils import AccountConfig
+    ci = AccountConfig.get_current_instance()
+    account = ci.get("account")
+    password = ci.get("password")
+    login.user_pwd_input(user_name=account, password=password)
