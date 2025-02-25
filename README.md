@@ -1,6 +1,7 @@
+# 停止维护
+2025-2-25停止维护
 # minimap
 - 纯视觉、基于小地图识别实现的部分原神自动化操作：采集-怪物材料-战斗委托-地脉
-- 欢迎加入minimap唯一指定QQ交流群: 132608315, 分享你制作的路线
 
 [![GitHub Star](https://img.shields.io/github/stars/tignioj/minimap?style=flat-square)](https://github.com/tignioj/minimap/stargazers)
 [![Release Download](https://img.shields.io/github/downloads/tignioj/minimap/total?style=flat-square)](https://github.com/tignioj/minimap/releases/latest)
