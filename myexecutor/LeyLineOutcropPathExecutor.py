@@ -297,32 +297,39 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
         super().on_move_before(point)
 
     def click_use_resin(self):
-        if self.click_if_appear(self.gc.icon_button_condensed_resin):
-            self.logger.debug('成功点击浓缩树脂图标')
-            self.reward_ok = True
-        elif self.click_if_appear(self.gc.icon_button_original_resin):
-            self.logger.debug('成功点击原粹树脂图标, 判断是否需要补充树脂')
-            try:
-                if self.click_if_appear(self.gc.icon_message_box_button_cancel, timeout=1):
-                    self.logger.debug("成功点击取消按钮,说明树脂已经消耗完毕")
+        # if self.click_if_appear(self.gc.icon_button_condensed_resin):
+        #     self.logger.debug('成功点击浓缩树脂图标')
+        #     self.reward_ok = True
+        # elif self.click_if_appear(self.gc.icon_button_original_resin):
+        #     self.logger.debug('成功点击原粹树脂图标, 判断是否需要补充树脂')
+        #     try:
+        #         if self.click_if_appear(self.gc.icon_message_box_button_cancel, timeout=1):
+        #             self.logger.debug("成功点击取消按钮,说明树脂已经消耗完毕")
+        #             raise NoResinException("树脂消耗完毕")
+        #         else:
+        #             self.logger.debug("没有找到取消按钮,点击原粹树脂图标成功")
+        #             self.reward_ok = True
+        #     except TimeoutError:
+        #         self.logger.debug("超时:没有找到取消按钮,使用原粹树脂领取成功")
+        #         self.reward_ok = True
+        if self.gc.has_origin_resin_in_top_bar():
+            # mts = self.ocr.find_match_text("补充", match_all=True)
+            # 如果只有一个使用按钮，说明是脆弱树脂，不点击
+            cuiruo = self.ocr.find_match_text("脆弱树脂")
+            use_buttons = self.ocr.find_match_text("使用", match_all=True)
+            for bt in use_buttons:
+                # 如果使用按钮的位置和脆弱树脂文字为同一行，表示该按钮为点击使用脆弱树脂。则不点击
+                if len(cuiruo) == 1 and abs(bt.center[1] - cuiruo[0].center[1]) < 10:
+                    self.logger.debug("这是脆弱树脂按钮,不点击")
                     raise NoResinException("树脂消耗完毕")
-                else:
-                    self.logger.debug("没有找到取消按钮,点击原粹树脂图标成功")
-                    self.reward_ok = True
-            except TimeoutError:
-                self.logger.debug("超时:没有找到取消按钮,使用原粹树脂领取成功")
+                self.ocr.click_ocr_result(bt)
                 self.reward_ok = True
-            # original_resin_positions = self.gc.get_icon_position(self.gc.icon_button_original_resin)
-            # if len(original_resin_positions) > 0:
-            #     self.logger.debug(f'发现原粹树脂图标，位置{original_resin_positions}')
-            #     original_resin_position = original_resin_positions[0]
-            #     if original_resin_position[0] < self.gc.w//2: # 按钮如果在左边则认为树脂完全消耗
-            #         self.logger.debug('原粹树脂图标的x坐标小于屏幕的一半')
-            #         raise NoResinException("树脂消耗完毕")
-            #     else:
-            #         self.click_screen(original_resin_position)
-            #         self.logger.debug('成功点击原粹树脂图标')
-            #         self.reward_ok = True
+                break
+
+
+
+
+
 
 
 
@@ -363,10 +370,34 @@ class LeyLineOutcropPathExecutor(BasePathExecutor):
 # 5. 遍历实际坐标，遍历所有已存放的委托列表, 查找最近的一个委托
 # 5. 执行委托
 
+def test_resign():
+    from controller.OCRController import OCRController
+    ocr = OCRController()
+    if ocr.gc.has_origin_resin_in_top_bar():
+        ocr.logger.debug(f'发现原粹树脂图标')
+        # 开始进行OCR
+        use_buttons = ocr.find_match_text("使用", match_all=True)
+        cuiruo = ocr.find_match_text("脆弱树脂")
+        for mt in use_buttons:
+            if len(cuiruo) == 1 and abs(cuiruo[0].center[1] - mt.center[1]) < 10:
+                print('这是脆弱树脂按钮, 坐标', cuiruo[0].center)
+            print(mt.center,mt.text)
+
+
+    # original_resin_positions = ocr.gc.get_icon_position(ocr.gc.icon_origin_resin)
+    # if len(original_resin_positions) > 0:
+    #     logger.debug(f'发现原粹树脂图标，位置{original_resin_positions}')
+    #     开始进行OCR
+        # result = ocr.get_ocr_result("获取2倍产出")
+        # print(result)
+
+
 if __name__ == '__main__':
     # pos = (1282.2781718749993, -5754.44564453125)
     # t = threading.Thread(target=BGIEventHandler.start_server)
     # t.setDaemon(True)
     # t.start()
-    LeyLineOutcropPathExecutor.execute_all_mission(leyline_type=LeyLineOutcropPathExecutor.LEYLINE_TYPE_EXPERIENCE)
+    # LeyLineOutcropPathExecutor.execute_all_mission(leyline_type=LeyLineOutcropPathExecutor.LEYLINE_TYPE_EXPERIENCE)
+    test_resign()
+
 

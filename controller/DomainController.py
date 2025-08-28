@@ -290,49 +290,68 @@ class DomainController(BaseController):
         self.logger.debug("成功退出秘境")
 
     def ocr_and_click_reward(self):
-        ocr_result = self.ocr.get_ocr_result()
-
-        # 如果有浓缩树脂，但是没有原粹树脂，此时文字仍然有“原粹树脂数量不足”,因此在判断"数量不足"前，先判断是否有使用树脂的按钮
-        self.logger.debug("ocr检测中")
-        for result in ocr_result:
-            self.logger.debug(f'ocr:{result.text}')
-            if result.text in "使用浓缩树脂":
-                self.logger.debug("点击使用浓缩树脂")
-                self.ocr.click_ocr_result(result)
-                time.sleep(3)
-                # 点击确认
-                # 可能会抛出超时异常
-                if self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10):
-                    time.sleep(2)
-                    if self.ocr.is_text_in_screen("仍要挑战"): raise NoResinException("没有树脂了")
-                return True
-            elif result.text in "使用原粹树脂":
-                self.logger.debug("点击使用原粹树脂")
-                self.ocr.click_ocr_result(result)
-                time.sleep(3)
-                # 点击确认
-                # 可能会抛出超时异常
-                if self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10):
-                    time.sleep(2)
-                    if self.ocr.is_text_in_screen("仍要挑战"): raise NoResinException("没有树脂了")
-                return True
-
-        # 如果没有上面检测的两个按钮，且出现数量不足，则表明树脂耗尽
-        for result in ocr_result:
-            if "数量不足" in result.text:
-                raise NoResinException("没有树脂了，结束秘境")
-            elif "仍要挑战" in result.text:
-                self.ocr.find_text_and_click("取消")
-                raise NoResinException("没有树脂了，结束秘境")
-            elif result.text in "继续挑战":
-                self.logger.debug("点击继续挑战")
-                self.ocr.click_ocr_result(result)
-                time.sleep(3)
-                if self.ocr.is_text_in_screen("仍要挑战"):
-                    self.ocr.find_text_and_click("取消")
-                    raise NoResinException("没有树脂了，结束秘境")
-                return True
+        if self.gc.has_origin_resin_in_top_bar():
+            # mts = self.ocr.find_match_text("补充", match_all=True)
+            # if len(mts) > 0:
+            #     raise NoResinException("原粹树脂消耗完毕")
+            # 找到脆弱树脂文字的位置
+            cuiruo = self.ocr.find_match_text("脆弱树脂")
+            use_buttons = self.ocr.find_match_text("使用", match_all=True)
+            for bt in use_buttons:
+                # 如果使用按钮的位置和脆弱树脂文字为同一行，表示该按钮为点击使用脆弱树脂。则不点击
+                if len(cuiruo) == 1 and abs(bt.center[1] - cuiruo[0].center[1]) < 10:
+                    self.logger.debug("这是脆弱树脂按钮,不点击")
+                    raise NoResinException("原粹树脂消耗完毕")
+                self.ocr.click_ocr_result(bt)
+                break
+        if self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10):
+            time.sleep(2)
+            if self.ocr.is_text_in_screen("仍要挑战"): raise NoResinException("没有树脂了")
+            return True
         return False
+
+        # ocr_result = self.ocr.get_ocr_result()
+        # # 如果有浓缩树脂，但是没有原粹树脂，此时文字仍然有“原粹树脂数量不足”,因此在判断"数量不足"前，先判断是否有使用树脂的按钮
+        # self.logger.debug("ocr检测中")
+        # for result in ocr_result:
+        #     self.logger.debug(f'ocr:{result.text}')
+        #     if result.text in "使用浓缩树脂":
+        #         self.logger.debug("点击使用浓缩树脂")
+        #         self.ocr.click_ocr_result(result)
+        #         time.sleep(3)
+        #         # 点击确认
+        #         # 可能会抛出超时异常
+        #         if self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10):
+        #             time.sleep(2)
+        #             if self.ocr.is_text_in_screen("仍要挑战"): raise NoResinException("没有树脂了")
+        #         return True
+        #     elif result.text in "使用原粹树脂":
+        #         self.logger.debug("点击使用原粹树脂")
+        #         self.ocr.click_ocr_result(result)
+        #         time.sleep(3)
+        #         # 点击确认
+        #         # 可能会抛出超时异常
+        #         if self.click_if_appear(self.gc.icon_message_box_button_confirm, timeout=10):
+        #             time.sleep(2)
+        #             if self.ocr.is_text_in_screen("仍要挑战"): raise NoResinException("没有树脂了")
+        #         return True
+        #
+        # # 如果没有上面检测的两个按钮，且出现数量不足，则表明树脂耗尽
+        # for result in ocr_result:
+        #     if "数量不足" in result.text:
+        #         raise NoResinException("没有树脂了，结束秘境")
+        #     elif "仍要挑战" in result.text:
+        #         self.ocr.find_text_and_click("取消")
+        #         raise NoResinException("没有树脂了，结束秘境")
+        #     elif result.text in "继续挑战":
+        #         self.logger.debug("点击继续挑战")
+        #         self.ocr.click_ocr_result(result)
+        #         time.sleep(3)
+        #         if self.ocr.is_text_in_screen("仍要挑战"):
+        #             self.ocr.find_text_and_click("取消")
+        #             raise NoResinException("没有树脂了，结束秘境")
+        #         return True
+        # return False
 
     def go_to_claim_reward(self):
         """
