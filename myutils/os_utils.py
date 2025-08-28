@@ -4,6 +4,7 @@ import win32con
 import win32gui
 import ctypes
 import win32process
+from ctypes import wintypes
 
 
 # 常量定义
@@ -11,6 +12,13 @@ WM_INPUTLANGCHANGEREQUEST = 0x0050  # 消息编号
 KLF_ACTIVATE = 0x00000001  # 激活输入法
 HWND_BROADCAST = 0xFFFF  # 广播给所有窗口
 LANG_ENGLISH = "00000409"  # 英文输入法标识符（美国英语）
+
+# 加载user32库并设置函数参数和返回值类型
+user32 = ctypes.WinDLL('user32', use_last_error=True)
+user32.LoadKeyboardLayoutW.argtypes = [wintypes.LPCWSTR, wintypes.UINT]
+user32.LoadKeyboardLayoutW.restype = wintypes.HKL
+user32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+user32.PostMessageW.restype = wintypes.BOOL
 
 # 启用 SeShutdownPrivilege 权限
 def enable_privilege(privilege_str):
@@ -25,23 +33,31 @@ def enable_privilege(privilege_str):
     privileges = [(privilege_id, win32security.SE_PRIVILEGE_ENABLED)]
     win32security.AdjustTokenPrivileges(token, False, privileges)
 
+# 加载指定语言的输入法
 def switch_input_language(language_code):
     """
     切换输入法到指定语言。
     :param language_code: 输入法的语言标识符（如 "00000409" 表示美国英语）
     """
     # 加载指定语言的输入法
-    hkl = ctypes.windll.user32.LoadKeyboardLayoutW(language_code, KLF_ACTIVATE)
+    hkl = user32.LoadKeyboardLayoutW(language_code, KLF_ACTIVATE)
     if not hkl:
-        raise RuntimeError(f"Failed to load keyboard layout: {language_code}")
+        error_code = ctypes.get_last_error()
+        raise RuntimeError(f"Failed to load keyboard layout: {language_code}, 错误代码: {error_code}")
+    print("Finished loading keyboard layout")
 
-    # 广播消息通知所有窗口切换输入法
-    ctypes.windll.user32.SendMessageW(
+    # 广播消息通知所有窗口切换输入法（使用PostMessageW异步发送）
+    result = user32.PostMessageW(
         HWND_BROADCAST,
         WM_INPUTLANGCHANGEREQUEST,
         0,
         hkl
     )
+
+    if not result:
+        error_code = ctypes.get_last_error()
+        raise RuntimeError(f"Failed to send message, 错误代码: {error_code}")
+
     print(f"Switched to input language: {language_code}")
 
 
